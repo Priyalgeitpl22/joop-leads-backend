@@ -4,38 +4,61 @@ import { sendOtpEmail } from '../utils/email.utils';
 import { generateOtp } from '../utils/otp.utils';
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import multer from "multer";
+
 const prisma = new PrismaClient();
 
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, "uploads/");
+    },
+    filename: (req, file, cb) => {
+      cb(null, Date.now() + "-" + file.originalname);
+    },
+});
+  
+const upload = multer({ storage }).single("profilePicture");
+
 export const register = async (req: Request, res: Response): Promise<any> => {
-    const { email, fullName, orgName, domain, country, phone, password } = req.body;
-    try {
+    upload(req, res, async (err) => {
+      if (err) {
+        return res.status(400).json({ message: "File upload failed", error: err });
+      }
+  
+      const { email, fullName, orgName, domain, country, phone, password } = req.body;
+      const profilePicture = req.file ? req.file.path : null;
+  
+      try {
         const existingUser = await prisma.user.findUnique({ where: { email } });
-        if (existingUser) return res.status(400).json({ message: 'User already exists' });
-
+        if (existingUser) {
+          return res.status(400).json({ message: "User already exists" });
+        }
+  
         const organization = await prisma.organization.create({
-            data: { name: orgName, domain, country, phone }
+          data: { name: orgName, domain, country, phone },
         });
-
+  
         const hashedPassword = await bcrypt.hash(password, 10);
-
         const otp = generateOtp();
-
+  
         await prisma.user.create({
-            data: {
-                email,
-                fullName,
-                orgId: organization.id,
-                password: hashedPassword,
-                otpCode: otp.code,
-                otpExpiresAt: otp.expiresAt,
-            }
+          data: {
+            email,
+            fullName,
+            orgId: organization.id,
+            password: hashedPassword,
+            otpCode: otp.code,
+            otpExpiresAt: otp.expiresAt,
+            profilePicture,
+          },
         });
-
+  
         await sendOtpEmail(email, otp.code);
-        res.status(201).json({ message: 'User registered. Please verify your email with OTP.' });
-    } catch (error) {
-        res.status(500).json({ message: error });
-    }
+        res.status(201).json({ message: "User registered. Please verify your email with OTP." });
+      } catch (error) {
+        res.status(500).json({ message: "Server error", error });
+      }
+    });
 };
 
 export const verifyOtp = async (req: Request, res: Response): Promise<any> => {

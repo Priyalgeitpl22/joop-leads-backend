@@ -1,7 +1,12 @@
-import app from "./app"; // Import the app with routes
+import http from "http";
+import { socketSetup } from "./socket/socketConfig";
+import app from "./app";
 
-const PORT = process.env.PORT || 5000;
+const server = http.createServer(app);
+socketSetup(server);
 
-app.listen(PORT, () => {
+const PORT = process.env.PORT || 5003;
+
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
