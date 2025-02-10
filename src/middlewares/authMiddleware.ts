@@ -1,8 +1,5 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response, NextFunction } from "express";
-import jwt from "jsonwebtoken";
-import fs from "fs";
-import path from "path";
 
 const prisma = new PrismaClient();
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
@@ -13,7 +10,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
   }
 
   try {
-    // const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string };
     const access_token = await prisma.access_token.findFirst({
       where: { token, active: 1 }
     });
@@ -27,16 +23,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       return res.status(404).json({ message: "User not found" });
     }
 
-    let profilePictureBase64 = null;
-    if (user.profilePicture) {
-      const filePath = path.join(__dirname, "../../", user.profilePicture);
-      if (fs.existsSync(filePath)) {
-        const fileData = fs.readFileSync(filePath);
-        profilePictureBase64 = `data:image/png;base64,${fileData.toString("base64")}`;
-      }
-    }
-
-    (req as any).user = { ...user, profilePicture: profilePictureBase64 };
+    (req as any).user = user;
 
     next();
   } catch (error) {

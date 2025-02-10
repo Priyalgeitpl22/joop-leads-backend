@@ -5,19 +5,10 @@ import { generateOtp } from '../utils/otp.utils';
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import multer from "multer";
+import { uploadImageToS3 } from '../aws/imageUtils';
 
 const prisma = new PrismaClient();
-
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, "uploads/");
-    },
-    filename: (req, file, cb) => {
-      cb(null, Date.now() + "-" + file.originalname);
-    },
-});
-  
-const upload = multer({ storage }).single("profilePicture");
+const upload = multer({ storage: multer.memoryStorage() }).single("profilePicture");
 
 export const register = async (req: Request, res: Response): Promise<any> => {
     upload(req, res, async (err) => {
@@ -26,7 +17,6 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       }
   
       const { email, fullName, orgName, domain, country, phone, password } = req.body;
-      const profilePicture = req.file ? req.file.path : null;
   
       try {
         const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -41,6 +31,11 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const otp = generateOtp();
   
+        let profilePictureUrl: string | null = null;
+        if (req.file) {
+            profilePictureUrl = await uploadImageToS3(req.file);
+        }
+
         await prisma.user.create({
           data: {
             email,
@@ -49,17 +44,18 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             password: hashedPassword,
             otpCode: otp.code,
             otpExpiresAt: otp.expiresAt,
-            profilePicture,
+            profilePicture: profilePictureUrl,
           },
         });
   
         await sendOtpEmail(email, otp.code);
         res.status(201).json({ message: "User registered. Please verify your email with OTP." });
       } catch (error) {
+        console.error("Error:", error);
         res.status(500).json({ message: "Server error", error });
       }
     });
-};
+  };
 
 export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
     const { email, otp } = req.body;
