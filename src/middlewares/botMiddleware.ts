@@ -2,7 +2,7 @@ import { AIResponse } from "../interfaces";
 
 export const getAIResponse = async (message: string, organisationId: string) => {
   try {
-    const url = `http://44.208.33.109/api/organisation_chatbot/?organisation_id=${organisationId}`;
+    const url = `http://44.208.33.109/api/organisation_chatbot/?organisation_id=123`;
 
     const requestBody = JSON.stringify({ user_query: message });
     console.log("Sending request:", url, requestBody); // Debugging log

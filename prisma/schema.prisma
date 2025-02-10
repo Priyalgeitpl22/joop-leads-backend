@@ -49,9 +49,19 @@ model User {
   resetTokenExpires DateTime? 
 }
 
+model Thread {
+  id        String   @id @default(uuid()) // Unique thread ID
+  user      String   // User who started the thread
+  messages  Message[] // Relationship with messages
+  createdAt DateTime @default(now())
+  type      String   @default("unassigned")
+}
+
 model Message {
-  id        Int      @id @default(autoincrement())
-  content   String   // Message content
+  id        String   @id @default(uuid())
+  content   String
   sender    String
-  createdAt DateTime @default(now()) // Timestamp when the message is created
+  threadId  String
+  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }

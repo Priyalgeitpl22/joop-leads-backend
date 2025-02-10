@@ -6,6 +6,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import multer from "multer";
 import { uploadImageToS3 } from '../aws/imageUtils';
+import { UserRoles } from '../enums';
 
 const prisma = new PrismaClient();
 const upload = multer({ storage: multer.memoryStorage() }).single("profilePicture");
@@ -40,6 +41,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
           data: {
             email,
             fullName,
+            role: UserRoles.ADMIN,
             orgId: organization.id,
             password: hashedPassword,
             otpCode: otp.code,

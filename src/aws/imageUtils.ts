@@ -19,8 +19,6 @@ export const uploadImageToS3 = async (file: Express.Multer.File): Promise<string
         };
 
         const uploadResult = await s3.upload(params).promise();
-        
-        console.log("File uploaded successfully:", uploadResult.Key);
         return uploadResult.Key;
 
     } catch (error) {

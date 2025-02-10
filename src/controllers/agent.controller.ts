@@ -2,29 +2,20 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { generateRandomPassword } from '../utils/otp.utils';
 import multer from "multer";
+import { getPresignedUrl, uploadImageToS3 } from '../aws/imageUtils';
+import { UserRoles } from '../enums';
 
 const prisma = new PrismaClient();
-
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, "uploads/");
-    },
-    filename: (req, file, cb) => {
-        cb(null, Date.now() + "-" + file.originalname);
-    },
-});
-
-const upload = multer({ storage: storage });
+const upload = multer({ storage: multer.memoryStorage() }).single("profilePicture");
 
 export const createAgent = async (req: Request, res: Response): Promise<any> => {
     try {
-        upload.single("profilePicture")(req, res, async (err) => {
+        upload(req, res, async (err) => {
             if (err) {
                 return res.status(400).json({ code: 400, message: "Error uploading file", error: err.message });
             }
 
             const { email, fullName, phone, orgId } = req.body;
-            const profilePicture = req.file ? req.file.path : null;
 
             if (!email || !fullName || !phone || !orgId) {
                 return res.status(400).json({
@@ -33,16 +24,26 @@ export const createAgent = async (req: Request, res: Response): Promise<any> => 
                 });
             }
 
+            const existingAgent = await prisma.user.findUnique({ where: { email, role: UserRoles.AGENT } });
+            if (existingAgent) {
+              return res.status(400).json({ message: "Agent already exists" });
+            }
+
+            let profilePictureUrl: string | null = null;
+            if (req.file) {
+                profilePictureUrl = await uploadImageToS3(req.file);
+            }
+
             const defaultPassword = generateRandomPassword(8);
 
             const agent = await prisma.user.create({
                 data: {
                     email,
                     fullName,
-                    role: 'Agent',
+                    role: UserRoles.AGENT,
                     orgId,
                     password: defaultPassword,
-                    profilePicture,
+                    profilePicture: profilePictureUrl,
                 },
                 select: { fullName: true, email: true, id: true, role: true, orgId: true, profilePicture: true, password: true }
             });
@@ -71,17 +72,25 @@ export const getAgents = async (req: Request, res: Response): Promise<void> => {
             res.status(400).json({ code: 400, message: "orgId is required" });
         }
 
-        const agent = await prisma.user.findMany({
+        const agents = await prisma.user.findMany({
             where: { orgId: orgId as string, role: 'Agent' },
             select: { fullName: true, email: true, id: true, role: true, orgId: true, profilePicture: true }
         });
 
-        if (!agent) {
+        if (!agents) {
             res.status(404).json({ code: 404, message: "Agent not found" });
         }
 
+        if (agents.length > 0) {
+            for (const agent of agents) {
+                if (agent.profilePicture) {
+                    agent.profilePicture = await getPresignedUrl(agent.profilePicture);
+                }
+            }
+        }
+
         res.status(200).json({
-            data: agent,
+            data: agents,
             message: "Agent details fetched successfully",
             code: 200
         });
@@ -107,6 +116,10 @@ export const getAgent = async (req: Request, res: Response): Promise<void> => {
 
         if (!agent) {
             res.status(404).json({ code: 404, message: "Agent not found" });
+        }
+
+        if (agent && agent.profilePicture) {
+            agent.profilePicture = await getPresignedUrl(agent.profilePicture);
         }
 
         res.status(200).json({
