@@ -5,7 +5,7 @@ export const getAIResponse = async (message: string, organisationId: string) => 
     const url = `http://44.208.33.109/api/organisation_chatbot/?organisation_id=123`;
 
     const requestBody = JSON.stringify({ user_query: message });
-    console.log("Sending request:", url, requestBody); // Debugging log
+    console.log("Sending request:", url, requestBody);
 
     const response = await fetch(url, {
       method: "POST",

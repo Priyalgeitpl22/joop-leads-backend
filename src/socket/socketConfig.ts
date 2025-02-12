@@ -14,8 +14,17 @@ export const socketSetup = (server: any) => {
     },
   });
 
-  io.on('connection', (socket) => {
-    console.log('a user connected');
+  io.on("connection", (socket) => {
+    console.log("a user connected");
+
+    socket.on("agentOnline", (agentId) => {
+      console.log(agentId, "is online");
+    });
+
+    socket.on("joinThread", (threadId) => {
+      socket.join(threadId);
+      console.log(`User joined thread: ${threadId}`);
+    });
 
     socket.on("sendMessage", async (data) => {
       try {
@@ -24,29 +33,43 @@ export const socketSetup = (server: any) => {
         }
 
         await prisma.message.create({
-          data: { content: data.message, sender: data.sender, threadId: data.threadId },
+          data: { content: data.content, sender: data.sender, threadId: data.threadId },
         });
 
-        const response = await getAIResponse(data.message, data.threadId);
+        const response = await getAIResponse(data.content, data.threadId);
 
         if (response.answer) {
           await prisma.message.create({
             data: { content: response.answer, sender: "Bot", threadId: data.threadId },
           });
-        }
 
-        socket.emit("receiveMessage", {...response, threadId: data.threadId});
+          io.emit("receiveMessage", {
+            id: Date.now().toString(),
+            sender: "Bot",
+            status: 200,
+            answer: response.answer,
+            threadId: data.threadId,
+            question: response.question,
+            timestamp: new Date().toISOString(),
+          });          
+        }
       } catch (error) {
         console.error("Error handling sendMessage:", error);
       }
     });
 
+    socket.on("updateDashboard", (data) => {
+      console.log("📩 Received updateDashboard event from widget:", data);
+      io.emit("updateDashboard", data);
+    });
+    
     socket.on("startChat", async (data) => {
       try {
         const thread = await prisma.thread.create({
           data: { user: data.sender },
         });
 
+        socket.join(thread.id);
         socket.emit("chatStarted", { threadId: thread.id });
       } catch (error) {
         console.error("Error starting chat:", error);
@@ -66,12 +89,12 @@ export const socketSetup = (server: any) => {
       }
     });
 
-    socket.on('recover', () => {
-      console.log('Socket connection recovered');
+    socket.on("recover", () => {
+      console.log("Socket connection recovered");
     });
 
-    socket.on('disconnect', () => {
-      console.log('user disconnected');
+    socket.on("disconnect", () => {
+      console.log("user disconnected");
     });
   });
 };

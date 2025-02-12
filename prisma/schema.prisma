@@ -65,3 +65,15 @@ model Message {
   thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 }
+
+model ChatConfig {
+  id               String  @id @default(uuid())
+  allowFileUpload  Boolean
+  allowEmojis      Boolean
+  position         String
+  iconColor        String
+  chatWindowColor  String
+  fontColor        String
+  availability     Boolean
+  socketServer     String
+}
