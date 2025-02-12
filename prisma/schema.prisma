@@ -68,12 +68,12 @@ model Message {
 
 model ChatConfig {
   id               String  @id @default(uuid())
-  allowFileUpload  Boolean
-  allowEmojis      Boolean
-  position         String
-  iconColor        String
-  chatWindowColor  String
-  fontColor        String
-  availability     Boolean
-  socketServer     String
+  allowFileUpload  Boolean?
+  allowEmojis      Boolean?
+  position         String?
+  iconColor        String?
+  chatWindowColor  String?
+  fontColor        String?
+  availability     Boolean?
+  socketServer     String?
 }
