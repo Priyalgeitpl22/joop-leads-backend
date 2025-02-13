@@ -1,8 +1,10 @@
 import { Server } from "socket.io";
 import { PrismaClient } from "@prisma/client";
 import { getAIResponse } from "../middlewares/botMiddleware";
+import { UserRoles } from "../enums";
 
 const prisma = new PrismaClient();
+const onlineAgents = new Set();
 
 export const socketSetup = (server: any) => {
   const io = new Server(server, {
@@ -17,8 +19,24 @@ export const socketSetup = (server: any) => {
   io.on("connection", (socket) => {
     console.log("a user connected");
 
-    socket.on("agentOnline", (agentId) => {
-      console.log(agentId, "is online");
+    socket.on("agentOnline", async (agentData) => {
+      onlineAgents.add(agentData.id);
+      if (agentData.online) {
+        console.log(`Agent ${agentData.name} is online`);
+      }
+      else {
+        console.log(`Agent ${agentData.name} is offline`);
+      }
+
+      const agentId = agentData.id
+      // Update in DB (optional)
+      // await prisma.user.update({
+      //   where: { id: agentId , role: UserRoles.AGENT},
+      //   data: { status: "online" },
+      // });
+
+      // Notify all clients
+      io.emit("agentStatusUpdate", { agentId, status: "online" });
     });
 
     socket.on("joinThread", (threadId) => {
@@ -36,7 +54,7 @@ export const socketSetup = (server: any) => {
           data: { content: data.content, sender: data.sender, threadId: data.threadId },
         });
 
-        const response = await getAIResponse(data.content, data.threadId);
+        const response = await getAIResponse(data.content, data.aiOrgId);
 
         if (response.answer) {
           await prisma.message.create({
@@ -51,7 +69,7 @@ export const socketSetup = (server: any) => {
             threadId: data.threadId,
             question: response.question,
             timestamp: new Date().toISOString(),
-          });          
+          });
         }
       } catch (error) {
         console.error("Error handling sendMessage:", error);
@@ -62,7 +80,7 @@ export const socketSetup = (server: any) => {
       console.log("📩 Received updateDashboard event from widget:", data);
       io.emit("updateDashboard", data);
     });
-    
+
     socket.on("startChat", async (data) => {
       try {
         const thread = await prisma.thread.create({
@@ -93,8 +111,23 @@ export const socketSetup = (server: any) => {
       console.log("Socket connection recovered");
     });
 
-    socket.on("disconnect", () => {
-      console.log("user disconnected");
+    socket.on("disconnect", async () => {
+      console.log("A user disconnected");
+
+      for (let agentId of onlineAgents) {
+        // Remove from online list
+        onlineAgents.delete(agentId);
+        console.log(`Agent ${agentId} is offline`);
+
+        // Update in DB (optional)
+        // await prisma.user.update({
+        //   where: { id: agentId, role: UserRoles.AGENT },
+        //   data: { status: "offline" },
+        // });
+
+        // Notify all clients
+        io.emit("agentStatusUpdate", { agentId, status: "offline" });
+      }
     });
   });
 };

@@ -69,6 +69,7 @@ export const getChatScript = async (req: Request, res: Response): Promise<void> 
                         if (typeof ChatWidget !== "undefined") {
                             ChatWidget.init({
                                 elementId: "chat-widget",
+                                orgId: ${config.aiOrgId},
                                 allowFileUpload: ${config.allowFileUpload},
                                 allowEmojis: ${config.allowEmojis},
                                 position: "${config.position}",
@@ -76,7 +77,7 @@ export const getChatScript = async (req: Request, res: Response): Promise<void> 
                                 chatWindowColor: "${config.chatWindowColor}",
                                 fontColor: "${config.fontColor}",
                                 availability: ${config.availability},
-                                socketServer: "${config.socketServer}"
+                                socketServer: "http://localhost:5003/"
                             });
                         }
                     };
@@ -85,6 +86,7 @@ export const getChatScript = async (req: Request, res: Response): Promise<void> 
                 document.body.appendChild(socketScript);
             })();
             </script>
+        <div id="chat-widget"></div>
         `;
 
         res.setHeader("Content-Type", "application/javascript");

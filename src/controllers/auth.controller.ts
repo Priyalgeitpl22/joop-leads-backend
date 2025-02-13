@@ -7,6 +7,7 @@ import { PrismaClient } from '@prisma/client';
 import multer from "multer";
 import { uploadImageToS3 } from '../aws/imageUtils';
 import { UserRoles } from '../enums';
+import { sendOrganizationDetails } from '../middlewares/botMiddleware';
 
 const prisma = new PrismaClient();
 const upload = multer({ storage: multer.memoryStorage() }).single("profilePicture");
@@ -25,8 +26,18 @@ export const register = async (req: Request, res: Response): Promise<any> => {
           return res.status(400).json({ message: "User already exists" });
         }
   
+        const organizationData = {
+            name: orgName, 
+            domain, 
+            country,
+            phone
+        }
+
+        const aiOrganization = await sendOrganizationDetails(organizationData, null);
+        console.log(aiOrganization);
+
         const organization = await prisma.organization.create({
-          data: { name: orgName, domain, country, phone },
+          data: { aiOrgId: aiOrganization.organisation_id, ...organizationData },
         });
   
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -43,6 +54,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             fullName,
             role: UserRoles.ADMIN,
             orgId: organization.id,
+            aiOrgId: aiOrganization.organisation_id,
             password: hashedPassword,
             otpCode: otp.code,
             otpExpiresAt: otp.expiresAt,

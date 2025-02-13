@@ -20,6 +20,7 @@ model access_token {
 
 model Organization {
   id        String   @id @default(uuid())
+  aiOrgId   Int?
   name      String
   domain    String
   country   String
@@ -36,9 +37,11 @@ model User {
   role           String   @default("admin")
   verified       Boolean  @default(false)
   orgId          String
+  aiOrgId        Int? 
   profilePicture String? 
   organization   Organization @relation(fields: [orgId], references: [id])
   createdAt      DateTime @default(now())
+  online         Boolean  @default(true)
 
   // Fields for OTP verification
   otpCode      String?   
@@ -68,6 +71,8 @@ model Message {
 
 model ChatConfig {
   id               String  @id @default(uuid())
+  orgId            String?
+  aiOrgId          Int? 
   allowFileUpload  Boolean?
   allowEmojis      Boolean?
   position         String?

@@ -17,7 +17,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     if (!access_token) throw new Error;
   
     const user = await prisma.user.findUnique({ where: { id: access_token.user_id as string },
-    select: { email: true, fullName: true, role: true, orgId: true, profilePicture: true} });
+    select: { id: true, email: true, fullName: true, role: true, orgId: true, aiOrgId: true, profilePicture: true} });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
