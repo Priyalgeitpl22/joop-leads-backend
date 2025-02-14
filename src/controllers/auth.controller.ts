@@ -194,3 +194,35 @@ export const logout = async (req: Request, res: Response): Promise<any> => {
     }
 };
 
+export const activateAccount = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { token, password, email } = req.body;
+
+        if (!token || !password || !email) {
+            return res.status(400).json({ message: "Token, password and email are required" });
+        }
+
+        const agent = await prisma.user.findUnique({ where: { email } });
+
+        if(!agent?.activationToken === token)
+            return res.status(400).json({ message: "Invalid or expired token" });
+
+        if (!agent) {
+            return res.status(404).json({ message: "Agent not found" });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        await prisma.user.update({
+            where: { email: agent.email },
+            data: { password: hashedPassword, activationToken: null, activationTokenExpires: null, verified: true },
+        });
+
+        res.status(200).json({ message: "Account activated successfully" });
+    } catch (err) {
+        console.error("Error activating account:", err);
+        res.status(500).json({ message: "Error activating account" });
+    }
+};
+
+

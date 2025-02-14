@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { sendOrganizationDetails } from '../middlewares/botMiddleware';
 
 const prisma = new PrismaClient();
 
@@ -63,8 +64,8 @@ export const getOrganization = async (req: Request, res: Response): Promise<void
 
 export const updateOrganization = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { orgId } = req.params;
-    const { name, domain, country, phone } = req.body;
+    const orgId = req.query.orgId as string;
+    const { name, domain, country, city, state, zip, industry, phone, address, aiOrgId, description } = req.body;
 
     if (!orgId) {
       return res.status(400).json({
@@ -82,16 +83,27 @@ export const updateOrganization = async (req: Request, res: Response): Promise<a
       });
     }
 
+    const organizationData = {
+      name: name ?? existingOrg.name,
+      domain: domain ?? existingOrg.domain,
+      address: address ?? existingOrg.address,
+      country: country ?? existingOrg.country,
+      city: city ?? existingOrg.city,
+      state: state ?? existingOrg.state,
+      zip: Number(zip) ?? existingOrg.zip,
+      industry: industry ?? existingOrg.industry, 
+      phone: phone ?? existingOrg.phone,
+      description: description ?? existingOrg.description
+    }
+
     const updatedOrganization = await prisma.organization.update({
       where: { id: orgId },
-      data: {
-        name: name ?? existingOrg.name,
-        domain: domain ?? existingOrg.domain,
-        country: country ?? existingOrg.country,
-        phone: phone ?? existingOrg.phone
-      }
+      data: organizationData
     });
 
+    const aiOrganization = await sendOrganizationDetails({...organizationData, zip: organizationData.zip.toString()}, aiOrgId);
+
+    console.log(aiOrganization);
     res.status(200).json({
       code: 200,
       data: updatedOrganization,

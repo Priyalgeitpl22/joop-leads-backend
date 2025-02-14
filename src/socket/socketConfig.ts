@@ -4,7 +4,19 @@ import { getAIResponse } from "../middlewares/botMiddleware";
 import { UserRoles } from "../enums";
 
 const prisma = new PrismaClient();
-const onlineAgents = new Set();
+export const onlineAgents = new Map<string, string>(); // Map<agentId, agentName>
+
+export const addOnlineAgent = (agentId: string, agentName: string) => {
+  onlineAgents.set(agentId, agentName);
+};
+
+export const removeOnlineAgent = (agentId: string) => {
+  onlineAgents.delete(agentId);
+};
+
+export const getOnlineAgents = () => {
+  return Array.from(onlineAgents.entries()).map(([id, name]) => ({ id, name }));
+};
 
 export const socketSetup = (server: any) => {
   const io = new Server(server, {
@@ -20,28 +32,40 @@ export const socketSetup = (server: any) => {
     console.log("a user connected");
 
     socket.on("agentOnline", async (agentData) => {
-      onlineAgents.add(agentData.id);
       if (agentData.online) {
+        addOnlineAgent(agentData.id, agentData.name);
+        const onlineAgent = getOnlineAgents();
+
         console.log(`Agent ${agentData.name} is online`);
-      }
-      else {
+        console.log(onlineAgent);
+      } else {
+        removeOnlineAgent(agentData.id);
+        const onlineAgent = getOnlineAgents();
+
         console.log(`Agent ${agentData.name} is offline`);
+        console.log(onlineAgent);
       }
-
-      const agentId = agentData.id
-      // Update in DB (optional)
-      // await prisma.user.update({
-      //   where: { id: agentId , role: UserRoles.AGENT},
-      //   data: { status: "online" },
-      // });
-
-      // Notify all clients
-      io.emit("agentStatusUpdate", { agentId, status: "online" });
+    
+      await prisma.user.update({
+        where: { id: agentData.id },
+        data: { online: agentData.online },
+      });
+    
+      const onlineAgent = getOnlineAgents();
+      io.emit("agentStatusUpdate", onlineAgent);
     });
-
+    
     socket.on("joinThread", (threadId) => {
       socket.join(threadId);
       console.log(`User joined thread: ${threadId}`);
+    });
+
+    socket.on("typing", ({ threadId, agentName }) => {
+      socket.to(threadId).emit("typing", { agentName });
+    });
+  
+    socket.on("stopTyping", ({ threadId }) => {
+      socket.to(threadId).emit("stopTyping");
     });
 
     socket.on("sendMessage", async (data) => {
@@ -54,20 +78,44 @@ export const socketSetup = (server: any) => {
           data: { content: data.content, sender: data.sender, threadId: data.threadId },
         });
 
-        const response = await getAIResponse(data.content, data.aiOrgId);
+        const onlineAgents = getOnlineAgents();
+        console.log("Online Agents:", onlineAgents);
 
-        if (response.answer) {
+        let answer;
+        let question = data.content;
+
+        const previousMessages = await prisma.message.findMany({
+          where: { threadId: data.threadId },
+        });
+
+        const isFirstUserMessage = previousMessages.length === 1;
+
+        if (onlineAgents.length > 0) {
+          if (isFirstUserMessage) {
+            answer = "An agent is available and will assist you soon. Thank you for your patience.";
+          }
+        } else {
+          const response = await getAIResponse(data.content, data.aiOrgId);
+          if (response) {
+            answer = response.answer;
+            question = response.question;
+          } else {
+            answer = "I'm sorry, but I couldn't process your request.";
+          }
+        }
+
+        if (answer) {
           await prisma.message.create({
-            data: { content: response.answer, sender: "Bot", threadId: data.threadId },
+            data: { content: answer, sender: "Bot", threadId: data.threadId },
           });
 
           io.emit("receiveMessage", {
             id: Date.now().toString(),
             sender: "Bot",
             status: 200,
-            answer: response.answer,
+            answer,
             threadId: data.threadId,
-            question: response.question,
+            question,
             timestamp: new Date().toISOString(),
           });
         }
@@ -114,19 +162,22 @@ export const socketSetup = (server: any) => {
     socket.on("disconnect", async () => {
       console.log("A user disconnected");
 
-      for (let agentId of onlineAgents) {
-        // Remove from online list
-        onlineAgents.delete(agentId);
-        console.log(`Agent ${agentId} is offline`);
+      const agentId = socket.id;
+      if (onlineAgents.has(agentId)) {
+        const agentName = onlineAgents.get(agentId);
+        console.log(`Agent ${agentName} (${agentId}) is offline`);
 
-        // Update in DB (optional)
-        // await prisma.user.update({
-        //   where: { id: agentId, role: UserRoles.AGENT },
-        //   data: { status: "offline" },
-        // });
+        removeOnlineAgent(agentId);
+        
+        const onlineAgent = getOnlineAgents();
+        console.log(onlineAgent);
 
-        // Notify all clients
-        io.emit("agentStatusUpdate", { agentId, status: "offline" });
+        await prisma.user.update({
+          where: { id: agentId },
+          data: { online: false },
+        });
+
+        io.emit("agentStatusUpdate", onlineAgent);
       }
     });
   });

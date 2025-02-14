@@ -16,3 +16,10 @@ export const generateRandomPassword = (length: number): string => {
     }
     return password;
 };
+
+export const generateRandomToken = (length: number = 32, expiresInSeconds: number = 3600) => {
+  const token = randomBytes(length).toString("hex");
+  const expiresAt = new Date(Date.now() + expiresInSeconds * 1000); // Convert timestamp to Date
+
+  return { token, expiresAt };
+};

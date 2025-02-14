@@ -29,10 +29,10 @@ export const getAIResponse = async (message: string, organisationId=123) => {
 
 export const sendOrganizationDetails = async (data: any, organisationId: any) => {
   try {
+    let url = `http://44.208.33.109/api/organisation_database/?organisation_id=${organisationId}`;
+
     if(!organisationId)
-      organisationId=0
-    
-    const url = `http://44.208.33.109/api/organisation_database/?organisation_id=${organisationId}`;
+      url = `http://44.208.33.109/api/organisation_database`;
 
     const requestBody = JSON.stringify({ organisation_data: data });
 
