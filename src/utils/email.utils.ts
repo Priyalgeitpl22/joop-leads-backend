@@ -41,3 +41,22 @@ export const sendActivationEmail = async (email: string, fullName: string, activ
 
     await transporter.sendMail(mailOptions);
 };
+
+export const sendResetPasswordEmail = async (email: string, fullName: string, resetPasswordLink: string) => {
+  const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Reset Your Account Password",
+      html: `
+          <p>Hi ${fullName},</p>
+          <p>We received a request to reset your password. Click the link below to set up a new one:</p>
+          <p><a href="${resetPasswordLink}">Reset Password</a></p>
+          <p>This link is valid for the next 60 minutes.</p>
+          <p>If you didn’t request this, you can safely ignore this email.</p>
+          <p>Best regards,</p>
+          <p>Your Support Team</p>
+      `,
+  };
+
+  await transporter.sendMail(mailOptions);
+};

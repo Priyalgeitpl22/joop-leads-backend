@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { sendOtpEmail } from '../utils/email.utils';
-import { generateOtp } from '../utils/otp.utils';
+import { sendOtpEmail, sendResetPasswordEmail } from '../utils/email.utils';
+import { generateOtp, generateRandomToken } from '../utils/otp.utils';
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import multer from "multer";
@@ -14,62 +14,62 @@ const upload = multer({ storage: multer.memoryStorage() }).single("profilePictur
 
 export const register = async (req: Request, res: Response): Promise<any> => {
     upload(req, res, async (err) => {
-      if (err) {
-        return res.status(400).json({ message: "File upload failed", error: err });
-      }
-  
-      const { email, fullName, orgName, domain, country, phone, password } = req.body;
-  
-      try {
-        const existingUser = await prisma.user.findUnique({ where: { email } });
-        if (existingUser) {
-          return res.status(400).json({ message: "User already exists" });
-        }
-  
-        const organizationData = {
-            name: orgName, 
-            domain, 
-            country,
-            phone
+        if (err) {
+            return res.status(400).json({ message: "File upload failed", error: err });
         }
 
-        const aiOrganization = await sendOrganizationDetails(organizationData, null);
-        console.log(aiOrganization);
+        const { email, fullName, orgName, domain, country, phone, password } = req.body;
 
-        const organization = await prisma.organization.create({
-          data: { aiOrgId: aiOrganization.organisation_id, ...organizationData },
-        });
-  
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const otp = generateOtp();
-  
-        let profilePictureUrl: string | null = null;
-        if (req.file) {
-            profilePictureUrl = await uploadImageToS3(req.file);
+        try {
+            const existingUser = await prisma.user.findUnique({ where: { email } });
+            if (existingUser) {
+                return res.status(400).json({ message: "User already exists" });
+            }
+
+            const organizationData = {
+                name: orgName,
+                domain,
+                country,
+                phone
+            }
+
+            const aiOrganization = await sendOrganizationDetails(organizationData, null);
+            console.log(aiOrganization);
+
+            const organization = await prisma.organization.create({
+                data: { aiOrgId: aiOrganization.organisation_id, ...organizationData },
+            });
+
+            const hashedPassword = await bcrypt.hash(password, 10);
+            const otp = generateOtp();
+
+            let profilePictureUrl: string | null = null;
+            if (req.file) {
+                profilePictureUrl = await uploadImageToS3(req.file);
+            }
+
+            await prisma.user.create({
+                data: {
+                    email,
+                    fullName,
+                    role: UserRoles.ADMIN,
+                    orgId: organization.id,
+                    aiOrgId: aiOrganization.organisation_id,
+                    password: hashedPassword,
+                    otpCode: otp.code,
+                    otpExpiresAt: otp.expiresAt,
+                    profilePicture: profilePictureUrl,
+                },
+            });
+
+            await sendOtpEmail(email, otp.code);
+            res.status(201).json({ message: "User registered. Please verify your email with OTP." });
+        } catch (error) {
+            console.error("Error:", error);
+            res.status(500).json({ message: "Server error", error });
         }
-
-        await prisma.user.create({
-          data: {
-            email,
-            fullName,
-            role: UserRoles.ADMIN,
-            orgId: organization.id,
-            aiOrgId: aiOrganization.organisation_id,
-            password: hashedPassword,
-            otpCode: otp.code,
-            otpExpiresAt: otp.expiresAt,
-            profilePicture: profilePictureUrl,
-          },
-        });
-  
-        await sendOtpEmail(email, otp.code);
-        res.status(201).json({ message: "User registered. Please verify your email with OTP." });
-      } catch (error) {
-        console.error("Error:", error);
-        res.status(500).json({ message: "Server error", error });
-      }
     });
-  };
+};
 
 export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
     const { email, otp } = req.body;
@@ -96,22 +96,66 @@ export const verifyOtp = async (req: Request, res: Response): Promise<any> => {
     }
 };
 
-export const resetPassword = async (req: Request, res: Response): Promise<any> => {
-    const { email } = req.body;
+export const forgetPassword = async (req: Request, res: Response): Promise<any> => {
     try {
-        const user = await prisma.user.findUnique({ where: { email } });
-        if (!user) return res.status(404).json({ message: 'User not found' });
+        const { email } = req.body;
 
-        const otp = generateOtp();
+        if (!email) {
+            return res.status(400).json({ message: "Email is required" });
+        }
+
+        const existingUser = await prisma.user.findUnique({ where: { email } });
+
+        if (!existingUser) {
+            return res.status(400).json({ message: "User not found" });
+        }
+
+        const tokenData = generateRandomToken(32, 3600);
+
+        const resetPasswordLink = `${process.env.FRONTEND_URL}/reset-password?token=${tokenData.token}&email=${email}`;
+        await sendResetPasswordEmail(email, existingUser.fullName, resetPasswordLink);
+
         await prisma.user.update({
             where: { email },
-            data: { resetToken: otp.code, resetTokenExpires: otp.expiresAt }
+            data: { resetToken: tokenData.token, resetTokenExpires: tokenData.expiresAt },
         });
 
-        await sendOtpEmail(email, otp.code);
-        res.status(200).json({ message: 'Password reset OTP sent' });
-    } catch (error) {
-        res.status(500).json({ message: 'Server error' });
+        res.status(200).json({ code: 200, message: "Reset password mail sent successfully" });
+    } catch (err) {
+        console.error("Error activating account:", err);
+        res.status(500).json({ message: "Error activating account" });
+    }
+}
+
+export const resetPassword = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const { token, password, email } = req.body;
+
+        if (!token || !password || !email) {
+            return res.status(400).json({ message: "Token, password and email are required" });
+        }
+
+        const user = await prisma.user.findUnique({ where: { email } });
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        if (!user.resetToken || user.resetToken !== token)
+            return res.status(400).json({ message: "Invalid or expired token" });
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        await prisma.user.update({
+            where: { email },
+            data: { password: hashedPassword, resetToken: null, resetTokenExpires: null },
+        });
+
+        res.status(200).json({ code: 200, message: "Password changed successfully" });
+
+    } catch (err) {
+        console.error("Error activating account:", err);
+        res.status(500).json({ message: "Something went wrong" });
     }
 };
 
@@ -175,7 +219,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
 };
 
 export const logout = async (req: Request, res: Response): Promise<any> => {
-    const token = req.headers.authorization?.split(" ")[1]; 
+    const token = req.headers.authorization?.split(" ")[1];
 
     if (!token) {
         return res.status(400).json({ message: 'No token provided' });
@@ -204,7 +248,7 @@ export const activateAccount = async (req: Request, res: Response): Promise<any>
 
         const agent = await prisma.user.findUnique({ where: { email } });
 
-        if(!agent?.activationToken === token)
+        if (!agent?.activationToken === token)
             return res.status(400).json({ message: "Invalid or expired token" });
 
         if (!agent) {
