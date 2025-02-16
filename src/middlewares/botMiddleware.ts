@@ -20,7 +20,9 @@ export const getAIResponse = async (message: string, organisationId=123) => {
       throw new Error(`Error: ${response.status} - ${errorText}`);
     }
 
-    return (await response.json()) as AIResponse;
+    const aiResponse = await response.json() as AIResponse;
+    return aiResponse;
+
   } catch (error) {
     console.error("Error fetching AI response:", error);
     throw new Error("AI response failed");
@@ -34,7 +36,8 @@ export const sendOrganizationDetails = async (data: any, organisationId: any) =>
     if(!organisationId)
       url = `http://44.208.33.109/api/organisation_database`;
 
-    const requestBody = JSON.stringify({ organisation_data: data });
+    const organization_details = { data };
+    const requestBody = JSON.stringify({ organisation_data: organization_details });
 
     const response = await fetch(url, {
       method: "POST",

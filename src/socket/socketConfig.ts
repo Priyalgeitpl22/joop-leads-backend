@@ -109,6 +109,7 @@ export const socketSetup = (server: any) => {
             data: { content: answer, sender: "Bot", threadId: data.threadId },
           });
 
+          io.emit("notification", { message: "🔔 New Message Received!" });
           io.emit("receiveMessage", {
             id: Date.now().toString(),
             sender: "Bot",
@@ -125,7 +126,7 @@ export const socketSetup = (server: any) => {
     });
 
     socket.on("updateDashboard", (data) => {
-      console.log("📩 Received updateDashboard event from widget:", data);
+      io.emit("notification", { message: "🔔 New Message Received!" });
       io.emit("updateDashboard", data);
     });
 
@@ -136,6 +137,7 @@ export const socketSetup = (server: any) => {
         });
 
         socket.join(thread.id);
+        io.emit("notification", { message: "🔔 New Chat Initated!" });
         socket.emit("chatStarted", { threadId: thread.id });
       } catch (error) {
         console.error("Error starting chat:", error);

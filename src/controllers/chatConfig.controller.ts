@@ -3,7 +3,6 @@ import { Request, Response } from "express";
 
 const prisma = new PrismaClient();
 
-// GET Chat Configuration
 export const getChatConfig = async (req: Request, res: Response): Promise<any> => {
     try {
         const config = await prisma.chatConfig.findFirst();
@@ -19,7 +18,6 @@ export const getChatConfig = async (req: Request, res: Response): Promise<any> =
     }
 };
 
-// POST: Create or Update Chat Configuration
 export const updateChatConfig = async (req: Request, res: Response) => {
     try {
         const configData = req.body;
@@ -90,7 +88,7 @@ export const getChatScript = async (req: Request, res: Response): Promise<void> 
         `;
 
         res.setHeader("Content-Type", "application/javascript");
-        res.status(200).send(script);
+        res.status(200).json({code: 200, data: script, message: 'Script fetched successfully!'});
     } catch (err) {
         console.error("Error generating chat script:", err);
         res.status(500).send("// Internal Server Error");

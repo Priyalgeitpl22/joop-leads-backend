@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { Request, Response, NextFunction } from "express";
 
 const prisma = new PrismaClient();
+
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
   const token = req.headers.authorization?.split(" ")[1];
 
@@ -17,7 +18,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     if (!access_token) throw new Error;
   
     const user = await prisma.user.findUnique({ where: { id: access_token.user_id as string },
-    select: { id: true, email: true, fullName: true, role: true, orgId: true, aiOrgId: true, profilePicture: true} });
+    select: { id: true, email: true, fullName: true, role: true, orgId: true, aiOrgId: true, profilePicture: true, online: true} });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
