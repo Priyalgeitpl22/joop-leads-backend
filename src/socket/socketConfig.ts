@@ -114,10 +114,10 @@ export const socketSetup = (server: any) => {
             id: Date.now().toString(),
             sender: "Bot",
             status: 200,
-            answer,
+            content: answer,
             threadId: data.threadId,
             question,
-            timestamp: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
           });
         }
       } catch (error) {
