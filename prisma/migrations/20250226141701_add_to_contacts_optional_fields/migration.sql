@@ -1,0 +1,12 @@
+-- AlterTable
+ALTER TABLE "Contacts" ADD COLUMN     "csv_setting" JSONB,
+ADD COLUMN     "file_name" TEXT,
+ALTER COLUMN "first_name" DROP NOT NULL,
+ALTER COLUMN "last_name" DROP NOT NULL,
+ALTER COLUMN "email" DROP NOT NULL,
+ALTER COLUMN "phone_number" DROP NOT NULL,
+ALTER COLUMN "company_name" DROP NOT NULL,
+ALTER COLUMN "website" DROP NOT NULL,
+ALTER COLUMN "linkdin_profile" DROP NOT NULL,
+ALTER COLUMN "location" DROP NOT NULL,
+ALTER COLUMN "orgId" DROP NOT NULL;

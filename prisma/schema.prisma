@@ -32,6 +32,8 @@ model Organization {
   industry  String?
   description String?
   users     User[]
+  contacts  Contacts[]
+
   createdAt DateTime @default(now())
 }
 
@@ -93,3 +95,20 @@ model ChatConfig {
   availability     Boolean?
   socketServer     String?
 }
+
+model Contacts {
+    id                String  @id @default(uuid())
+    first_name        String?
+    last_name         String?
+    email             String?
+    phone_number      String?
+    company_name      String?
+    website           String?
+    linkdin_profile   String?
+    location          String?
+    orgId             String?
+    file_name         String?
+    csv_setting       Json?
+    organization      Organization?   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+}
+
