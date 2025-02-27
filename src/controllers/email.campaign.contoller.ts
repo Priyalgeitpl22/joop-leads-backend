@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, SeqType, SequenceSchedularType } from "@prisma/client";
 import multer from "multer";
 import { Readable } from "stream";
 import csv from "csv-parser";
@@ -101,3 +101,82 @@ export const addLeadsToCampaign = async (req: Request, res: Response): Promise<a
     return res.status(500).json({ code: 500, message: "Internal server error", error });
   }
 };
+
+export const addSequenceToCampaign = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const { campaign_id, Sequences } = req.body;
+
+  try {
+    if (!campaign_id) {
+      return res.status(400).json({ message: "Campaign ID is required" });
+    }
+
+    // Find campaign
+    const campaign = await prisma.emailCampaign.findUnique({
+      where: { id: campaign_id },
+    });
+
+    if (!campaign) {
+      return res
+        .status(404)
+        .json({ message: `Campaign with ID ${campaign_id} not found` });
+    }
+
+    if (!Sequences || Sequences.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "At least one sequence is required" });
+    }
+
+   
+    await prisma.$transaction(async (tx) => {
+      try {
+        const createdSequences = await tx.sequences.createMany({
+          data: Sequences.map((seq: any) => ({
+            campaign_id,
+            seq_number: seq.seq_number,
+            seq_type: seq.seq_type,
+            seq_delay_details: seq.seq_delay_details,
+            sequence_schedular_type: seq.sequence_schedular_type,
+            variant_distribution_type: seq.variant_distribution_type,
+            seq_variants: seq.seq_variants,
+          })),
+        });
+
+       
+        const sequenceIds = await tx.sequences.findMany({
+          where: { campaign_id },
+          select: { id: true },
+        });
+
+    
+
+        // Update email campaign
+        await tx.emailCampaign.update({
+          where: { id: campaign_id },
+          data: {
+            sequencesIds: sequenceIds.map((seq) => seq.id),
+            sequences: {
+              connect: sequenceIds.map((seq) => ({ id: seq.id })),
+            },
+          },
+        });
+      } catch (error: any) {
+        console.error(`Error creating sequences: ${error.message}`);
+        throw error;
+      }
+    });
+
+    res.status(200).json({ message: "Sequence details saved successfully" });
+  } catch (error: any) {
+    console.error(`Error adding sequences to campaign: ${error.message}`);
+    res.status(500).json({ message: "Server error. Please try again later." });
+  }
+};
+
+
+
+
+

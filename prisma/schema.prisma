@@ -113,10 +113,47 @@ model Contact {
 }
 
 model EmailCampaign {
-  id            String     @id @default(uuid())
-  campaignName  String
-  csvSettings   Json?
-  csvFile       String?
-  schedule      Json?
-  contacts      String[]
+  id                         String     @id @default(uuid())
+  campaignName               String
+  csvSettings                Json?
+  csvFile                    String?
+  schedule                   Json?
+  contacts                   String[]
+  sequencesIds               String[]
+  sequences                  Sequences[]   
+  email_campaign_settings    EmailCampaignSettings[]
+}
+
+
+enum SeqType {
+  EMAIL
+  MANUAL
+}
+
+enum SequenceSchedularType {
+  AUTOMATIC
+  MANUAL
+} 
+
+model Sequences {
+    id                                String     @id @default(uuid())
+    seq_number                        Int?
+    sequence_schedular_type           SequenceSchedularType?
+    seq_delay_details                 Json?     
+    seq_type                          SeqType?
+    seq_variants                      Json?
+    variant_distribution_type         String?  
+    campaign_id                       String?
+    campaigns                         EmailCampaign?   @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+    createdAt                         DateTime @default(now())
+}
+
+model EmailCampaignSettings {
+  id                                   String     @id @default(uuid())
+  sender_accounts                      String[]
+  campaign_schedule                    Json?
+  campaign_settings                    Json?
+  campaign_id                          String?
+  campaigns                            EmailCampaign?   @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  createdAt                            DateTime @default(now())
 }
