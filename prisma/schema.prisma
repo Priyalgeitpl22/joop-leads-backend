@@ -8,69 +8,69 @@ datasource db {
 }
 
 model access_token {
-  id              String   @id @default(uuid())
-  created_datetime DateTime? @default(now()) 
-  updated_datetime DateTime? @default(now()) 
-  deleted_datetime DateTime? 
-  user_id         String?   @db.VarChar(256)
-  active          Int       @default(1)
-  expiry_datetime DateTime? 
-  token           String?   // Add the token field to store the JWT
+  id               String    @id @default(uuid())
+  created_datetime DateTime? @default(now())
+  updated_datetime DateTime? @default(now())
+  deleted_datetime DateTime?
+  user_id          String?   @db.VarChar(256)
+  active           Int       @default(1)
+  expiry_datetime  DateTime?
+  token            String? // Add the token field to store the JWT
 }
 
 model Organization {
-  id        String   @id @default(uuid())
-  aiOrgId   Int?
-  name      String?
-  phone     String?
-  address   String?
-  city      String?
-  state     String?
-  country   String?
-  zip       Int?
-  domain    String?
-  industry  String?
+  id          String     @id @default(uuid())
+  aiOrgId     Int?
+  name        String?
+  phone       String?
+  address     String?
+  city        String?
+  state       String?
+  country     String?
+  zip         Int?
+  domain      String?
+  industry    String?
   description String?
-  users     User[]
-  contacts  Contacts[]
+  users       User[]
+  contacts    Contact[]
 
   createdAt DateTime @default(now())
 }
 
 model User {
-  id             String   @id @default(uuid())
-  email          String   @unique
+  id             String       @id @default(uuid())
+  email          String       @unique
   fullName       String
   password       String
   phone          String?
-  role           String   @default("admin")
-  verified       Boolean  @default(false)
+  role           String       @default("admin")
+  verified       Boolean      @default(false)
   orgId          String
-  aiOrgId        Int? 
-  profilePicture String? 
+  aiOrgId        Int?
+  profilePicture String?
   organization   Organization @relation(fields: [orgId], references: [id])
-  createdAt      DateTime @default(now())
-  online         Boolean  @default(true)
-  schedule       Json?     
+  createdAt      DateTime     @default(now())
+  online         Boolean      @default(true)
+  schedule       Json?
 
   // Fields for OTP verification
-  otpCode      String?   
-  otpExpiresAt DateTime? 
+  otpCode      String?
+  otpExpiresAt DateTime?
 
   // Fields for password reset
-  resetToken        String?   
-  resetTokenExpires DateTime? 
+  resetToken        String?
+  resetTokenExpires DateTime?
 
-  activationToken   String? 
-  activationTokenExpires DateTime?  
+  activationToken        String?
+  activationTokenExpires DateTime?
 }
 
 model Thread {
-  id        String   @id @default(uuid()) // Unique thread ID
-  user      String   // User who started the thread
+  id        String    @id @default(uuid()) // Unique thread ID
+  user      String // User who started the thread
   messages  Message[] // Relationship with messages
-  createdAt DateTime @default(now())
-  type      String   @default("unassigned")
+  createdAt DateTime  @default(now())
+  type      String    @default("unassigned")
 }
 
 model Message {
@@ -83,32 +83,40 @@ model Message {
 }
 
 model ChatConfig {
-  id               String  @id @default(uuid())
-  orgId            String?
-  aiOrgId          Int? 
-  allowFileUpload  Boolean?
-  allowEmojis      Boolean?
-  position         String?
-  iconColor        String?
-  chatWindowColor  String?
-  fontColor        String?
-  availability     Boolean?
-  socketServer     String?
+  id              String   @id @default(uuid())
+  orgId           String?
+  aiOrgId         Int?
+  allowFileUpload Boolean?
+  allowEmojis     Boolean?
+  position        String?
+  iconColor       String?
+  chatWindowColor String?
+  fontColor       String?
+  availability    Boolean?
+  socketServer    String?
 }
 
-model Contacts {
-    id                String  @id @default(uuid())
-    first_name        String?
-    last_name         String?
-    email             String?
-    phone_number      String?
-    company_name      String?
-    website           String?
-    linkdin_profile   String?
-    location          String?
-    orgId             String?
-    file_name         String?
-    csv_setting       Json?
-    organization      Organization?   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+model Contact {
+  id                String  @id @default(uuid())
+  first_name        String?
+  last_name         String?
+  email             String?
+  phone_number      String?
+  company_name      String?
+  website           String?
+  linkdin_profile   String?
+  location          String?
+  orgId             String?
+  file_name         String?
+  csv_setting       Json?
+  organization      Organization?   @relation(fields: [orgId], references: [id], onDelete: Cascade)
 }
 
+model EmailCampaign {
+  id            String     @id @default(uuid())
+  campaignName  String
+  csvSettings   Json?
+  csvFile       String?
+  schedule      Json?
+  contacts      String[]
+}

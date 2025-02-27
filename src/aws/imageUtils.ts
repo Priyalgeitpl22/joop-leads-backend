@@ -25,7 +25,6 @@ export const uploadImageToS3 = async (file: Express.Multer.File): Promise<string
     }
 };
 
-
 export const getPresignedUrl = async (fileName: string) => {
     try {
         const params = {
@@ -55,3 +54,28 @@ export const deleteImageFromS3 = async (fileName: string) => {
         throw new Error("File delete failed");
     }
 };
+
+export const uploadCSVToS3 = async (file: Express.Multer.File): Promise<string> => {
+    try {
+        if (!file || !file.buffer) {
+            throw new Error("No file buffer provided");
+        }
+
+        const fileName = `csvFiles/${Date.now()}-${file.originalname.replace(/\s/g, "_")}`;
+
+        const params: S3.PutObjectRequest = {
+            Bucket: bucket_name,
+            Key: fileName,
+            Body: file.buffer,
+            ContentType: file.mimetype,
+        };
+
+        const uploadResult = await s3Conifg.upload(params).promise();
+        return uploadResult.Location;
+
+    } catch (error) {
+        console.error("S3 Upload Error:", error);
+        throw new Error("File upload failed");
+    }
+};
+
