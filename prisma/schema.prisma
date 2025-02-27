@@ -151,6 +151,7 @@ model Sequences {
 model EmailCampaignSettings {
   id                                   String     @id @default(uuid())
   sender_accounts                      String[]
+  auto_warm_up                         Boolean?
   campaign_schedule                    Json?
   campaign_settings                    Json?
   campaign_id                          String?

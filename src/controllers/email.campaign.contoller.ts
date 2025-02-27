@@ -23,17 +23,17 @@ export const addLeadsToCampaign = async (req: Request, res: Response): Promise<a
       if (!req.body.emailFieldsToBeAdded) {
         return res.status(400).json({ message: "emailFieldsToBeAdded is required" });
       }
-      
+
       const csvFile = req.file;
       const csvFileLocation = await uploadCSVToS3(csvFile);
 
       const csvSettings = typeof req.body.CSVsettings === "string"
-        ? JSON.parse(req.body.CSVsettings)
-        : req.body.CSVsettings;
+          ? JSON.parse(req.body.CSVsettings)
+          : req.body.CSVsettings;
 
       const emailFieldsToBeAdded: Record<string, string> = typeof req.body.emailFieldsToBeAdded === "string"
-        ? JSON.parse(req.body.emailFieldsToBeAdded)
-        : req.body.emailFieldsToBeAdded;
+          ? JSON.parse(req.body.emailFieldsToBeAdded)
+          : req.body.emailFieldsToBeAdded;
 
       const results: any[] = [];
       const stream = Readable.from(req.file.buffer.toString());
@@ -45,10 +45,10 @@ export const addLeadsToCampaign = async (req: Request, res: Response): Promise<a
           Object.entries(emailFieldsToBeAdded).forEach(([csvKey, mappedKey]) => {
             if (typeof mappedKey === "string" && mappedKey !== 'ignore_field') {
               const actualKey = Object.keys(data).find((k) => k.trim().toLowerCase() === csvKey.trim().toLowerCase());
-              if (actualKey) {
-                jsonData[mappedKey] = data[actualKey] || "";
+                if (actualKey) {
+                  jsonData[mappedKey] = data[actualKey] || "";
+                }
               }
-            }
           });
           results.push(jsonData);
         })
@@ -56,12 +56,12 @@ export const addLeadsToCampaign = async (req: Request, res: Response): Promise<a
           try {
             const insertedContacts = [];
             const insertedIds = [];
-          
+
             for (const contact of results) {
               const newContact = await prisma.contact.create({
                 data: contact,
               });
-          
+
               insertedContacts.push(newContact);
               insertedIds.push(newContact.id);
             }
@@ -175,8 +175,72 @@ export const addSequenceToCampaign = async (
     res.status(500).json({ message: "Server error. Please try again later." });
   }
 };
+export const addEmailCampaignSettings = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const {
+    campaign_id,
+    auto_warm_up,
+    sender_accounts,
+    schedule_settings,
+    campaign_settings,
+  } = req.body;
 
+  try {
+    if (!campaign_id) {
+      return res.status(400).json({ message: "Campaign ID is required" });
+    }
 
+    // Convert objects to JSON strings for Prisma String[]
+    const formattedSenderAccounts = sender_accounts.map((account: any) =>
+      JSON.stringify(account)
+    );
 
+    if (typeof auto_warm_up !== "boolean") {
+      return res
+        .status(400)
+        .json({ message: "Auto warm-up must be a boolean" });
+    }
+    if (typeof schedule_settings !== "object" || !schedule_settings) {
+      return res
+        .status(400)
+        .json({ message: "Schedule settings must be an object" });
+    }
+    if (typeof campaign_settings !== "object" || !campaign_settings) {
+      return res
+        .status(400)
+        .json({ message: "Campaign settings must be an object" });
+    }
 
+    const campaign = await prisma.emailCampaign.findUnique({
+      where: { id: campaign_id },
+    });
 
+    if (!campaign) {
+      return res
+        .status(404)
+        .json({ message: `Campaign with ID ${campaign_id} not found` });
+    }
+
+    const newCampaignSettings = await prisma.emailCampaignSettings.create({
+      data: {
+        campaign_id,
+        auto_warm_up,
+        sender_accounts: formattedSenderAccounts, // Save as String[]
+        campaign_schedule: schedule_settings,
+        campaign_settings,
+      },
+    });
+
+    return res.status(201).json({
+      message: "Campaign settings saved successfully",
+      data: newCampaignSettings,
+    });
+  } catch (error: any) {
+    console.error("Prisma Error:", error); // Log full error
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
+  }
+};
