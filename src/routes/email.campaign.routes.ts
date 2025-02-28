@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign } from "../controllers/email.campaign.contoller";
+import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign, getAllEmailCampaigns } from "../controllers/email.campaign.contoller";
 
 
 const router = Router();
@@ -7,6 +7,7 @@ const router = Router();
 router.post("/add-leads-to-campaign", addLeadsToCampaign);
 router.post("/add-sequence-to-campaign",addSequenceToCampaign)
 router.post("/add-email-campaign-settings",addEmailCampaignSettings)
+router.get("/get-all-email-campaigns",getAllEmailCampaigns)
 
 
 export default router;

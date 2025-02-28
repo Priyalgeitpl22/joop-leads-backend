@@ -58,12 +58,12 @@ export const addLeadsToCampaign = async (req: Request, res: Response): Promise<a
             const insertedIds = [];
 
             for (const contact of results) {
-              const newContact = await prisma.contact.create({
-                data: contact,
-              });
+                const newContact = await prisma.contact.create({
+                  data: contact,
+                });
 
-              insertedContacts.push(newContact);
-              insertedIds.push(newContact.id);
+                insertedContacts.push(newContact);
+                insertedIds.push(newContact.id);
             }
 
             const campaign = await prisma.emailCampaign.create({
@@ -239,3 +239,44 @@ export const addEmailCampaignSettings = async (
       .json({ message: "Server error", error: error.message });
   }
 };
+
+
+
+export const getAllEmailCampaigns = async (req: Request, res: Response) => {
+  try {
+    const campaignId = req.query.campaign_id
+      ? String(req.query.campaign_id)
+      : undefined;
+
+    if (campaignId) {
+      const data = await prisma.emailCampaign.findUnique({
+        where: { id: campaignId },
+      });
+      res.status(200).json({ code: 200, data, message: "success" });
+    } else {
+      let data = await prisma.emailCampaign.findMany({
+        select: {
+          campaignName: true,
+          createdAt: true,
+          sequencesIds: true,
+        },
+        orderBy: {
+          createdAt: "desc", // Orders campaigns by createdAt in descending order
+        },
+      });
+
+   
+      data = data.map((campaign) => ({
+        ...campaign,
+        sequence_count: campaign.sequencesIds.length, 
+      }));
+      res.status(200).json({ code: 200, data, message: "success" });
+    }
+  } catch (err) {
+    console.error("Error fetching email campaigns:", err);
+    res
+      .status(500)
+      .json({ code: 500, message: "Error fetching email campaigns" });
+  }
+};
+
