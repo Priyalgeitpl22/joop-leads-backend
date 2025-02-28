@@ -58,12 +58,37 @@ export const addLeadsToCampaign = async (req: Request, res: Response): Promise<a
             const insertedIds = [];
 
             for (const contact of results) {
-                const newContact = await prisma.contact.create({
-                  data: contact,
-                });
+              const email = contact?.email?.toLowerCase().trim();
 
-                insertedContacts.push(newContact);
-                insertedIds.push(newContact.id);
+              if (!email) {
+                console.log(
+                  "Skipping contact with missing or empty email:",
+                  contact
+                );
+                continue;
+              }
+
+              const existingContact = await prisma.contact.findFirst({
+                where: { email },
+              });
+
+              const blockedOrUnsubscribed = await prisma.contact.findFirst({
+                where: {
+                  email,
+                  OR: [{ blocked: true }, { unsubscribed: true }],
+                },
+                select: { email: true },
+              });
+
+              if (existingContact || blockedOrUnsubscribed) {
+                continue;
+              }
+              const newContact = await prisma.contact.create({
+                data: contact,
+              });
+
+              insertedContacts.push(newContact);
+              insertedIds.push(newContact.id);
             }
 
             const campaign = await prisma.emailCampaign.create({
@@ -71,7 +96,7 @@ export const addLeadsToCampaign = async (req: Request, res: Response): Promise<a
                 campaignName: "new_campaign",
                 csvSettings: csvSettings,
                 csvFile: csvFileLocation,
-                contacts: insertedIds
+                contacts: insertedIds,
               },
             });
 
@@ -79,14 +104,13 @@ export const addLeadsToCampaign = async (req: Request, res: Response): Promise<a
               message: "File uploaded and contacts saved successfully",
               contactsInserted: insertedContacts.length,
               campaignId: campaign.id,
-              code: 200
+              code: 200,
             });
-
           } catch (dbError: any) {
             return res.status(500).json({
               message: "Database error while saving contacts",
               error: dbError.message,
-              code: 500
+              code: 500,
             });
           }
         })
