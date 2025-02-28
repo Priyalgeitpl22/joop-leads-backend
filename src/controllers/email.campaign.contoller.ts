@@ -304,3 +304,63 @@ export const getAllEmailCampaigns = async (req: Request, res: Response) => {
   }
 };
 
+
+export const getAllContacts = async (req: Request, res: Response) => {
+  try {
+    const contact_id = req.query.contact_id
+      ? String(req.query.contact_id)
+      : undefined;
+    const data = contact_id
+      ? await prisma.contact.findUnique({ where: { id: contact_id } })
+      : await prisma.contact.findMany();
+
+      const total = contact_id ? undefined : await prisma.contact.count();
+    if (contact_id && !data) {
+      res.status(404).json({ code: 404, message: "Contact not found" });
+    }
+    res
+      .status(200)
+      .json({
+        code: 200,
+        data,
+        total,
+        message: data ? "Success" : "No contacts found",
+      });
+  } catch (err) {
+    console.error("Error fetching email campaigns:", err);
+    res
+      .status(500)
+      .json({ code: 500, message: "Error fetching email campaigns" });
+  }
+};
+
+
+export const getAllSequences = async (req: Request, res: Response) => {
+  try {
+    const sequence_id = req.query.sequence_id
+      ? String(req.query.sequence_id)
+      : undefined;
+    const data = sequence_id
+      ? await prisma.sequences.findUnique({ where: { id: sequence_id } })
+      : await prisma.sequences.findMany();
+
+      const total = sequence_id ? undefined : await prisma.sequences.count();
+    if (sequence_id && !data) {
+      res.status(404).json({ code: 404, message: "Contact not found" });
+    }
+    res
+      .status(200)
+      .json({
+        code: 200,
+        data,
+        total,
+        message: data ? "Success" : "No contacts found",
+      });
+  } catch (err) {
+    console.error("Error fetching email campaigns:", err);
+    res
+      .status(500)
+      .json({ code: 500, message: "Error fetching email campaigns" });
+  }
+};
+
