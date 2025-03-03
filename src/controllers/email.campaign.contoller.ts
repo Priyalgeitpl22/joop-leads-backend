@@ -310,7 +310,7 @@ export const addEmailCampaignSettings = async (
         id: campaign_id
       },
       data: {
-        email_campaign_settings_id: updatedSettings.id,
+        id: updatedSettings.id,
         campaignName: campaign_settings.campaign_name,
       }
     });
@@ -385,7 +385,7 @@ export const getAllContacts = async (req: Request, res: Response) => {
     const data = contact_id
       ? await prisma.contact.findUnique({ where: { id: contact_id } })
       : campaignId
-        ? await prisma.contact.findMany({ where: { campaign_id: campaignId } })
+        ? await prisma.contact.findMany({ where: { id: campaignId } })
         : null;
 
     const total = contact_id ? undefined : await prisma.contact.count();
@@ -442,3 +442,28 @@ export const getAllSequences = async (req: Request, res: Response) => {
   }
 };
 
+export const searchEmailCampaigns = async (req:any,res:any) => {
+  try {
+    const { campaign_name } = req.query;
+    if (!campaign_name) {
+      return res
+        .status(400)
+        .json({ code: 400, message: "Campaign name is required" });
+    }
+
+    const data = await prisma.emailCampaign.findMany({
+      where: { campaignName: { contains: campaign_name, mode: "insensitive" } },
+    });
+
+    res.status(200).json({
+      code: 200,
+      data,
+      message: data ? "Success" : "No contacts found",
+    });
+  } catch (err) {
+    console.error("Error fetching email campaigns:", err);
+    res
+      .status(500)
+      .json({ code: 500, message: "Error fetching email campaigns" });
+  }
+};
