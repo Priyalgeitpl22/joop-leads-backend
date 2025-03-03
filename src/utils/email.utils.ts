@@ -1,5 +1,10 @@
 import nodemailer from 'nodemailer';
 
+export const isValidEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 587,

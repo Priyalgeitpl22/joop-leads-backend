@@ -104,7 +104,8 @@ model Contact {
   phone_number      String?
   company_name      String?
   website           String?
-  linkdin_profile   String?
+  linkedin_profile   String?
+  campaign_id       String?
   location          String?
   orgId             String?
   file_name         String?
@@ -122,10 +123,10 @@ model EmailCampaign {
   contacts                   String[]
   sequencesIds               String[]
   sequences                  Sequences[]   
+  email_campaign_settings_id String?     
   email_campaign_settings    EmailCampaignSettings[]
   createdAt                  DateTime @default(now())
 }
-
 
 enum SeqType {
   EMAIL
