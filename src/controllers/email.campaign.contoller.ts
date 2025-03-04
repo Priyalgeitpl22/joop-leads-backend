@@ -186,19 +186,25 @@ export const addSequenceToCampaign = async (
 
     await prisma.$transaction(async (tx) => {
       try {
-        const createdSequences = await tx.sequences.createMany({
-          data: sequences.map((seq: any) => ({
-            campaign_id,
-            seq_number: seq.seq_number,
-            seq_type: seq.seq_type,
-            seq_delay_details: seq.seq_delay_details,
-            sequence_schedular_type: seq.sequence_schedular_type,
-            variant_distribution_type: seq.variant_distribution_type,
-            seq_variants: seq.seq_variants,
-          })),
+        await tx.sequences.deleteMany({
+          where: { campaign_id },
         });
+    
+        if (sequences.length > 0) {
+          await tx.sequences.createMany({
+            data: sequences.map((seq: any) => ({
+              campaign_id,
+              seq_number: seq.seq_number,
+              seq_type: seq.seq_type,
+              seq_delay_details: seq.seq_delay_details,
+              sequence_schedular_type: seq.sequence_schedular_type,
+              variant_distribution_type: seq.variant_distribution_type,
+              seq_variants: seq.seq_variants,
+            })),
+          });
+        }
 
-        const sequenceIds = await tx.sequences.findMany({
+        const newSequenceIds = await tx.sequences.findMany({
           where: { campaign_id },
           select: { id: true },
         });
@@ -206,9 +212,9 @@ export const addSequenceToCampaign = async (
         await tx.emailCampaign.update({
           where: { id: campaign_id },
           data: {
-            sequencesIds: sequenceIds.map((seq) => seq.id),
+            sequencesIds: newSequenceIds.map((seq) => seq.id),
             sequences: {
-              connect: sequenceIds.map((seq) => ({ id: seq.id })),
+              connect: newSequenceIds.map((seq) => ({ id: seq.id })),
             },
           },
         });
@@ -242,25 +248,10 @@ export const addEmailCampaignSettings = async (
       return res.status(400).json({ code: 400, message: "Campaign ID is required" });
     }
 
-    const formattedSenderAccounts = sender_accounts.map((account: any) => {
+    const formattedSenderAccounts = sender_accounts?.map((account: any) => {
       return account.account_id;
     });
 
-    if (typeof auto_warm_up !== "boolean") {
-      return res
-        .status(400)
-        .json({ code: 400, message: "Auto warm-up must be a boolean" });
-    }
-    if (typeof schedule_settings !== "object" || !schedule_settings) {
-      return res
-        .status(400)
-        .json({ code: 400, message: "Schedule settings must be an object" });
-    }
-    if (typeof campaign_settings !== "object" || !campaign_settings) {
-      return res
-        .status(400)
-        .json({ code: 400, message: "Campaign settings must be an object" });
-    }
 
     const campaign = await prisma.emailCampaign.findUnique({
       where: { id: campaign_id },
@@ -287,7 +278,7 @@ export const addEmailCampaignSettings = async (
         data: {
           campaign_id,
           auto_warm_up: auto_warm_up ?? existingSettings.auto_warm_up,
-          sender_accounts: formattedSenderAccounts.length === 0 ? existingSettings.sender_accounts : formattedSenderAccounts,
+          sender_accounts: formattedSenderAccounts?.length === 0 ? existingSettings.sender_accounts : formattedSenderAccounts,
           campaign_schedule: schedule_settings ?? existingSettings.campaign_schedule,
           campaign_settings: campaign_settings ?? existingSettings.campaign_settings,
         },
@@ -311,11 +302,9 @@ export const addEmailCampaignSettings = async (
       },
       data: {
         email_campaign_settings_id: updatedSettings.id,
-        campaignName: campaign_settings.campaign_name,
+        campaignName: campaign_settings?.campaign_name,
       }
     });
-
-    console.log(updatedCampaign);
 
     return res.status(200).json({
       code: 200,
@@ -420,8 +409,12 @@ export const getAllSequences = async (req: Request, res: Response) => {
 
     const data = sequence_id
       ? await prisma.sequences.findUnique({ where: { id: sequence_id } })
-      : await prisma.sequences.findMany();
-
+      : await prisma.sequences.findMany({
+        orderBy: {
+          seq_number: "asc", 
+        },
+    });
+      
     const total = sequence_id ? undefined : await prisma.sequences.count();
     if (sequence_id && !data) {
       res.status(404).json({ code: 404, message: "Contact not found" });
