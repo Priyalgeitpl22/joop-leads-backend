@@ -122,6 +122,7 @@ model EmailCampaign {
   schedule                   Json?
   contacts                   String[]
   sequencesIds               String[]
+  status                     String? 
   sequences                  Sequences[]   
   email_campaign_settings_id String?     
   email_campaign_settings    EmailCampaignSettings[]
