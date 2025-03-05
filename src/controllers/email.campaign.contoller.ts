@@ -26,7 +26,8 @@ export const addLeadsToCampaign = async (req: Request, res: Response): Promise<a
 
       const campaign = await prisma.emailCampaign.create({
         data: {
-          campaignName: "new_campaign"
+          campaignName: "new_campaign",
+          status:"DRAFT"
         },
       });
 
@@ -126,6 +127,7 @@ export const addLeadsToCampaign = async (req: Request, res: Response): Promise<a
             return res.status(200).json({
               message: "File uploaded and contacts saved successfully",
               campaignId: campaign.id,
+             
               counts: {
                 duplicateCount,
                 blockedCount,
@@ -292,6 +294,7 @@ export const addEmailCampaignSettings = async (
           sender_accounts: formattedSenderAccounts,
           campaign_schedule: schedule_settings,
           campaign_settings,
+          
         },
       });
     }
@@ -301,8 +304,11 @@ export const addEmailCampaignSettings = async (
         id: campaign_id
       },
       data: {
-        email_campaign_settings_id: updatedSettings.id,
-        campaignName: campaign_settings?.campaign_name,
+
+        id: updatedSettings.id,
+        campaignName: campaign_settings.campaign_name,
+
+
       }
     });
 
@@ -340,6 +346,8 @@ export const getAllEmailCampaigns = async (req: Request, res: Response) => {
           csvSettings: true,
           csvFile: true,
           schedule: true,
+          status: true
+          
         },
         orderBy: {
           createdAt: "desc",
@@ -400,7 +408,7 @@ export const getAllContacts = async (req: Request, res: Response) => {
 export const getAllSequences = async (req: Request, res: Response) => {
   try {
     const campaignId = req.params.campaign_id
-      ? String(req.params.contact_id)
+      ? String(req.params.campaign_id)
       : undefined;
 
     const sequence_id = req.query.sequence_id
@@ -453,6 +461,34 @@ export const searchEmailCampaigns = async (req:any,res:any) => {
       data,
       message: data ? "Success" : "No contacts found",
     });
+  } catch (err) {
+    console.error("Error fetching email campaigns:", err);
+    res
+      .status(500)
+      .json({ code: 500, message: "Error fetching email campaigns" });
+  }
+};
+
+
+export const scheduleEmailCampaign = async (req: Request, res: Response) => {
+  try {
+    const { campaignId, status } = req.body;
+    if (!campaignId || !status) {
+      res
+        .status(400)
+        .json({ code: 400, message: "campaignId and status are required" });
+    }
+    const data = await prisma.emailCampaign.findUnique({
+      where: { id: campaignId },
+    });
+
+    const updatedCampaign = await prisma.emailCampaign.update({
+      where: { id: campaignId },
+      data: { status },
+    });
+    res
+      .status(200)
+      .json({ code: 200, data: updatedCampaign, message: "success" });
   } catch (err) {
     console.error("Error fetching email campaigns:", err);
     res
