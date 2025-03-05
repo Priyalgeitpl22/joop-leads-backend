@@ -304,11 +304,8 @@ export const addEmailCampaignSettings = async (
         id: campaign_id
       },
       data: {
-
-        id: updatedSettings.id,
-        campaignName: campaign_settings.campaign_name,
-
-
+        email_campaign_settings_id: updatedSettings.id,
+        campaignName: campaign_settings?.campaign_name,
       }
     });
 
