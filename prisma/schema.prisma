@@ -111,13 +111,14 @@ model Contact {
   file_name         String?
   blocked           Boolean?
   unsubscribed      Boolean?
+  campaignsList     EmailCampaign[]
   active            Boolean?
   organization      Organization?   @relation(fields: [orgId], references: [id], onDelete: Cascade)
   campaign          EmailCampaign?   @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
   createdAt         DateTime @default(now())
 }
 
-model EmailCampaign {
+model Campaign {
   id                         String     @id @default(uuid())
   campaignName               String
   csvSettings                Json?
@@ -129,9 +130,17 @@ model EmailCampaign {
   sequences                  Sequences[]   
   email_campaign_settings_id String?     
   email_campaign_settings    EmailCampaignSettings[]
-  contactslist              Contact[]
+  contactslist               Contact[]
   createdAt                  DateTime @default(now())
 }
+
+model EmailCampaign {
+  id                         String     @id @default(uuid())
+  campaign                   Campaign
+  contacts                   Contact
+
+}
+
 
 enum SeqType {
   EMAIL

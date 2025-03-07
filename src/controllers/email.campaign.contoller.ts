@@ -343,14 +343,12 @@ export const getAllEmailCampaigns = async (req: Request, res: Response) => {
           csvSettings: true,
           csvFile: true,
           schedule: true,
-          status: true
-          
+          status: true,
         },
         orderBy: {
           createdAt: "desc",
         },
       });
-
 
       data = data.map((campaign) => ({
         ...campaign,
@@ -376,7 +374,6 @@ export const createContact = async (req: Request, res: Response) => {
       phone_number,
       company_name,
       website,
-      campaign_id,
       location,
       orgId,
       file_name,
@@ -384,14 +381,6 @@ export const createContact = async (req: Request, res: Response) => {
       unsubscribed = false,
       active = true,
     } = req.body;
-
-    const campaignExists = await prisma.emailCampaign.findUnique({
-      where: { id: campaign_id },
-    });
-
-    if (!campaignExists) {
-      res.status(404).json({ code: 404, message: "Campaign not found" });
-    }
 
     // Check if the organization exists
     const orgExists = await prisma.organization.findUnique({
@@ -410,7 +399,6 @@ export const createContact = async (req: Request, res: Response) => {
         phone_number,
         company_name,
         website,
-        campaign_id,
         location,
         orgId,
         file_name,
@@ -419,14 +407,6 @@ export const createContact = async (req: Request, res: Response) => {
         active,
       },
     });
-
-    // const updatedContacts = campaignExists.contacts ? [...campaignExists.contacts, newContact.id] : [newContact.id];
-
-    // Append new contact ID to campaign's contacts list
-    // await prisma.emailCampaign.update({
-    //   where: { id: campaign_id },
-    //   data: { contacts: updatedContacts },
-    // });
 
     res.status(201).json({
       code: 201,
@@ -439,18 +419,66 @@ export const createContact = async (req: Request, res: Response) => {
   }
 };
 
+export const createCampaignFromContacts = async (req: Request, res: Response) => {
+  try {
+    const { campaignName, contactIds } = req.body;
+
+    if (!campaignName || !Array.isArray(contactIds) || contactIds.length === 0) {
+      return res.status(400).json({ code: 400, message: "campaignName and contactIds are required" });
+    }
+
+    // Validate contacts
+    const existingContacts = await prisma.contact.findMany({
+      where: { id: { in: contactIds } },
+    });
+
+    if (existingContacts.length !== contactIds.length) {
+      return res.status(404).json({ code: 404, message: "Some contacts not found" });
+    }
+
+    // Create new campaign
+    const newCampaign = await prisma.emailCampaign.create({
+      data: {
+        campaignName,
+        status: "DRAFT",
+        contactslist: {
+          connect: contactIds.map((id) => ({ id })),
+        },
+      },
+    });
+
+    return res.status(201).json({
+      code: 201,
+      message: "Campaign created successfully",
+      data: newCampaign,
+    });
+  } catch (error) {
+    console.error("Error creating campaign:", error);
+    return res.status(500).json({ code: 500, message: "Error creating campaign" });
+  }
+};
+
+
 export const getContactsByID = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
     const contact = await prisma.contact.findUnique({ where: { id } });
+
+
+    const campaign = contact?.campaign_id
+      ? await prisma.emailCampaign.findUnique({
+          where: { id: contact.campaign_id as string },
+        })
+      : null;
+     
     if (!contact) {
       res.status(404).json({ code: 404, message: "Contact not found" });
     } else {
       res.status(200).json({
         code: 200,
         messgae: `Contact fetched with id ${id}`,
-        data: contact,
+        data: {contact,campaign},
       });
     }
   } catch (err) {
