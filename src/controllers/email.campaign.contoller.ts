@@ -366,41 +366,107 @@ export const getAllEmailCampaigns = async (req: Request, res: Response) => {
   }
 };
 
-export const getAllContacts = async (req: Request, res: Response) => {
+export const getContactsByID = async (req: Request, res: Response) => {
   try {
-    const campaignId = req.params.campaign_id
-      ? String(req.params.campaign_id)
-      : undefined;
+    const { id } = req.params;
 
-    const contact_id = req.query.contact_id
-      ? String(req.query.contact_id)
-      : undefined;
-
-    const data = contact_id
-      ? await prisma.contact.findUnique({ where: { id: contact_id } })
-      : campaignId
-        ? await prisma.contact.findMany({ where: { id: campaignId } })
-        : null;
-
-    const total = contact_id ? undefined : await prisma.contact.count();
-    if (contact_id && !data) {
+    const contact = await prisma.contact.findUnique({ where: { id } });
+    if (!contact) {
       res.status(404).json({ code: 404, message: "Contact not found" });
-    }
-    res
-      .status(200)
-      .json({
+    } else {
+      res.status(200).json({
         code: 200,
-        data,
-        total,
-        message: data ? "Success" : "No contacts found",
+        messgae: `Contact fetched with id ${id}`,
+        data: contact,
       });
+    }
   } catch (err) {
-    console.error("Error fetching email campaigns:", err);
-    res
-      .status(500)
-      .json({ code: 500, message: "Error fetching email campaigns" });
+    console.error("Error fetching contacts:", err);
+    res.status(500).json({ code: 500, message: "Error fetching contacts" });
   }
 };
+
+export const getAllContacts = async (req: Request, res: Response) => {
+  try {
+    const { id,page = 1, limit = 2  } = req.query;
+
+    if (!id) {
+       res.status(400).json({ code: 400, message: "Campaign ID is required" });
+    }
+
+    const skip = (page as number) * (limit as number) - (limit as number);
+    const contacts = await prisma.contact.findMany({
+      where: {
+        campaign_id: id as string,
+        active:null 
+      },
+      skip,
+      take: Number(limit)
+    });
+   
+
+    const campaign = await prisma.emailCampaign.findUnique({
+      where: {
+        id: id as string,
+        
+      },
+    });
+   
+    const totalCount = await prisma.contact.count({
+      where: {
+        campaign_id: id as string,
+      },
+    });
+    const totalPages = Math.ceil(totalCount / (limit as number));
+    res.status(200).json({
+      code: 200,
+      message: "Contacts and campaign history fetched successfully",
+      data: {
+       contacts,
+        campaign
+      },
+      totalCount,
+      pagination: {
+        page: page as number,
+        limit: limit as number,
+        totalPages,
+        totalCount,
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching contacts and campaign history:", err);
+    res.status(500).json({ code: 500, message: "Error fetching data" });
+  }
+};
+
+
+export const deactivateContacts = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.body;
+
+    const contact = await prisma.contact.findUnique({ where: { id } });
+
+    if (!contact) {
+   res.status(404).json({ code: 404, message: "Contact not found" });
+    }
+
+    // Assuming 'blocked' is the field used for deactivation
+    const updatedContact = await prisma.contact.update({
+      where: { id },
+      data: { active: false },
+    });
+
+    res.status(200).json({
+      code: 200,
+      message: `Contact with ID ${id} has been deactivated`,
+      data: updatedContact,
+    });
+  } catch (err) {
+    console.error("Error fetching contacts:", err);
+    res.status(500).json({ code: 500, message: "Error fetching contacts" });
+  }
+};
+
 
 export const getAllSequences = async (req: Request, res: Response) => {
   try {
