@@ -518,44 +518,53 @@ export const getContactsById = async (req: Request, res: Response): Promise<any>
   }
 };
 
-export const getallContacts = async (req: AuthenticatedRequest, res: Response): Promise<any>  => {
-
+export const getallContacts = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
   try {
     const user = req.user;
     if (!user?.orgId) {
       return res.status(400).json({ code: 400, message: "Organization ID is required to create a campaign." });
     }
 
-    const contactsWithCampaignCount = await prisma.contact.findMany({
+    const contacts = await prisma.contact.findMany({
       include: {
-        emailCampaigns: {
+        _count: {
+          select: { emailCampaigns: true }, // Count the number of campaigns
+        },
+        uploadedUser: {
           select: {
-            campaignId: true,
+            id: true,
+            fullName: true,
           },
         },
       },
     });
-    
-    const result = contactsWithCampaignCount.map((contact) => ({
+
+    const result = contacts.map((contact) => ({
       ...contact,
-      used_in_campaigns: contact.emailCampaigns.length,
+      uploaded_by: contact.uploadedUser
+        ? {
+            full_name: contact.uploadedUser.fullName,
+          }
+        : null,
+      used_in_campaigns: contact._count.emailCampaigns,
     }));
-    
-    if (!result) {
-      res.status(404).json({ code: 404, message: "Contact not found" });
-    } else {
-      res.status(200).json({
-        code: 200,
-        message: "Contacts fetched successfully",
-        data: result,
-      });
-  
+
+    if (!result.length) {
+      return res.status(404).json({ code: 404, message: "Contacts not found" });
     }
+
+    res.status(200).json({
+      code: 200,
+      message: "Contacts fetched successfully",
+      data: result,
+    });
+
   } catch (err) {
     console.error("Error fetching contacts:", err);
     res.status(500).json({ code: 500, message: "Error fetching contacts" });
   }
 };
+
 
 export const getAllContactsByCampaignId = async (req: Request, res: Response): Promise<any> => {
   try {
