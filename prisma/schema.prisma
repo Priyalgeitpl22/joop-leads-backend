@@ -20,7 +20,6 @@ model access_token {
 
 model Organization {
   id          String     @id @default(uuid())
-  aiOrgId     Int?
   name        String?
   phone       String?
   address     String?
@@ -33,6 +32,7 @@ model Organization {
   description String?
   users       User[]
   contacts    Contact[]
+  campaigns   Campaign[]
 
   createdAt DateTime @default(now())
 }
@@ -46,7 +46,6 @@ model User {
   role           String       @default("admin")
   verified       Boolean      @default(false)
   orgId          String
-  aiOrgId        Int?
   profilePicture String?
   organization   Organization @relation(fields: [orgId], references: [id])
   createdAt      DateTime     @default(now())
@@ -63,84 +62,58 @@ model User {
 
   activationToken        String?
   activationTokenExpires DateTime?
-}
 
-model Thread {
-  id        String    @id @default(uuid()) // Unique thread ID
-  user      String // User who started the thread
-  messages  Message[] // Relationship with messages
-  createdAt DateTime  @default(now())
-  type      String    @default("unassigned")
-}
-
-model Message {
-  id        String   @id @default(uuid())
-  content   String
-  sender    String
-  threadId  String
-  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-}
-
-model ChatConfig {
-  id              String   @id @default(uuid())
-  orgId           String?
-  aiOrgId         Int?
-  allowFileUpload Boolean?
-  allowEmojis     Boolean?
-  position        String?
-  iconColor       String?
-  chatWindowColor String?
-  fontColor       String?
-  availability    Boolean?
-  socketServer    String?
+  contacts  Contact[] @relation(name: "UserContacts") // The relation name must match with Contact model
 }
 
 model Contact {
-  id                String  @id @default(uuid())
-  first_name        String?
-  last_name         String?
-  email             String?
-  phone_number      String?
-  company_name      String?
-  website           String?
-  linkedin_profile  String?
-  campaign_id       String?
-  location          String?
-  orgId             String?
-  file_name         String?
-  blocked           Boolean?
-  unsubscribed      Boolean?
-  campaignsList     EmailCampaign[]
-  active            Boolean?
-  organization      Organization?   @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  campaign          EmailCampaign?   @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
-  createdAt         DateTime @default(now())
+  id               String          @id @default(uuid())
+  first_name       String?
+  last_name        String?
+  email            String?
+  phone_number     String?
+  company_name     String?
+  website          String?
+  linkedin_profile String?
+  campaign_id      String?
+  location         String?
+  orgId            String  // Foreign key for Organization
+  uploadedBy       String       // Foreign key for User (MUST BE HERE)
+  file_name        String?
+  blocked          Boolean?
+  unsubscribed     Boolean?
+  createdAt        DateTime        @default(now())
+  organization     Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  uploadedUser     User            @relation(fields: [uploadedBy], references: [id], onDelete: Cascade, name: "UserContacts")
+  emailCampaigns   EmailCampaign[]
 }
 
 model Campaign {
-  id                         String     @id @default(uuid())
+  id                         String                  @id @default(uuid())
+  orgId                      String // Foreign key for Organization
   campaignName               String
   csvSettings                Json?
   csvFile                    String?
   schedule                   Json?
   contacts                   String[]
   sequencesIds               String[]
-  status                     String? @default("DRAFT")
-  sequences                  Sequences[]   
-  email_campaign_settings_id String?     
-  email_campaign_settings    EmailCampaignSettings[]
-  contactslist               Contact[]
-  createdAt                  DateTime @default(now())
+  status                     String?                 @default("DRAFT")
+  sequences                  Sequences[]             @relation("CampaignToSequences")
+  email_campaign_settings_id String?
+  email_campaign_settings    EmailCampaignSettings[] @relation("CampaignToSettings")
+  createdAt                  DateTime                @default(now())
+  emailCampaigns             EmailCampaign[]
+  organization               Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
 }
 
 model EmailCampaign {
-  id                         String     @id @default(uuid())
-  campaign                   Campaign
-  contacts                   Contact
+  id         String @id @default(uuid())
+  contactId  String
+  campaignId String
 
+  contact  Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 }
-
 
 enum SeqType {
   EMAIL
@@ -150,28 +123,28 @@ enum SeqType {
 enum SequenceSchedularType {
   AUTOMATIC
   MANUAL
-} 
+}
 
 model Sequences {
-    id                                String     @id @default(uuid())
-    seq_number                        Int?
-    sequence_schedular_type           SequenceSchedularType?
-    seq_delay_details                 Json?     
-    seq_type                          SeqType?
-    seq_variants                      Json?
-    variant_distribution_type         String?  
-    campaign_id                       String?
-    campaigns                         EmailCampaign?   @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
-    createdAt                         DateTime @default(now())
+  id                        String                 @id @default(uuid())
+  seq_number                Int?
+  sequence_schedular_type   SequenceSchedularType?
+  seq_delay_details         Json?
+  seq_type                  SeqType?
+  seq_variants              Json?
+  variant_distribution_type String?
+  campaign_id               String?
+  campaign                  Campaign?              @relation("CampaignToSequences", fields: [campaign_id], references: [id], onDelete: Cascade)
+  createdAt                 DateTime               @default(now())
 }
 
 model EmailCampaignSettings {
-  id                                   String     @id @default(uuid())
-  sender_accounts                      String[]
-  auto_warm_up                         Boolean?
-  campaign_schedule                    Json?
-  campaign_settings                    Json?
-  campaign_id                          String?
-  campaigns                            EmailCampaign?   @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
-  createdAt                            DateTime @default(now())
+  id                String    @id @default(uuid())
+  sender_accounts   String[]
+  auto_warm_up      Boolean?
+  campaign_schedule Json?
+  campaign_settings Json?
+  campaign_id       String?
+  campaign          Campaign? @relation("CampaignToSettings", fields: [campaign_id], references: [id], onDelete: Cascade)
+  createdAt         DateTime  @default(now())
 }

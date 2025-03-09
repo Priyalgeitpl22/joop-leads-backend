@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { sendOrganizationDetails } from '../middlewares/botMiddleware';
 
 const prisma = new PrismaClient();
 
@@ -101,9 +100,6 @@ export const updateOrganization = async (req: Request, res: Response): Promise<a
       data: organizationData
     });
 
-    const aiOrganization = await sendOrganizationDetails({...organizationData, zip: organizationData.zip.toString()}, aiOrgId);
-
-    console.log(aiOrganization);
     res.status(200).json({
       code: 200,
       data: updatedOrganization,
