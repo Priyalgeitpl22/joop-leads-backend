@@ -245,14 +245,14 @@ export const addSequenceToCampaign = async (
               connect: newSequenceIds.map((seq) => ({ id: seq.id })),
             },
           },
-        });        
+        });
       }
     });
 
-    res.status(200).json({ 
-      data: { campaign_id }, 
-      code: 200, 
-      message: "Sequence details saved successfully" 
+    res.status(200).json({
+      data: { campaign_id },
+      code: 200,
+      message: "Sequence details saved successfully"
     });
   } catch (error: any) {
     console.error(`Error adding sequences to campaign: ${error.message}`);
@@ -384,7 +384,7 @@ export const createContact = async (req: AuthenticatedRequest, res: Response) =>
   try {
     const user = req.user;
 
-    if(!user) {
+    if (!user) {
       res.status(404).json({ code: 404, message: "Organization not found" });
     }
 
@@ -414,7 +414,7 @@ export const createContact = async (req: AuthenticatedRequest, res: Response) =>
     if (!user?.orgId || !user?.id) {
       throw new Error("User details are missing. Cannot create contact.");
     }
-    
+
     const newContact = await prisma.contact.create({
       data: {
         orgId: user.orgId,
@@ -431,7 +431,7 @@ export const createContact = async (req: AuthenticatedRequest, res: Response) =>
         unsubscribed: unsubscribed ?? false,
         active: active ?? true,
       },
-    });    
+    });
 
     res.status(201).json({
       code: 201,
@@ -554,8 +554,8 @@ export const getallContacts = async (req: AuthenticatedRequest, res: Response): 
       ...contact,
       uploaded_by: contact.uploadedUser
         ? {
-            full_name: contact.uploadedUser.fullName,
-          }
+          full_name: contact.uploadedUser.fullName,
+        }
         : null,
       used_in_campaigns: contact._count.emailCampaigns,
     }));
@@ -616,32 +616,31 @@ export const getAllContactsByCampaignId = async (req: Request, res: Response): P
   }
 };
 
-// export const deactivateContacts = async (req: Request, res: Response) => {
-//   try {
-//     const { id } = req.body;
+export const deactivateContacts = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.body;
 
-//     const contact = await prisma.contact.findUnique({ where: { id } });
+    const contact = await prisma.contact.findUnique({ where: { id } });
 
-//     if (!contact) {
-//    res.status(404).json({ code: 404, message: "Contact not found" });
-//     }
+    if (!contact) {
+      res.status(404).json({ code: 404, message: "Contact not found" });
+    }
 
-//     // Assuming 'blocked' is the field used for deactivation
-//     const updatedContact = await prisma.contact.update({
-//       where: { id },
-//       data: { active: false },
-//     });
+    const updatedContact = await prisma.contact.update({
+      where: { id },
+      data: { active: false },
+    });
 
-//     res.status(200).json({
-//       code: 200,
-//       message: `Contact with ID ${id} has been deactivated`,
-//       data: updatedContact,
-//     });
-//   } catch (err) {
-//     console.error("Error fetching contacts:", err);
-//     res.status(500).json({ code: 500, message: "Error fetching contacts" });
-//   }
-// };
+    res.status(200).json({
+      code: 200,
+      message: `Contact with ID ${id} has been deactivated`,
+      data: updatedContact,
+    });
+  } catch (err) {
+    console.error("Error fetching contacts:", err);
+    res.status(500).json({ code: 500, message: "Error fetching contacts" });
+  }
+};
 
 export const getAllSequences = async (req: Request, res: Response) => {
   try {
@@ -660,10 +659,10 @@ export const getAllSequences = async (req: Request, res: Response) => {
           campaign_id: campaignId
         },
         orderBy: {
-          seq_number: "asc", 
+          seq_number: "asc",
         },
-    });
-      
+      });
+
     const total = sequence_id ? undefined : await prisma.sequences.count();
     if (sequence_id && !data) {
       res.status(404).json({ code: 404, message: "Contact not found" });
@@ -684,7 +683,7 @@ export const getAllSequences = async (req: Request, res: Response) => {
   }
 };
 
-export const searchEmailCampaigns = async (req:any,res:any) => {
+export const searchEmailCampaigns = async (req: any, res: any) => {
   try {
     const { campaign_name } = req.query;
     if (!campaign_name) {
