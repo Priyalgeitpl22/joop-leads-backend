@@ -576,7 +576,6 @@ export const getallContacts = async (req: AuthenticatedRequest, res: Response): 
   }
 };
 
-
 export const getAllContactsByCampaignId = async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
