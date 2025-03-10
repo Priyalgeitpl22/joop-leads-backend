@@ -105,9 +105,23 @@ cron.schedule("*/1 * * * *", async () => {
         if (!lastSent) {
           nextSequence = sortedSequences[0];
         } else {
-          const lastIndex = sortedSequences.findIndex(seq => seq.id === lastSent.sequenceId);
+          const lastIndex = sortedSequences.findIndex(
+            (seq) => seq.id === lastSent.sequenceId
+          );
           nextSequence = sortedSequences[lastIndex + 1];
+
+          const lastSentTime = DateTime.fromJSDate(lastSent.createdAt).toUTC();
+          const nowUTC = DateTime.utc();
+
+          if (lastSentTime.plus({ days: 1 }) > nowUTC) {
+            console.log(
+              `⏳ Skipping email to ${contact.email} - waiting period not over.`
+            );
+            continue;
+          }
         }
+    
+       
 
         if (!nextSequence) {
           console.log(`✅ No further sequences for ${contact.email} in campaign ${campaign.id}`);
