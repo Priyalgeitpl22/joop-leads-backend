@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign, getallContacts, getAllContactsByCampaignId, getAllEmailCampaigns, getAllSequences, getContactsById, scheduleEmailCampaign, searchEmailCampaigns } from "../controllers/email.campaign.contoller";
+import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign, createContact, getallContacts, getAllContactsByCampaignId, getAllEmailCampaigns, getAllSequences, getContactsById, scheduleEmailCampaign, searchEmailCampaigns } from "../controllers/email.campaign.contoller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 
 const router = Router();
@@ -15,6 +15,6 @@ router.get("/contacts/:id", authMiddleware, getAllContactsByCampaignId);
 
 router.get("/all-contacts", authMiddleware, getallContacts)
 // router.patch('/contacts/deactivate', authMiddleware, deactivateContacts)
-// router.post('/create-contacts', authMiddleware, createContact)
+router.post('/create-contacts', authMiddleware, createContact)
 
 export default router;

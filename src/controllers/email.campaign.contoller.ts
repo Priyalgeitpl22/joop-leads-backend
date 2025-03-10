@@ -380,58 +380,69 @@ export const getAllEmailCampaigns = async (req: Request, res: Response): Promise
   }
 };
 
-// export const createContact = async (req: Request, res: Response) => {
-//   try {
-//     const {
-//       first_name,
-//       last_name,
-//       email,
-//       phone_number,
-//       company_name,
-//       website,
-//       location,
-//       orgId,
-//       file_name,
-//       blocked = false,
-//       unsubscribed = false,
-//       active = true,
-//     } = req.body;
+export const createContact = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = req.user;
 
-//     const orgExists = await prisma.organization.findUnique({
-//       where: { id: orgId },
-//     });
+    if(!user) {
+      res.status(404).json({ code: 404, message: "Organization not found" });
+    }
 
-//     if (!orgExists) {
-//       res.status(404).json({ code: 404, message: "Organization not found" });
-//     }
+    const {
+      first_name,
+      last_name,
+      email,
+      phone_number,
+      company_name,
+      website,
+      location,
+      orgId,
+      file_name,
+      blocked = false,
+      unsubscribed = false,
+      active = true,
+    } = req.body;
 
-//     const newContact = await prisma.contact.create({
-//       data: {
-//         first_name,
-//         last_name,
-//         email,
-//         phone_number,
-//         company_name,
-//         website,
-//         location,
-//         orgId,
-//         file_name,
-//         blocked,
-//         unsubscribed,
-//         active,
-//       },
-//     });
+    const orgExists = await prisma.organization.findUnique({
+      where: { id: orgId },
+    });
 
-//     res.status(201).json({
-//       code: 201,
-//       message: "Contact created successfully",
-//       data: newContact,
-//     });
-//   } catch (error) {
-//     console.error("Error creating contact:", error);
-//     res.status(500).json({ code: 500, message: "Error creating contact" });
-//   }
-// };
+    if (!orgExists) {
+      res.status(404).json({ code: 404, message: "Organization not found" });
+    }
+
+    if (!user?.orgId || !user?.id) {
+      throw new Error("User details are missing. Cannot create contact.");
+    }
+    
+    const newContact = await prisma.contact.create({
+      data: {
+        orgId: user.orgId,
+        uploadedBy: user.id,
+        first_name,
+        last_name,
+        email,
+        phone_number,
+        company_name,
+        website,
+        location,
+        file_name,
+        blocked: blocked ?? false,
+        unsubscribed: unsubscribed ?? false,
+        active: active ?? true,
+      },
+    });    
+
+    res.status(201).json({
+      code: 201,
+      message: "Contact created successfully",
+      data: newContact,
+    });
+  } catch (error) {
+    console.error("Error creating contact:", error);
+    res.status(500).json({ code: 500, message: "Error creating contact" });
+  }
+};
 
 // export const createCampaignFromContacts = async (req: Request, res: Response) => {
 //   try {
@@ -528,7 +539,7 @@ export const getallContacts = async (req: AuthenticatedRequest, res: Response): 
     const contacts = await prisma.contact.findMany({
       include: {
         _count: {
-          select: { emailCampaigns: true }, // Count the number of campaigns
+          select: { emailCampaigns: true },
         },
         uploadedUser: {
           select: {
