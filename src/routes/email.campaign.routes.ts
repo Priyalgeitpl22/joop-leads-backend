@@ -3,19 +3,20 @@ import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign, cr
 import { authMiddleware } from "../middlewares/authMiddleware";
 
 const router = Router();
+
 router.get('/contact/:id',authMiddleware,getContactsById)
 router.put('/schedule-campaign',authMiddleware, scheduleEmailCampaign)
 router.get("/", authMiddleware, getAllEmailCampaigns);
 router.post("/add-leads-to-campaign", authMiddleware, addLeadsToCampaign);
 router.post("/add-sequence-to-campaign", authMiddleware, addSequenceToCampaign);
 router.post("/add-email-campaign-settings", authMiddleware, addEmailCampaignSettings);
-router.get("/sequences/:campaign_id", authMiddleware,  getAllSequences);
-router.get("/email-campaigns-search", authMiddleware, searchEmailCampaigns)
-// router.get("/contacts/:id", authMiddleware, getAllContactsByCampaignId);
-router.get("/all-contacts", authMiddleware, getallContacts)
-router.patch('/contacts/deactivate', authMiddleware, deactivateContacts)
-router.post('/create-contacts', authMiddleware, createContact)
-// router.post("/campaign/create", authMiddleware,createCampaignWithContacts);
+router.get("/sequences/:campaign_id", authMiddleware, getAllSequences);
+router.get("/email-campaigns-search", authMiddleware, searchEmailCampaigns);
+router.get("/contacts/:id", authMiddleware, getAllContactsByCampaignId);
+router.get("/all-contacts", authMiddleware, getallContacts);
+router.patch('/contacts/deactivate', authMiddleware, deactivateContacts);
+router.get('/contact/:id', getContactsById);
+router.post('/create-contacts', authMiddleware, createContact);
 router.get('/search-contacts',searchContacts)
 
 export default router;
