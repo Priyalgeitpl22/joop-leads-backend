@@ -444,44 +444,6 @@ export const createContact = async (req: AuthenticatedRequest, res: Response) =>
   }
 };
 
-// export const createCampaignFromContacts = async (req: Request, res: Response) => {
-//   try {
-//     const { campaignName, contactIds } = req.body;
-
-//     if (!campaignName || !Array.isArray(contactIds) || contactIds.length === 0) {
-//       return res.status(400).json({ code: 400, message: "campaignName and contactIds are required" });
-//     }
-
-//     // Validate contacts
-//     const existingContacts = await prisma.contact.findMany({
-//       where: { id: { in: contactIds } },
-//     });
-
-//     if (existingContacts.length !== contactIds.length) {
-//       return res.status(404).json({ code: 404, message: "Some contacts not found" });
-//     }
-
-//     // Create new campaign
-//     const newCampaign = await prisma.campaign.create({
-//       data: {
-//         campaignName,
-//         status: "DRAFT",
-//         contactslist: {
-//           connect: contactIds.map((id) => ({ id })),
-//         },
-//       },
-//     });
-
-//     return res.status(201).json({
-//       code: 201,
-//       message: "Campaign created successfully",
-//       data: newCampaign,
-//     });
-//   } catch (error) {
-//     console.error("Error creating campaign:", error);
-//     return res.status(500).json({ code: 500, message: "Error creating campaign" });
-//   }
-// };
 
 export const getContactsById = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -577,63 +539,29 @@ export const getallContacts = async (req: AuthenticatedRequest, res: Response): 
 };
 
 
-export const getAllContactsByCampaignId = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { id } = req.params;
 
-    if (!id) {
-      return res.status(400).json({ code: 400, message: "Campaign ID is required" });
-    }
-
-    const emailCampaigns = await prisma.emailCampaign.findMany({
-      where: { campaignId: id as string },
-      select: { contact: true },
-    });
-
-    const contacts = emailCampaigns.map((ec) => ec.contact);
-
-    const campaign = await prisma.campaign.findUnique({
-      where: { id: id as string },
-    });
-
-    if (!campaign) {
-      return res.status(404).json({ code: 404, message: "Campaign not found" });
-    }
-
-    const totalCount = await prisma.emailCampaign.count({
-      where: { campaignId: id as string },
-    });
-
-    return res.status(200).json({
-      code: 200,
-      message: "Contacts and campaign details fetched successfully",
-      data: contacts,
-      totalCount
-    });
-  } catch (err) {
-    console.error("Error fetching contacts and campaign history:", err);
-    return res.status(500).json({ code: 500, message: "Error fetching data" });
-  }
-};
 
 export const deactivateContacts = async (req: Request, res: Response) => {
   try {
-    const { id } = req.body;
+    const { contactIds } = req.body;
 
-    const contact = await prisma.contact.findUnique({ where: { id } });
+    const contact = await prisma.contact.findFirst({
+      where: { id: { in: contactIds } },
+      select: { id: true },
+    });
 
     if (!contact) {
-      res.status(404).json({ code: 404, message: "Contact not found" });
+      res.status(404).json({ code: 404, message: "No matching contact found" });
     }
 
-    const updatedContact = await prisma.contact.update({
-      where: { id },
+    const updatedContact = await prisma.contact.updateMany({
+      where: { id: { in: contactIds } },
       data: { active: false },
     });
 
     res.status(200).json({
       code: 200,
-      message: `Contact with ID ${id} has been deactivated`,
+      message: `Contact with ID ${contactIds} has been deactivated`,
       data: updatedContact,
     });
   } catch (err) {
@@ -641,6 +569,34 @@ export const deactivateContacts = async (req: Request, res: Response) => {
     res.status(500).json({ code: 500, message: "Error fetching contacts" });
   }
 };
+
+export const searchContacts = async (req: any, res: any) => {
+  try {
+    const { first_name, email } = req.query;
+
+    const filters: any = {};
+    if (first_name) {
+      filters.first_name = { contains: first_name, mode: "insensitive" };
+    }
+    if (email) {
+      filters.email = { contains: email, mode: "insensitive" };
+    }
+
+    const data = await prisma.contact.findMany({
+      where: filters,
+    });
+
+    res.status(200).json({
+      code: 200,
+      data,
+      message: data.length > 0 ? "Success" : "No contacts found",
+    });
+  } catch (err) {
+    console.error("Error fetching contacts:", err);
+    res.status(500).json({ code: 500, message: "Error fetching contacts" });
+  }
+};
+
 
 export const getAllSequences = async (req: Request, res: Response) => {
   try {
