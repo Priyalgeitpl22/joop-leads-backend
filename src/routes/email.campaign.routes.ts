@@ -3,8 +3,8 @@ import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign, cr
 import { authMiddleware } from "../middlewares/authMiddleware";
 
 const router = Router();
-router.get('/contact/:id',getContactsById)
-router.put('/schedule-campaign', scheduleEmailCampaign)
+router.get('/contact/:id',authMiddleware,getContactsById)
+router.put('/schedule-campaign',authMiddleware, scheduleEmailCampaign)
 router.get("/", authMiddleware, getAllEmailCampaigns);
 router.post("/add-leads-to-campaign", authMiddleware, addLeadsToCampaign);
 router.post("/add-sequence-to-campaign", authMiddleware, addSequenceToCampaign);
