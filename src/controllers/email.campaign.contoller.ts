@@ -300,7 +300,7 @@ export const addEmailCampaignSettings = async (
         data: {
           campaign_id,
           auto_warm_up: auto_warm_up ?? existingSettings.auto_warm_up,
-          sender_accounts: formattedSenderAccounts.length === 0 ? existingSettings.sender_accounts : formattedSenderAccounts,
+          sender_accounts: sender_accounts,
           campaign_schedule: schedule_settings ?? existingSettings.campaign_schedule,
           campaign_settings: campaign_settings ?? existingSettings.campaign_settings,
         },
@@ -310,7 +310,7 @@ export const addEmailCampaignSettings = async (
         data: {
           campaign_id,
           auto_warm_up,
-          sender_accounts: formattedSenderAccounts,
+          sender_accounts: sender_accounts,
           campaign_schedule: schedule_settings,
           campaign_settings,
         },
