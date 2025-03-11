@@ -49,6 +49,8 @@ cron.schedule("*/1 * * * *", async () => {
       },
     });
 
+    console.log("campaigns",campaigns)
+
     const eligibleCampaigns = campaigns.filter((campaign) => {
       const schedule = campaign.email_campaign_settings?.[0]?.campaign_schedule as any;
 
@@ -82,7 +84,7 @@ cron.schedule("*/1 * * * *", async () => {
       }
     });
 
-    console.log(`✅ Found ${eligibleCampaigns.length} eligible campaigns.`);
+    // console.log(`✅ Found ${eligibleCampaigns.length} eligible campaigns.`);
 
     console.log(eligibleCampaigns);
 
@@ -113,12 +115,13 @@ cron.schedule("*/1 * * * *", async () => {
           const lastSentTime = DateTime.fromJSDate(lastSent.createdAt).toUTC();
           const nowUTC = DateTime.utc();
 
-          if (lastSentTime.plus({ days: 1 }) > nowUTC) {
+        if (lastSentTime.plus({ days: 1 }) > nowUTC) {
             console.log(
               `⏳ Skipping email to ${contact.email} - waiting period not over.`
             );
-            continue;
+            
           }
+        
         }
     
        
