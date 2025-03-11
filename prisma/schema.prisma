@@ -80,9 +80,9 @@ model Contact {
   orgId            String // Foreign key for Organization
   uploadedBy       String // Foreign key for User (MUST BE HERE)
   file_name        String?
-  blocked          Boolean?
-  unsubscribed     Boolean?
-  active           Boolean?
+  blocked          Boolean?        @default(false)
+  unsubscribed     Boolean?        @default(false)
+  active           Boolean?        @default(true)
   createdAt        DateTime        @default(now())
   organization     Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
   uploadedUser     User            @relation(fields: [uploadedBy], references: [id], onDelete: Cascade, name: "UserContacts")
