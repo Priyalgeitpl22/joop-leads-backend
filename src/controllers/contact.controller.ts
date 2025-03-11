@@ -201,9 +201,13 @@ export const deactivateContacts = async (req: Request, res: Response) => {
       )
     );
 
+    const message = updatedContacts.every((contact) => contact.active)
+      ? "Accounts activated successfully"
+      : "Accounts deactivated successfully";
+
     res.status(200).json({
       code: 200,
-      message: `Contact with ID ${contactIds} has been deactivated`,
+      message,
       data: updatedContacts,
     });
   } catch (err) {
