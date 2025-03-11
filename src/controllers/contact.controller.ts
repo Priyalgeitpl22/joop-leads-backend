@@ -26,20 +26,13 @@ export const createContact = async (
       company_name,
       website,
       location,
-      orgId,
+
       file_name,
       blocked = false,
       unsubscribed = false,
       active = true,
     } = req.body;
 
-    const orgExists = await prisma.organization.findUnique({
-      where: { id: orgId },
-    });
-
-    if (!orgExists) {
-      res.status(404).json({ code: 404, message: "Organization not found" });
-    }
 
     if (!user?.orgId || !user?.id) {
       throw new Error("User details are missing. Cannot create contact.");
