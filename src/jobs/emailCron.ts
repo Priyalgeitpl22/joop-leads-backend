@@ -74,10 +74,16 @@ cron.schedule("*/1 * * * *", async () => {
         const nowUTC = new Date();
 
         const isStarted = nowUTC >= campaignStartTime;
-        const isNotEnded = nowUTC < campaignEnd;
         const isCorrectDay = selectedDays.includes(nowUTC.getUTCDay());
+        console.log("nowUTC -->>", nowUTC);
+        console.log("campaignEnd -->>", campaignEnd);
 
-        return isStarted && isNotEnded && isCorrectDay;
+
+
+        console.log("isStarted -->>", isStarted );
+        console.log("isCorrectDay -->>", isCorrectDay);
+
+        return isStarted && isCorrectDay;
       } catch (error) {
         console.error(`❌ Error checking campaign ${campaign.id}:`, error);
         return false;
@@ -86,7 +92,7 @@ cron.schedule("*/1 * * * *", async () => {
 
     // console.log(`✅ Found ${eligibleCampaigns.length} eligible campaigns.`);
 
-    console.log(eligibleCampaigns);
+    console.log("eligibleCampaigns", eligibleCampaigns);
 
     for (const campaign of eligibleCampaigns) {
       for (const emailCampaign of campaign.emailCampaigns) {
