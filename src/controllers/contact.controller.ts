@@ -142,6 +142,9 @@ export const getallContacts = async (
           },
         },
       },
+      orderBy: { 
+        createdAt: 'desc', 
+      },
     });
 
     const result = contacts.map((contact) => ({
