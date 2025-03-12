@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign, getAllEmailCampaigns, getAllSequences,scheduleEmailCampaign, searchEmailCampaigns } from "../controllers/email.campaign.contoller";
+import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign, deleteCampaign, getAllEmailCampaigns, getAllSequences,getEmailCampaignsBySender,scheduleEmailCampaign, searchEmailCampaigns } from "../controllers/email.campaign.contoller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 
 const router = Router();
@@ -12,6 +12,7 @@ router.post("/add-sequence-to-campaign", authMiddleware, addSequenceToCampaign);
 router.post("/add-email-campaign-settings", authMiddleware, addEmailCampaignSettings);
 router.get("/sequences/:campaign_id", authMiddleware, getAllSequences);
 router.get("/email-campaigns-search", authMiddleware, searchEmailCampaigns);
-
+router.get('/get-campaigns-by-sender',getEmailCampaignsBySender)
+router.delete('/delete',deleteCampaign)
 
 export default router;

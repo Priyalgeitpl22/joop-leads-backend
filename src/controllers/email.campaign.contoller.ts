@@ -473,3 +473,80 @@ export const scheduleEmailCampaign = async (req: Request, res: Response) => {
       .json({ code: 500, message: "Error fetching email campaigns" });
   }
 };
+
+export const getEmailCampaignsBySender = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const accountId = req.query.sender_account_id
+    if (!accountId) {
+      return res.status(400).json({ code: 400, message: "sender_account_id is required" });
+    }
+    const campaigns = await prisma.$queryRaw<
+    Array<{
+      campaign_id: string;
+      campaign_name: string;
+      campaign_status: string;
+      sender_accounts: any[];
+      created_at: Date;
+    }>
+  >`
+    SELECT
+      c.id AS campaign_id,
+      c."campaignName" AS campaign_name,  --  Use double quotes
+      c.status AS campaign_status,
+      ecs.sender_accounts AS sender_accounts,
+      c."createdAt" AS created_at --  Use double quotes
+    FROM "Campaign" c
+    JOIN "EmailCampaignSettings" ecs ON c.id = ecs.campaign_id,
+    LATERAL unnest(ecs.sender_accounts) AS sa
+    WHERE sa->>'account_id' = ${accountId}
+  `;
+  
+  
+  
+    res.status(200).json({ code: 200, campaigns,message: "success" });
+  } catch (err:any) {
+    console.error("Error fetching email campaigns:", err);
+    res.status(500).json({ code: 500, message: "Error fetching email campaigns", details: err.message });
+  }
+};
+
+export const deleteCampaign = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const campaignId = req.query.campaign_id as string;
+
+    if (!campaignId) {
+      return res
+        .status(400)
+        .json({ code: 400, message: "campaign_id is required" });
+    }
+
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+    });
+
+    if (!campaign) {
+      return res.status(404).json({ code: 404, message: "Campaign not found" });
+    }
+
+    await prisma.campaign.delete({
+      where: { id: campaignId },
+    });
+
+    return res
+      .status(200)
+      .json({ code: 200, message: "Campaign deleted successfully" });
+  } catch (error: any) {
+    console.error("Error deleting campaign:", error);
+    return res
+      .status(500)
+      .json({
+        code: 500,
+        message: "Error deleting campaign",
+        details: error.message,
+      });
+  }
+};
+
