@@ -131,6 +131,9 @@ export const getallContacts = async (
     }
 
     const contacts = await prisma.contact.findMany({
+      where: {
+        orgId: user.orgId
+      },
       include: {
         _count: {
           select: { emailCampaigns: true },

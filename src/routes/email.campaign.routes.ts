@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign, deleteCampaign, getAllEmailCampaigns, getAllSequences,getEmailCampaignsBySender,scheduleEmailCampaign, searchEmailCampaigns } from "../controllers/email.campaign.contoller";
+import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign, deleteCampaign, getAllEmailCampaigns, getAllSequences,getCampaignById,getEmailCampaignsBySender,scheduleEmailCampaign, searchEmailCampaigns } from "../controllers/email.campaign.contoller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 
 const router = Router();
@@ -7,6 +7,7 @@ const router = Router();
 
 router.put('/schedule-campaign',authMiddleware, scheduleEmailCampaign)
 router.get("/", authMiddleware, getAllEmailCampaigns);
+router.get("/:id", authMiddleware, getCampaignById);
 router.post("/add-leads-to-campaign", authMiddleware, addLeadsToCampaign);
 router.post("/add-sequence-to-campaign", authMiddleware, addSequenceToCampaign);
 router.post("/add-email-campaign-settings", authMiddleware, addEmailCampaignSettings);

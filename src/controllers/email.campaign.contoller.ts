@@ -338,8 +338,11 @@ export const addEmailCampaignSettings = async (
   }
 };
 
-export const getAllEmailCampaigns = async (req: Request, res: Response): Promise<any> => {
+export const getAllEmailCampaigns = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
   try {
+
+    const user = req.user;
+
     const campaignId = req.query.campaign_id
       ? String(req.query.campaign_id)
       : undefined;
@@ -351,7 +354,11 @@ export const getAllEmailCampaigns = async (req: Request, res: Response): Promise
       res.status(200).json({ code: 200, data, message: "success" });
     } else {
       let data = await prisma.campaign.findMany({
+        where: {
+          orgId: user?.orgId
+        },
         select: {
+          id: true,
           campaignName: true,
           createdAt: true,
           sequencesIds: true,
@@ -372,6 +379,58 @@ export const getAllEmailCampaigns = async (req: Request, res: Response): Promise
       }));
       res.status(200).json({ code: 200, data, message: "success" });
     }
+  } catch (err) {
+    console.error("Error fetching email campaigns:", err);
+    res
+      .status(500)
+      .json({ code: 500, message: "Error fetching email campaigns" });
+  }
+};
+
+export const getCampaignById = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+
+    const campaignId = req.params.id
+      ? String(req.params.id)
+      : undefined;
+
+    let campaignDetails = await prisma.campaign.findUnique({
+      where: {
+        id: campaignId
+      },
+      include: {
+        sequences: {
+          orderBy: {
+            seq_number: 'asc'
+          }
+        },
+        email_campaign_settings: true,
+        emailCampaigns: {
+          where: {
+            campaignId: campaignId
+          },
+          include: {
+            contact: true
+          }
+        }
+      }
+    });
+
+    let contacts = campaignDetails?.emailCampaigns?.map(ec => ec.contact) || [];
+    let sender_accounts = campaignDetails?.email_campaign_settings?.[0]?.sender_accounts || [];
+    let sequences = campaignDetails?.sequences || [];
+    let campaign_settings = campaignDetails?.email_campaign_settings?.[0]?.campaign_settings || {};
+    let campaign_schedule = campaignDetails?.email_campaign_settings?.[0]?.campaign_schedule || {};
+    let campaign = {
+      id: campaignDetails?.id,
+      contacts,
+      sender_accounts,
+      sequences,
+      campaign_settings,
+      campaign_schedule
+    };
+
+    res.status(200).json({ code: 200, campaign: campaign, message: "success" });
   } catch (err) {
     console.error("Error fetching email campaigns:", err);
     res
@@ -481,14 +540,14 @@ export const getEmailCampaignsBySender = async (req: Request, res: Response): Pr
       return res.status(400).json({ code: 400, message: "sender_account_id is required" });
     }
     const campaigns = await prisma.$queryRaw<
-    Array<{
-      campaign_id: string;
-      campaign_name: string;
-      campaign_status: string;
-      sender_accounts: any[];
-      created_at: Date;
-    }>
-  >`
+      Array<{
+        campaign_id: string;
+        campaign_name: string;
+        campaign_status: string;
+        sender_accounts: any[];
+        created_at: Date;
+      }>
+    >`
     SELECT
       c.id AS campaign_id,
       c."campaignName" AS campaign_name,  --  Use double quotes
@@ -500,11 +559,8 @@ export const getEmailCampaignsBySender = async (req: Request, res: Response): Pr
     LATERAL unnest(ecs.sender_accounts) AS sa
     WHERE sa->>'account_id' = ${accountId}
   `;
-  
-  
-  
-    res.status(200).json({ code: 200, campaigns,message: "success" });
-  } catch (err:any) {
+    res.status(200).json({ code: 200, campaigns, message: "success" });
+  } catch (err: any) {
     console.error("Error fetching email campaigns:", err);
     res.status(500).json({ code: 500, message: "Error fetching email campaigns", details: err.message });
   }
