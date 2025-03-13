@@ -6,7 +6,7 @@ const router = Router();
 
 
 router.put('/schedule-campaign',authMiddleware, scheduleEmailCampaign)
-router.get("/", authMiddleware, getAllEmailCampaigns);
+router.get("/", getAllEmailCampaigns);
 router.post("/add-leads-to-campaign", authMiddleware, addLeadsToCampaign);
 router.post("/add-sequence-to-campaign", authMiddleware, addSequenceToCampaign);
 router.post("/add-email-campaign-settings", authMiddleware, addEmailCampaignSettings);

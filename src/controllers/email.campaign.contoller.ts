@@ -352,6 +352,7 @@ export const getAllEmailCampaigns = async (req: Request, res: Response): Promise
     } else {
       let data = await prisma.campaign.findMany({
         select: {
+          id:true,
           campaignName: true,
           createdAt: true,
           sequencesIds: true,
