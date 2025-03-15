@@ -55,27 +55,56 @@ export const deleteImageFromS3 = async (fileName: string) => {
     }
 };
 
-export const uploadCSVToS3 = async (file: Express.Multer.File): Promise<string> => {
-    try {
-        if (!file || !file.buffer) {
-            throw new Error("No file buffer provided");
-        }
-
-        const fileName = `csvFiles/${Date.now()}-${file.originalname.replace(/\s/g, "_")}`;
-
-        const params: S3.PutObjectRequest = {
-            Bucket: bucket_name,
-            Key: fileName,
-            Body: file.buffer,
-            ContentType: file.mimetype,
-        };
-
-        const uploadResult = await s3Conifg.upload(params).promise();
-        return uploadResult.Location;
-
-    } catch (error) {
-        console.error("S3 Upload Error:", error);
-        throw new Error("File upload failed");
+export const uploadCSVToS3 = async (
+  campaignId: string,
+  file: Express.Multer.File
+): Promise<string> => {
+  try {
+    if (!file || !file.buffer) {
+      throw new Error("No file buffer provided");
     }
+
+    const folderPath = `csvFiles/${campaignId}/`;
+
+    // **Step 1: Check if CSV exists**
+    const listParams: AWS.S3.ListObjectsV2Request = {
+      Bucket: bucket_name,
+      Prefix: folderPath, // Look for files in the campaign's folder
+    };
+
+    const listedObjects = await s3Conifg.listObjectsV2(listParams).promise();
+
+    if (listedObjects.Contents && listedObjects.Contents.length > 0) {
+      // **Step 2: Delete existing CSV files**
+      const deleteParams: AWS.S3.DeleteObjectsRequest = {
+        Bucket: bucket_name,
+        Delete: {
+          Objects: listedObjects.Contents.map((obj) => ({ Key: obj.Key! })),
+        },
+      };
+
+      await s3Conifg.deleteObjects(deleteParams).promise();
+      console.log(`Deleted existing CSV files for campaign ${campaignId}`);
+    }
+
+    // **Step 3: Upload the new CSV file**
+    const fileName = `${folderPath}${Date.now()}-${file.originalname.replace(/\s/g, "_")}`;
+
+    const uploadParams: AWS.S3.PutObjectRequest = {
+      Bucket: bucket_name,
+      Key: fileName,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    };
+
+    const uploadResult = await s3Conifg.upload(uploadParams).promise();
+    console.log(`Uploaded new CSV: ${uploadResult.Key}`);
+
+    return uploadResult.Key;
+  } catch (error) {
+    console.error("S3 Upload Error:", error);
+    throw new Error("File upload failed");
+  }
 };
+
 

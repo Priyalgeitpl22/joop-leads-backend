@@ -3,8 +3,9 @@ import { PrismaClient, User } from "@prisma/client";
 import multer from "multer";
 import { Readable } from "stream";
 import csv from "csv-parser";
-import { uploadCSVToS3 } from "../aws/imageUtils";
+import { getPresignedUrl, uploadCSVToS3 } from "../aws/imageUtils";
 import { isValidEmail } from "../utils/email.utils";
+import { CsvFile } from "../interfaces";
 
 const prisma = new PrismaClient();
 const upload = multer({ storage: multer.memoryStorage() }).single("csvFile");
@@ -36,13 +37,14 @@ export const addLeadsToCampaign = async (req: AuthenticatedRequest, res: Respons
       const campaign = await prisma.campaign.create({
         data: {
           orgId: user.orgId,
-          campaignName: "new_campaign",
+          campaignName: "Untitled Campaign",
           status: "DRAFT",
         },
       });
 
-      const csvFile = req.file;
-      const csvFileLocation = await uploadCSVToS3(csvFile);
+      const csvFileName = req.file.originalname;
+
+      const csvFileLocation = await uploadCSVToS3(campaign.id, req.file);
 
       const csvSettings = typeof req.body.CSVsettings === "string"
         ? JSON.parse(req.body.CSVsettings)
@@ -149,7 +151,15 @@ export const addLeadsToCampaign = async (req: AuthenticatedRequest, res: Respons
             where: { id: campaign.id },
             data: {
               csvSettings: csvSettings,
-              csvFile: csvFileLocation,
+              csvFile: { csvFileLocation: csvFileLocation, fileName: csvFileName },
+              counts: {
+                duplicateCount,
+                blockedCount,
+                emptyCount,
+                invalidCount,
+                unsubscribedCount,
+                uploadedCount: insertedContacts.length,
+              },
             },
           });
 
@@ -421,13 +431,29 @@ export const getCampaignById = async (req: AuthenticatedRequest, res: Response):
     let sequences = campaignDetails?.sequences || [];
     let campaign_settings = campaignDetails?.email_campaign_settings?.[0]?.campaign_settings || {};
     let campaign_schedule = campaignDetails?.email_campaign_settings?.[0]?.campaign_schedule || {};
+
+    let csv_file;
+    if (
+      campaignDetails?.csvFile &&
+      typeof campaignDetails.csvFile === "object"
+    ) {
+      const csvFileData = campaignDetails.csvFile as unknown as CsvFile;
+      csv_file = await getPresignedUrl(csvFileData.csvFileLocation);
+    }
+
+    const csv_detials = campaignDetails?.csvFile as unknown as CsvFile;
+    
+    console.log(csv_file);
+
     let campaign = {
       id: campaignDetails?.id,
+      createdAt: campaignDetails?.createdAt,
       contacts,
       sender_accounts,
       sequences,
       campaign_settings,
-      campaign_schedule
+      campaign_schedule,
+      csv_file: {...csv_detials, csv_file, uploadedAt: campaignDetails?.createdAt, uploadCounts: campaignDetails?.counts}
     };
 
     res.status(200).json({ code: 200, campaign: campaign, message: "success" });

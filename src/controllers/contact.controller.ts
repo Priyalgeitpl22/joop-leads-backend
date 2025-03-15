@@ -283,7 +283,7 @@ export const createCampaignWithContacts = async (
     const campaign = await prisma.campaign.create({
       data: {
         orgId: user.orgId,
-        campaignName: "new_campaign",
+        campaignName: "Untitled Campaign",
         status: "DRAFT",
       },
     });

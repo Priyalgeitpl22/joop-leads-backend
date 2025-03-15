@@ -68,3 +68,8 @@ export interface Account {
   proxy: null,
   smtpEhloName: "localhost",
 }
+
+export interface CsvFile {
+  fileName: string;
+  csvFileLocation: string;
+}

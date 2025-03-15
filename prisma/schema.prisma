@@ -94,7 +94,8 @@ model Campaign {
   orgId                      String // Foreign key for Organization
   campaignName               String
   csvSettings                Json?
-  csvFile                    String?
+  csvFile                    Json?
+  counts                     Json?
   schedule                   Json?
   contacts                   String[]
   sequencesIds               String[]
