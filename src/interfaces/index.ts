@@ -73,3 +73,28 @@ export interface CsvFile {
   fileName: string;
   csvFileLocation: string;
 }
+
+export interface EmailAccount {
+  type: "gmail" | "outlook" | "imap";
+  email: string;
+  account_id: string;
+  oauth2: {
+    authorize: boolean;
+    clientId: string;
+    clientSecret: string;
+    tokens: {
+      access_token: string;
+      refresh_token: string;
+      expiry_date: any;
+      expires_in: any;
+      scope: string;
+      token_type: string;
+    }
+  },
+  smtp?: {
+    host: string;
+    port: number;
+    secure: boolean;
+    auth: { user: string; pass: string };
+  };
+}

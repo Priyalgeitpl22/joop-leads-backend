@@ -214,10 +214,10 @@ export const deactivateContacts = async (req: Request, res: Response) => {
     res.status(500).json({ code: 500, message: "Error fetching contacts" });
   }
 };
-export const searchContacts = async (req: any, res: any) => {
+export const searchContacts = async (req: AuthenticatedRequest, res: any) => {
   try {
     const { first_name, email } = req.query;
-
+    const user = req.user;
     const filters: any = {};
     if (first_name) {
       filters.first_name = { contains: first_name, mode: "insensitive" };
@@ -227,7 +227,7 @@ export const searchContacts = async (req: any, res: any) => {
     }
 
     const data = await prisma.contact.findMany({
-      where: filters,
+      where: {...filters, orgId: user?.orgId},
     });
 
     res.status(200).json({

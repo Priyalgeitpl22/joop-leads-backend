@@ -34,16 +34,32 @@ export const addLeadsToCampaign = async (req: AuthenticatedRequest, res: Respons
         return res.status(400).json({ code: 400, message: "emailFieldsToBeAdded is required" });
       }
 
-      const campaign = await prisma.campaign.create({
-        data: {
-          orgId: user.orgId,
-          campaignName: "Untitled Campaign",
-          status: "DRAFT",
-        },
-      });
+      const campaignId = req.body.campaignId ? String(req.body.campaignId) : null;
+      let campaign;
+
+      if (campaignId) {
+        campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
+
+        if (!campaign) {
+          return res.status(404).json({ code: 404, message: "Campaign not found" });
+        }
+      } else {
+        campaign = await prisma.campaign.create({
+          data: {
+            orgId: user.orgId,
+            campaignName: "Untitled Campaign",
+            status: "DRAFT",
+          },
+        });
+
+        await prisma.campaignAnalytics.create({
+          data: {
+            campaignId: campaign.id,
+          },
+        });
+      }
 
       const csvFileName = req.file.originalname;
-
       const csvFileLocation = await uploadCSVToS3(campaign.id, req.file);
 
       const csvSettings = typeof req.body.CSVsettings === "string"
@@ -61,7 +77,8 @@ export const addLeadsToCampaign = async (req: AuthenticatedRequest, res: Respons
         blockedCount = 0,
         emptyCount = 0,
         invalidCount = 0,
-        unsubscribedCount = 0;
+        unsubscribedCount = 0,
+        skippedOtherCampaignCount = 0;
 
       stream.on("data", (data) => {
         const jsonData: Record<string, any> = {};
@@ -114,7 +131,29 @@ export const addLeadsToCampaign = async (req: AuthenticatedRequest, res: Respons
                 continue;
               }
 
-              duplicateCount++;
+              // ✅ **Check if the contact already exists in this specific campaign**
+              const existingCampaignContact = await prisma.emailCampaign.findFirst({
+                where: { contactId: existingContact.id, campaignId: campaign.id },
+                select: { id: true },
+              });
+
+              if (existingCampaignContact) {
+                duplicateCount++;
+                continue;
+              }
+
+              // ✅ **Check if the contact exists in any other campaign**
+              if (csvSettings.ignoreDuplicateLeadsInOtherCampaign === 'true') {
+                const otherCampaignContact = await prisma.emailCampaign.findFirst({
+                  where: { contactId: existingContact.id },
+                  select: { id: true },
+                });
+
+                if (otherCampaignContact) {
+                  skippedOtherCampaignCount++;
+                  continue;
+                }
+              }
 
               emailCampaignRecords.push({
                 contactId: existingContact.id,
@@ -124,6 +163,7 @@ export const addLeadsToCampaign = async (req: AuthenticatedRequest, res: Respons
               continue;
             }
 
+            // ✅ **Create new contact if it does not exist**
             const newContact = await prisma.contact.create({
               data: {
                 ...contact,
@@ -141,12 +181,14 @@ export const addLeadsToCampaign = async (req: AuthenticatedRequest, res: Respons
             });
           }
 
+          // ✅ **Bulk insert into `emailCampaign` table**
           if (emailCampaignRecords.length > 0) {
             await prisma.emailCampaign.createMany({
               data: emailCampaignRecords,
             });
           }
 
+          // ✅ **Update campaign metadata**
           await prisma.campaign.update({
             where: { id: campaign.id },
             data: {
@@ -158,13 +200,14 @@ export const addLeadsToCampaign = async (req: AuthenticatedRequest, res: Respons
                 emptyCount,
                 invalidCount,
                 unsubscribedCount,
-                uploadedCount: insertedContacts.length,
+                uploadedCount: emailCampaignRecords.length,
+                skippedOtherCampaignCount,
               },
             },
           });
 
           return res.status(200).json({
-            message: "File uploaded and contacts saved successfully",
+            message: campaignId ? "Campaign updated successfully" : "File uploaded and contacts saved successfully",
             campaignId: campaign.id,
             counts: {
               duplicateCount,
@@ -172,7 +215,8 @@ export const addLeadsToCampaign = async (req: AuthenticatedRequest, res: Respons
               emptyCount,
               invalidCount,
               unsubscribedCount,
-              uploadedCount: insertedContacts.length,
+              uploadedCount: emailCampaignRecords.length,
+              skippedOtherCampaignCount,
             },
             code: 200,
           });
@@ -442,7 +486,7 @@ export const getCampaignById = async (req: AuthenticatedRequest, res: Response):
     }
 
     const csv_detials = campaignDetails?.csvFile as unknown as CsvFile;
-    
+
     console.log(csv_file);
 
     let campaign = {
@@ -453,7 +497,7 @@ export const getCampaignById = async (req: AuthenticatedRequest, res: Response):
       sequences,
       campaign_settings,
       campaign_schedule,
-      csv_file: {...csv_detials, csv_file, uploadedAt: campaignDetails?.createdAt, uploadCounts: campaignDetails?.counts}
+      csv_file: { ...csv_detials, csv_file, uploadedAt: campaignDetails?.createdAt, uploadCounts: campaignDetails?.counts }
     };
 
     res.status(200).json({ code: 200, campaign: campaign, message: "success" });
@@ -506,17 +550,47 @@ export const getAllSequences = async (req: Request, res: Response) => {
   }
 };
 
+export const getAllContacts = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const campaignId = req.params.campaign_id
+      ? String(req.params.campaign_id)
+      : undefined;
+
+    const data = await prisma.emailCampaign.findMany({
+      where: { campaignId: campaignId },
+      include: { contact: true }, // Ensure contacts are included
+    });
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ code: 404, message: "No contacts found" });
+    }
+
+    // Extract all contacts from the campaigns
+    const contacts = data.flatMap((campaign) => campaign.contact);
+
+    res.status(200).json({
+      code: 200,
+      data: contacts, // Send only contacts
+      total: contacts.length,
+      message: "Success",
+    });
+  } catch (err) {
+    console.error("Error fetching contacts:", err);
+    res.status(500).json({ code: 500, message: "Error fetching contacts" });
+  }
+};
+
 export const searchEmailCampaigns = async (req: any, res: any) => {
   try {
-    const { campaign_name } = req.query;
-    if (!campaign_name) {
+    const { query } = req.query;
+    if (!query) {
       return res
         .status(400)
         .json({ code: 400, message: "Campaign name is required" });
     }
 
     const data = await prisma.campaign.findMany({
-      where: { campaignName: { contains: campaign_name, mode: "insensitive" } },
+      where: { campaignName: { contains: query, mode: "insensitive" } },
     });
 
     res.status(200).json({

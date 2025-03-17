@@ -107,6 +107,7 @@ model Campaign {
   emailCampaigns             EmailCampaign[]
   organization               Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
   EmailTriggerLog            EmailTriggerLog[]
+  CampaignAnalytics          CampaignAnalytics[]
 }
 
 model EmailCampaign {
@@ -163,4 +164,17 @@ model EmailTriggerLog {
 
   campaign Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   sequence Sequences @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+}
+
+model CampaignAnalytics {
+  id                    String   @id @default(uuid())
+  campaignId            String
+  createdAt             DateTime  @default(now())
+  opened_count          Int       @default(1)
+  clicked_count         Int       @default(1)
+  replied_count         Int       @default(1)
+  positive_reply_count  Int       @default(1)
+  bounced_count         Int       @default(1)
+
+  campaign Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 }

@@ -1,40 +1,13 @@
 import cron from "node-cron";
 import { PrismaClient } from "@prisma/client";
 import nodemailer from "nodemailer";
-import { Sequence } from "../interfaces";
+import { EmailAccount, Sequence } from "../interfaces";
 import { DateTime } from "luxon"; // Use Luxon for better timezone handling
+import { sendEmail } from "./sendMail";
 
 // Get current time in UTC
 const nowUTC = DateTime.utc();
 const prisma = new PrismaClient();
-
-const sendEmail = async (orgId: string, senderAccount: any, email: string, subject: string, body: string) => {
-  try {
-    const org = await prisma.organization.findUnique({
-      where: {
-        id: orgId
-      }
-    })
-
-    const transporter = nodemailer.createTransport({
-      service: "Gmail",
-      auth: {
-        user: senderAccount.user,
-        pass: senderAccount.pass,
-      },
-    });
-
-    await transporter.sendMail({
-      from: `${org?.name}" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject,
-      html: body,
-    });
-    console.log(`✅ Email sent to ${email}`);
-  } catch (error) {
-    console.error(`❌ Failed to send email to ${email}:`, error);
-  }
-};
 
 cron.schedule("*/1 * * * *", async () => {
   console.log("🔄 Running campaign email cron job...");
@@ -49,7 +22,7 @@ cron.schedule("*/1 * * * *", async () => {
       },
     });
 
-    console.log("campaigns",campaigns)
+    console.log("campaigns", campaigns)
 
     const eligibleCampaigns = campaigns.filter((campaign) => {
       const schedule = campaign.email_campaign_settings?.[0]?.campaign_schedule as any;
@@ -74,13 +47,18 @@ cron.schedule("*/1 * * * *", async () => {
         const nowUTC = new Date();
 
         const isStarted = nowUTC >= campaignStartTime;
-        const isCorrectDay = selectedDays.includes(nowUTC.getUTCDay());
+        const currentDay = nowUTC.getUTCDay() === 0 ? 7 : nowUTC.getUTCDay();
+        let isCorrectDay;
+
+        if (selectedDays.length > 0) {
+          isCorrectDay = selectedDays.includes(currentDay);
+        } else if (selectedDays.length === 0){
+          isCorrectDay = true;
+        }
+
         console.log("nowUTC -->>", nowUTC);
         console.log("campaignEnd -->>", campaignEnd);
-
-
-
-        console.log("isStarted -->>", isStarted );
+        console.log("isStarted -->>", isStarted);
         console.log("isCorrectDay -->>", isCorrectDay);
 
         return isStarted && isCorrectDay;
@@ -90,8 +68,7 @@ cron.schedule("*/1 * * * *", async () => {
       }
     });
 
-    // console.log(`✅ Found ${eligibleCampaigns.length} eligible campaigns.`);
-
+    console.log(`✅ Found ${eligibleCampaigns.length} eligible campaigns.`);
     console.log("eligibleCampaigns", eligibleCampaigns);
 
     for (const campaign of eligibleCampaigns) {
@@ -121,28 +98,32 @@ cron.schedule("*/1 * * * *", async () => {
           const lastSentTime = DateTime.fromJSDate(lastSent.createdAt).toUTC();
           const nowUTC = DateTime.utc();
 
-        if (lastSentTime.plus({ days: 1 }) > nowUTC) {
+          if (lastSentTime.plus({ days: 1 }) > nowUTC) {
             console.log(
               `⏳ Skipping email to ${contact.email} - waiting period not over.`
             );
-            
           }
-        
+          continue;
         }
-    
-       
 
         if (!nextSequence) {
-          console.log(`✅ No further sequences for ${contact.email} in campaign ${campaign.id}`);
+          await prisma.campaign.update({
+            where: { id: campaign.id },
+            data: {
+              status: 'COMPLETED',
+            },
+          });
+
+          console.log(`✅ No further sequences for ${contact.email} in campaign ${campaign.campaignName}`);
           continue;
         }
 
         const subject = nextSequence.seq_variants[0].subject || `Your Campaign: ${campaign.campaignName}`;
         const body = nextSequence.seq_variants[0].emailBody || `<p>Hi ${contact.first_name},</p><p>test email</p>`;
 
-        const senderAccount = campaign.email_campaign_settings[0].sender_accounts[0];
+        const senderAccount = campaign.email_campaign_settings?.[0]?.sender_accounts?.[0] as unknown as EmailAccount;
 
-        await sendEmail(campaign.orgId, senderAccount, contact.email, subject, body);
+        await sendEmail(campaign.id, campaign.orgId, senderAccount, contact.email, subject, body);
 
         await prisma.emailTriggerLog.create({
           data: {
