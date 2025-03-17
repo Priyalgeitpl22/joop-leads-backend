@@ -98,12 +98,15 @@ const sendEmailFromGoogle = async (
     account.oauth2.tokens.access_token = access_token;
   }
 
+  const trackingId = `${campaignId}_${toEmail}_${Date.now()}`;
+  const trackingPixelUrl = `${process.env.SERVER_URL}/email-campaign/track-email/${trackingId}`;
+
   const emailContent =
-    `From: "${fromName}" <${fromEmail}>\r\n` + // FIX: Properly formatted sender
+    `From: "${fromName}" <${fromEmail}>\r\n` +
     `To: <${toEmail}>\r\n` +
     `Subject: ${subject}\r\n` +
     `Content-Type: text/html; charset="UTF-8"\r\n\r\n` +
-    body;
+    `${body} <img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" />`;
 
   const encodedMessage = Buffer.from(emailContent)
     .toString("base64")
@@ -118,12 +121,11 @@ const sendEmailFromGoogle = async (
       { headers: { Authorization: `Bearer ${access_token}`, "Content-Type": "application/json" } }
     );
 
-    console.log(`✅ Google Email Sent to ${toEmail}`);
+    console.log(`✅ Google Email Sent to ${toEmail}, Tracking ID: ${trackingId}`);
     return response.data;
   } catch (error: any) {
-    incrementCampaignCount(campaignId, 'bounced_count');
-    console.error("❌ Google Email Error: Failed to send email to ", toEmail);
-    // throw new Error(`Failed to send email via Google: ${error.response?.data?.error || error.message}`);
+    incrementCampaignCount(campaignId, "bounced_count");
+    console.error("❌ Google Email Error: Failed to send email to", toEmail);
   }
 };
 
