@@ -707,3 +707,35 @@ export const deleteCampaign = async (
       });
   }
 };
+export const searchAccountInContacts = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { campaign_id } = req.query;
+    const { email } = req.query;
+    if (!campaign_id) {
+      return res.status(400).json({ code: 400, message: "Campaign ID is required" });
+    }
+    const contacts = await prisma.emailCampaign.findMany({
+      where: { campaignId: String(campaign_id) },
+      include: { contact: true },
+    });
+    if (!contacts || contacts.length === 0) {
+      return res.status(404).json({ code: 404, message: "No contacts found for this campaign" });
+    }
+    let contactList = contacts.map((c) => c.contact);
+    if (email) {
+      contactList = contactList.filter((contact) => contact.email?.toLowerCase().includes(String(email).toLowerCase()));
+    }
+    if (contactList.length === 0) {
+      return res.status(404).json({ code: 404, message: "No matching contacts found" });
+    }
+    res.status(200).json({
+      code: 200,
+      data: contactList,
+      total: contactList.length,
+      message: "Success",
+    });
+  } catch (err) {
+    console.error("Error searching contacts:", err);
+    res.status(500).json({ code: 500, message: "Error searching contacts" });
+  }
+};

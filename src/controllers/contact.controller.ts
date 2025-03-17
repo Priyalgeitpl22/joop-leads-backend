@@ -311,3 +311,22 @@ export const createCampaignWithContacts = async (
     });
   }
 };
+
+export const deleteContact = async (req: Request, res: Response) => {
+  try {
+    const { contactId } = req.params;
+    const contact = await prisma.contact.findUnique({
+      where: { id: contactId },
+    });
+    if (!contact) {
+      res.status(404).json({ message: "Contact not found" });
+    }
+    await prisma.contact.delete({
+      where: { id: contactId },
+    });
+    res.status(200).json({ message: "Contact deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting contact:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
