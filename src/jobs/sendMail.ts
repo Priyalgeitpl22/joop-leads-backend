@@ -91,28 +91,33 @@ const sendEmailFromGoogle = async (
   if (!toEmail) throw new Error("Recipient email is required!");
 
   let { access_token, expiry_date } = account.oauth2.tokens;
-
   if (!access_token || isTokenExpired(expiry_date)) {
     console.log("🔄 Google token expired, refreshing...");
     access_token = await refreshGoogleOAuthToken(account);
     account.oauth2.tokens.access_token = access_token;
   }
 
-  const trackingId = `${campaignId}_${toEmail}_${Date.now()}`;
-  const trackingPixelUrl = `${process.env.SERVER_URL}/email-campaign/track-email/${trackingId}`;
+  const trackingId = `${campaignId}_${toEmail}`;
+  const trackingPixelUrl = `${process.env.SERVER_URL}/track/track-email/${trackingId}/opened_count`;
 
-  const emailContent =
+  // http://localhost:5003/api/track/track-email/683c0b4a-8772-44d8-95b9-4b26d2756058_muskan.t@goldeneagle.ai_1742230501149/clicked_count
+  console.log(trackingPixelUrl);
+  const emailContent = `
+    <html>
+      <body>
+        ${body}
+        <img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" />
+      </body>
+    </html>
+  `;
+
+  const encodedMessage = Buffer.from(
     `From: "${fromName}" <${fromEmail}>\r\n` +
     `To: <${toEmail}>\r\n` +
     `Subject: ${subject}\r\n` +
     `Content-Type: text/html; charset="UTF-8"\r\n\r\n` +
-    `${body} <img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" />`;
-
-  const encodedMessage = Buffer.from(emailContent)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, ""); // Fix padding issues
+    emailContent
+  ).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
   try {
     const response = await axios.post(

@@ -1,12 +1,9 @@
 import cron from "node-cron";
 import { PrismaClient } from "@prisma/client";
-import nodemailer from "nodemailer";
 import { EmailAccount, Sequence } from "../interfaces";
-import { DateTime } from "luxon"; // Use Luxon for better timezone handling
+import { DateTime } from "luxon";
 import { sendEmail } from "./sendMail";
 
-// Get current time in UTC
-const nowUTC = DateTime.utc();
 const prisma = new PrismaClient();
 
 cron.schedule("*/1 * * * *", async () => {
@@ -21,8 +18,6 @@ cron.schedule("*/1 * * * *", async () => {
         emailCampaigns: { include: { contact: true } },
       },
     });
-
-    console.log("campaigns", campaigns)
 
     const eligibleCampaigns = campaigns.filter((campaign) => {
       const schedule = campaign.email_campaign_settings?.[0]?.campaign_schedule as any;
@@ -56,11 +51,6 @@ cron.schedule("*/1 * * * *", async () => {
           isCorrectDay = true;
         }
 
-        console.log("nowUTC -->>", nowUTC);
-        console.log("campaignEnd -->>", campaignEnd);
-        console.log("isStarted -->>", isStarted);
-        console.log("isCorrectDay -->>", isCorrectDay);
-
         return isStarted && isCorrectDay;
       } catch (error) {
         console.error(`❌ Error checking campaign ${campaign.id}:`, error);
@@ -69,7 +59,6 @@ cron.schedule("*/1 * * * *", async () => {
     });
 
     console.log(`✅ Found ${eligibleCampaigns.length} eligible campaigns.`);
-    console.log("eligibleCampaigns", eligibleCampaigns);
 
     for (const campaign of eligibleCampaigns) {
       for (const emailCampaign of campaign.emailCampaigns) {

@@ -54,11 +54,11 @@ export const addLeadsToCampaign = async (req: AuthenticatedRequest, res: Respons
           },
         });
 
-        await prisma.campaignAnalytics.create({
-          data: {
-            campaignId: campaign.id,
-          },
-        });
+        // await prisma.campaignAnalytics.create({
+        //   data: {
+        //     campaignId: campaign.id,
+        //   },
+        // });
       }
 
       const csvFileName = req.file.originalname;
@@ -705,30 +705,5 @@ export const deleteCampaign = async (
         message: "Error deleting campaign",
         details: error.message,
       });
-  }
-};
-
-export const trackEmail = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const trackingId = req.params.trackingId;
-    console.log(`📩 Email opened! Tracking ID: ${trackingId}`);
-
-    // Log the tracking event
-    const logMessage = `Opened: ${trackingId} - ${new Date().toISOString()}\n`;
-    fs.appendFileSync("email_tracking.log", logMessage);
-
-    // Send a transparent image for tracking
-    const imagePath = path.join(__dirname, "transparent.png");
-    if (!fs.existsSync(imagePath)) {
-      return res.status(404).json({ code: 404, message: "Tracking image not found" });
-    }
-    res.sendFile(imagePath);
-  } catch (error: any) {
-    console.error("Error tracking email:", error);
-    res.status(500).json({
-      code: 500,
-      message: "Error tracking email",
-      details: error.message,
-    });
   }
 };
