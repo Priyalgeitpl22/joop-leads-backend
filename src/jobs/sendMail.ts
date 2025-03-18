@@ -98,14 +98,28 @@ const sendEmailFromGoogle = async (
   }
 
   const trackingId = `${campaignId}_${toEmail}`;
-  const trackingPixelUrl = `${process.env.SERVER_URL}/track/track-email/${trackingId}/opened_count`;
+  const baseUrl = process.env.SERVER_URL || "http://localhost:5003/api";
 
-  // http://localhost:5003/api/track/track-email/683c0b4a-8772-44d8-95b9-4b26d2756058_muskan.t@goldeneagle.ai_1742230501149/clicked_count
-  console.log(trackingPixelUrl);
+  // Tracking links
+  const trackingPixelUrl = `${baseUrl}/track/track-email/${trackingId}/opened_count`;
+  const clickTrackingUrl = `${baseUrl}/track/track-email/${trackingId}/clicked_count?redirect=https://goldeneagle.ai/`;
+  const replyTrackingUrl = `mailto:${fromEmail}?subject=Re: ${encodeURIComponent(subject)}&body=Replying to your email`;
+
+  
+  console.log("🔍 Opened Tracking URL:", trackingPixelUrl);
+  console.log("🔍 Click Tracking URL:", clickTrackingUrl);
+  console.log("🔍 Reply Tracking URL:", replyTrackingUrl);
+
+  // Construct email content with tracking
   const emailContent = `
     <html>
       <body>
         ${body}
+        <br/><br/>
+        <a href="${clickTrackingUrl}" target="_blank">Click here</a> to visit.
+        <br/>
+        <a href="${replyTrackingUrl}" target="_blank">Reply</a> to this email.
+        <br/>
         <img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" />
       </body>
     </html>
@@ -117,7 +131,11 @@ const sendEmailFromGoogle = async (
     `Subject: ${subject}\r\n` +
     `Content-Type: text/html; charset="UTF-8"\r\n\r\n` +
     emailContent
-  ).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  )
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 
   try {
     const response = await axios.post(
@@ -130,9 +148,10 @@ const sendEmailFromGoogle = async (
     return response.data;
   } catch (error: any) {
     incrementCampaignCount(campaignId, "bounced_count");
-    console.error("❌ Google Email Error: Failed to send email to", toEmail);
+    console.error("❌ Google Email Error: Failed to send email to", toEmail, error.message);
   }
 };
+
 
 const sendEmailFromMicrosoft = async (campaignId: string, account: EmailAccount, fromName: string, toEmail: string, subject: string, body: string): Promise<any> => {
 
