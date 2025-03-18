@@ -33,6 +33,7 @@ model Organization {
   users       User[]
   contacts    Contact[]
   campaigns   Campaign[]
+  campaign_analytics   CampaignAnalytics[]
 
   createdAt DateTime @default(now())
 }
@@ -169,6 +170,7 @@ model EmailTriggerLog {
 model CampaignAnalytics {
   id                    String   @id @default(uuid())
   campaignId            String
+  orgId                 String
   createdAt             DateTime @default(now())
   sent_count            Int      @default(0)
   opened_count          Int      @default(0)
@@ -178,6 +180,7 @@ model CampaignAnalytics {
   bounced_count         Int      @default(0)
 
   campaign Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  organization       Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([campaignId]) // Ensures campaignId is unique
 }

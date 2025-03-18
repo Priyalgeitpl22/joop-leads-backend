@@ -57,6 +57,7 @@ export const addLeadsToCampaign = async (req: AuthenticatedRequest, res: Respons
         await prisma.campaignAnalytics.create({
           data: {
             campaignId: campaign.id,
+            orgId: user.orgId
           },
         });
       }
@@ -739,5 +740,89 @@ export const searchAccountInContacts = async (req: Request, res: Response): Prom
   } catch (err) {
     console.error("Error searching contacts:", err);
     res.status(500).json({ code: 500, message: "Error searching contacts" });
+  }
+};
+
+export const getDashboardData = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const user = req.user;
+    const total_leads = await prisma.contact.count({
+      where: {
+        orgId: user?.orgId
+      }
+    });
+
+    const analytics_count = await prisma.campaignAnalytics.findMany({
+      where: {
+        orgId: user?.orgId
+      }
+    });
+
+    const total_sent_count = analytics_count.reduce(
+      (sum, campaign) => sum + campaign.sent_count,
+      0
+    );
+
+    const total_bounced_count = analytics_count.reduce(
+      (sum, campaign) => sum + campaign.bounced_count,
+      0
+    );
+
+    const total_running_campaigns = await prisma.campaign.count({
+      where: {
+        orgId: user?.orgId,
+        status: 'RUNNING'
+      }
+    });
+
+    const total_completed_campaigns = await prisma.campaign.count({
+      where: {
+        orgId: user?.orgId,
+        status: 'COMPLETED'
+      }
+    });
+
+    const total_drafted_campaigns = await prisma.campaign.count({
+      where: {
+        orgId: user?.orgId,
+        status: 'DRAFT'
+      }
+    });
+
+    const total_scheduled_campaigns = await prisma.campaign.count({
+      where: {
+        orgId: user?.orgId,
+        status: 'SCHEDULED'
+      }
+    });
+
+    const total_paused_campaigns = await prisma.campaign.count({
+      where: {
+        orgId: user?.orgId,
+        status: 'PAUSED'
+      }
+    });
+
+    const data = {
+      total_leads,
+      total_sent_count,
+      total_bounced_count,
+      total_running_campaigns,
+      total_completed_campaigns,
+      total_drafted_campaigns,
+      total_scheduled_campaigns,
+      total_paused_campaigns
+    }
+
+    return res.status(200).json({ code: 200, message: "Campaign deleted successfully", data: data });
+  } catch (error: any) {
+    console.error("Error deleting campaign:", error);
+    return res
+      .status(500)
+      .json({
+        code: 500,
+        message: "Error deleting campaign",
+        details: error.message,
+      });
   }
 };
