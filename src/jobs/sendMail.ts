@@ -139,7 +139,7 @@ const sendEmailFromGoogle = async (
       { headers: { Authorization: `Bearer ${access_token}`, "Content-Type": "application/json" } }
     );
 
-    incrementCampaignCount(campaignId, "clicked_count");
+    incrementCampaignCount(campaignId, "sent_count");
     console.log(`✅ Google Email Sent to ${toEmail}, Tracking ID: ${trackingId}`);
     return response.data;
   } catch (error: any) {

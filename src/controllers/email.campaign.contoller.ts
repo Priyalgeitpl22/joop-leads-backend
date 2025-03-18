@@ -423,6 +423,7 @@ export const getAllEmailCampaigns = async (req: AuthenticatedRequest, res: Respo
           csvFile: true,
           schedule: true,
           status: true,
+          CampaignAnalytics: true
         },
         orderBy: {
           createdAt: "desc",
@@ -432,6 +433,7 @@ export const getAllEmailCampaigns = async (req: AuthenticatedRequest, res: Respo
       data = data.map((campaign) => ({
         ...campaign,
         sequence_count: campaign.sequencesIds.length,
+        analytics_count: campaign.CampaignAnalytics[0]
       }));
       res.status(200).json({ code: 200, data, message: "success" });
     }
@@ -460,6 +462,7 @@ export const getCampaignById = async (req: AuthenticatedRequest, res: Response):
             seq_number: 'asc'
           }
         },
+        CampaignAnalytics: true,
         email_campaign_settings: true,
         emailCampaigns: {
           where: {
@@ -489,14 +492,13 @@ export const getCampaignById = async (req: AuthenticatedRequest, res: Response):
 
     const csv_detials = campaignDetails?.csvFile as unknown as CsvFile;
 
-    console.log(csv_file);
-
     let campaign = {
       id: campaignDetails?.id,
       createdAt: campaignDetails?.createdAt,
       contacts,
       sender_accounts,
       sequences,
+      analytics_count: campaignDetails?.CampaignAnalytics[0],
       campaign_settings,
       campaign_schedule,
       csv_file: { ...csv_detials, csv_file, uploadedAt: campaignDetails?.createdAt, uploadCounts: campaignDetails?.counts }
