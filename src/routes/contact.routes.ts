@@ -4,7 +4,7 @@ import { createCampaignWithContacts, createContact, deactivateContacts, deleteCo
 
 const router = Router();
 
-router.delete("/:contactId", deleteContact);
+router.delete("/delete-contact", deleteContact);
 router.get('/search-contacts', searchContacts)
 router.get("/all-contacts", authMiddleware, getallContacts);
 router.patch('/deactivate', deactivateContacts);

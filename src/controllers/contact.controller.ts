@@ -216,18 +216,17 @@ export const deactivateContacts = async (req: Request, res: Response) => {
 };
 export const searchContacts = async (req: AuthenticatedRequest, res: any) => {
   try {
-    const { first_name, email } = req.query;
+    const { query } = req.query;
     const user = req.user;
-    const filters: any = {};
-    if (first_name) {
-      filters.first_name = { contains: first_name, mode: "insensitive" };
-    }
-    if (email) {
-      filters.email = { contains: email, mode: "insensitive" };
-    }
 
     const data = await prisma.contact.findMany({
-      where: {...filters, orgId: user?.orgId},
+      where: {
+        OR: [
+          { email: { contains: query as string, mode: "insensitive" } },
+          { first_name: { contains: query as string, mode: "insensitive" } },
+        ],
+        orgId: user?.orgId,
+      },
     });
 
     res.status(200).json({
@@ -314,17 +313,26 @@ export const createCampaignWithContacts = async (
 
 export const deleteContact = async (req: Request, res: Response) => {
   try {
-    const { contactId } = req.params;
-    const contact = await prisma.contact.findUnique({
-      where: { id: contactId },
+    const contactIds = req.body.contactIds as string[];
+    const contact = await prisma.contact.findMany({
+      where: {
+        id: { in: contactIds },
+      },
     });
-    if (!contact) {
-      res.status(404).json({ message: "Contact not found" });
+    if (contact.length == 0) {
+     res.status(404).json({ code: 404, message: "Contacts not found" });
     }
-    await prisma.contact.delete({
-      where: { id: contactId },
+    const deletedContact = await prisma.contact.deleteMany({
+      where: {
+        id: { in: contactIds },
+      },
     });
-    res.status(200).json({ message: "Contact deleted successfully" });
+
+    const customMessage =
+      contact.length === 1
+        ? "Contact deleted successfully"
+        : "Contacts deleted successfully";
+    res.status(200).json({ code: 200, message: customMessage });
   } catch (error) {
     console.error("Error deleting contact:", error);
     res.status(500).json({ message: "Internal server error" });
