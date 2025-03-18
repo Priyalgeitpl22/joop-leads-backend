@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { authMiddleware } from "../middlewares/authMiddleware";
-import { createCampaignWithContacts, createContact, deactivateContacts, getallContacts, getContactsById, searchContacts } from "../controllers/contact.controller";
+import { createCampaignWithContacts, createContact, deactivateContacts, deleteContact, getallContacts, getContactsById, searchContacts } from "../controllers/contact.controller";
 
 const router = Router();
 
+router.delete("/:contactId", deleteContact);
 router.get('/search-contacts', searchContacts)
 router.get("/all-contacts", authMiddleware, getallContacts);
 router.patch('/deactivate', deactivateContacts);
