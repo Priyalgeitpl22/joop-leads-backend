@@ -169,9 +169,9 @@ model EmailTriggerLog {
 model CampaignAnalytics {
   id                    String   @id @default(uuid())
   campaignId            String
-  email                 String
   createdAt             DateTime @default(now())
-  opened_count          Int      @default(0) // Default to 0 instead of 1
+  sent_count            Int      @default(0)
+  opened_count          Int      @default(0)
   clicked_count         Int      @default(0)
   replied_count         Int      @default(0)
   positive_reply_count  Int      @default(0)
@@ -179,6 +179,6 @@ model CampaignAnalytics {
 
   campaign Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
-  @@unique([campaignId, email]) // Ensures each campaign-email pair is unique
+  @@unique([campaignId]) // Ensures campaignId is unique
 }
 

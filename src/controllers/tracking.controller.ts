@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
+import { incrementCampaignCount } from "./analytics.controller";
 
 const prisma = new PrismaClient();
 
@@ -25,23 +26,9 @@ export const trackEvent = async (req: Request, res: Response): Promise<any> => {
     const [campaignId, email] = trackingId.split("_");
     console.log(`🔍 Tracking Event: ${type} for ${email} in campaign ${campaignId}`);
 
-    // Ensure the analytics record exists and update the corresponding count
-    await prisma.campaignAnalytics.upsert({
-      where: { campaignId_email: { campaignId, email } },
-      update: { [type]: { increment: 1 } },
-      create: {
-        campaignId,
-        email,
-        opened_count: 0,
-        clicked_count: 0,
-        replied_count: 0,
-        positive_reply_count: 0,
-        bounced_count: 0,
-        [type]: 1,
-      },
-    });
-
     if (type === "opened_count") {
+      console.log("One email opened")
+      incrementCampaignCount(campaignId, "opened_count");
       const imagePath = path.join(__dirname, "transparent.png");
       if (fs.existsSync(imagePath)) {
         res.setHeader("Content-Type", "image/png");
@@ -53,6 +40,8 @@ export const trackEvent = async (req: Request, res: Response): Promise<any> => {
     }
 
     if (type === "clicked_count" && redirect) {
+      incrementCampaignCount(campaignId, "clicked_count");
+      console.log("One email clicked")
       console.log(`🔀 Redirecting to: ${redirect}`);
       return res.redirect(redirect.toString());
     }

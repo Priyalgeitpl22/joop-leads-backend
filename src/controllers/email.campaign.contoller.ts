@@ -54,11 +54,11 @@ export const addLeadsToCampaign = async (req: AuthenticatedRequest, res: Respons
           },
         });
 
-        // await prisma.campaignAnalytics.create({
-        //   data: {
-        //     campaignId: campaign.id,
-        //   },
-        // });
+        await prisma.campaignAnalytics.create({
+          data: {
+            campaignId: campaign.id,
+          },
+        });
       }
 
       const csvFileName = req.file.originalname;

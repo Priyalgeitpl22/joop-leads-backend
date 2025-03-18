@@ -105,11 +105,6 @@ const sendEmailFromGoogle = async (
   const clickTrackingUrl = `${baseUrl}/track/track-email/${trackingId}/clicked_count?redirect=https://goldeneagle.ai/`;
   const replyTrackingUrl = `mailto:${fromEmail}?subject=Re: ${encodeURIComponent(subject)}&body=Replying to your email`;
 
-  
-  console.log("🔍 Opened Tracking URL:", trackingPixelUrl);
-  console.log("🔍 Click Tracking URL:", clickTrackingUrl);
-  console.log("🔍 Reply Tracking URL:", replyTrackingUrl);
-
   // Construct email content with tracking
   const emailContent = `
     <html>
@@ -144,14 +139,15 @@ const sendEmailFromGoogle = async (
       { headers: { Authorization: `Bearer ${access_token}`, "Content-Type": "application/json" } }
     );
 
+    incrementCampaignCount(campaignId, "clicked_count");
     console.log(`✅ Google Email Sent to ${toEmail}, Tracking ID: ${trackingId}`);
     return response.data;
   } catch (error: any) {
+    console.log("One email counced")
     incrementCampaignCount(campaignId, "bounced_count");
     console.error("❌ Google Email Error: Failed to send email to", toEmail, error.message);
   }
 };
-
 
 const sendEmailFromMicrosoft = async (campaignId: string, account: EmailAccount, fromName: string, toEmail: string, subject: string, body: string): Promise<any> => {
 
