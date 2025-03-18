@@ -6,6 +6,10 @@ import { sendEmail } from "./sendMail";
 
 const prisma = new PrismaClient();
 
+const replaceTemplateVariables = (template: string, variables: any) => {
+  return template.replace(/{{(.*?)}}/g, (_, key) => variables[key.trim()] || "");
+};
+
 cron.schedule("*/1 * * * *", async () => {
   console.log("🔄 Running campaign email cron job...");
 
@@ -47,7 +51,7 @@ cron.schedule("*/1 * * * *", async () => {
 
         if (selectedDays.length > 0) {
           isCorrectDay = selectedDays.includes(currentDay);
-        } else if (selectedDays.length === 0){
+        } else if (selectedDays.length === 0) {
           isCorrectDay = true;
         }
 
@@ -107,8 +111,25 @@ cron.schedule("*/1 * * * *", async () => {
           continue;
         }
 
-        const subject = nextSequence.seq_variants[0].subject || `Your Campaign: ${campaign.campaignName}`;
-        const body = nextSequence.seq_variants[0].emailBody || `<p>Hi ${contact.first_name},</p><p>test email</p>`;
+        const variables = {
+          first_name: contact.first_name,
+          last_name: contact.last_name,
+          email: contact.email,
+          campaign_name: campaign.campaignName,
+          website: contact.website,
+          "day of week": new Date().toLocaleString("en-US", { weekday: "long" }),
+          "time of day": new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }) // e.g., "10:30 AM"
+        };
+
+        const subject = replaceTemplateVariables(
+          nextSequence.seq_variants[0].subject || `Your Campaign: {{campaign_name}}`,
+          variables
+        );
+
+        const body = replaceTemplateVariables(
+          nextSequence.seq_variants[0].emailBody || `<p>Hi {{first_name}},</p><p>test email</p>`,
+          variables
+        );
 
         const senderAccount = campaign.email_campaign_settings?.[0]?.sender_accounts?.[0] as unknown as EmailAccount;
 
