@@ -672,9 +672,29 @@ export const searchEmailCampaigns = async (req: any, res: any) => {
         .json({ code: 400, message: "Campaign name is required" });
     }
 
-    const data = await prisma.campaign.findMany({
-      where: { campaignName: { contains: query, mode: "insensitive" } },
+    let data = await prisma.campaign.findMany({
+      where: {
+        campaignName: { contains: query, mode: "insensitive" },
+      },
+      select: {
+        campaignName: true,
+        id: true,
+        createdAt: true,
+        sequencesIds: true,
+        sequences: true,
+        csvSettings: true,
+        csvFile: true,
+        schedule: true,
+        status: true,
+        CampaignAnalytics: true,
+        EmailTriggerLog: true
+      },
     });
+
+    data = data.map((campaign) => ({
+      ...campaign,
+      analytics_count: campaign.CampaignAnalytics[0]
+    }));
 
     res.status(200).json({
       code: 200,

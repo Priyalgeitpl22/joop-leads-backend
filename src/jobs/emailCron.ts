@@ -115,6 +115,7 @@ cron.schedule("*/1 * * * *", async () => {
 
         const senderAccount = campaign.email_campaign_settings?.[0]?.sender_accounts?.[0] as unknown as EmailAccount;
 
+        if(campaign.status !== 'PAUSED')
         await sendEmail(campaign.id, campaign.orgId, senderAccount, contact.email, subject, body);
 
         await prisma.emailTriggerLog.create({
@@ -128,17 +129,44 @@ cron.schedule("*/1 * * * *", async () => {
         console.log(`📧 Sent sequence ${nextSequence.seq_number} to ${contact.email}`);
       }
 
-      const remainingSequences = await prisma.emailCampaign.findMany({
+      const campaignContacts = await prisma.emailCampaign.findMany({
         where: { campaignId: campaign.id },
         include: { contact: true },
       });
-
-      if (remainingSequences.length === 0) {
+      
+      const campaignTriggerLogs = await prisma.emailTriggerLog.findMany({
+        where: { campaignId: campaign.id },
+      });
+      
+      // Extract unique emails from campaign contacts
+      const campaignContactEmails = campaignContacts.map((contact) => contact.contact.email);
+      
+      // Group trigger logs by email
+      const emailTriggerMap = new Map<string, Set<string>>();
+      campaignTriggerLogs.forEach((log) => {
+        if (!emailTriggerMap.has(log.email)) {
+          emailTriggerMap.set(log.email, new Set());
+        }
+        emailTriggerMap.get(log.email)!.add(log.sequenceId);
+      });
+      
+      // Check if all campaign contacts have completed all sequences
+      const allCompleted = campaignContacts.every((contact) => {
+        const email = contact.contact.email ?? '';
+        const requiredSequences = campaign.sequences
+        const triggeredSequences = emailTriggerMap.get(email) || new Set();
+      
+        return requiredSequences.every((seq) => triggeredSequences.has(seq.id));
+      });
+      
+      if (allCompleted) {
         await prisma.campaign.update({
           where: { id: campaign.id },
           data: { status: "COMPLETED" },
         });
-        console.log(`✅ Campaign ${campaign.id} marked as COMPLETED`);
+        console.log(`✅ Campaign ${campaign.id} marked as COMPLETED.`);
+      } else {
+        console.log(`⏳ Campaign ${campaign.id} still has pending sequences.`);
       }
     }
   } catch (error) {
