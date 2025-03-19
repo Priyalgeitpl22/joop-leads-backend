@@ -15,7 +15,12 @@ cron.schedule("*/1 * * * *", async () => {
 
   try {
     const campaigns = await prisma.campaign.findMany({
-      where: { status: "SCHEDULED" },
+      where: {
+        OR: [
+          { status: "SCHEDULED" },
+          { status: "RUNNING" }
+        ]
+      },
       include: {
         sequences: true,
         email_campaign_settings: true,
@@ -32,28 +37,14 @@ cron.schedule("*/1 * * * *", async () => {
       }
 
       try {
-        const {
-          startDate,
-          startTime,
-          endTime,
-          selectedDays,
-        } = schedule;
-
+        const { startDate, startTime, selectedDays } = schedule;
         const campaignStart = new Date(startDate);
-        const campaignEnd = new Date(endTime);
         const campaignStartTime = new Date(startTime);
-
         const nowUTC = new Date();
 
         const isStarted = nowUTC >= campaignStartTime;
         const currentDay = nowUTC.getUTCDay() === 0 ? 7 : nowUTC.getUTCDay();
-        let isCorrectDay;
-
-        if (selectedDays.length > 0) {
-          isCorrectDay = selectedDays.includes(currentDay);
-        } else if (selectedDays.length === 0) {
-          isCorrectDay = true;
-        }
+        const isCorrectDay = selectedDays.length === 0 || selectedDays.includes(currentDay);
 
         return isStarted && isCorrectDay;
       } catch (error) {
@@ -65,15 +56,17 @@ cron.schedule("*/1 * * * *", async () => {
     console.log(`✅ Found ${eligibleCampaigns.length} eligible campaigns.`);
 
     for (const campaign of eligibleCampaigns) {
+      await prisma.campaign.update({
+        where: { id: campaign.id },
+        data: { status: "RUNNING" },
+      });
+
       for (const emailCampaign of campaign.emailCampaigns) {
         const contact = emailCampaign.contact;
         if (!contact || !contact.email) continue;
 
         const lastSent = await prisma.emailTriggerLog.findFirst({
-          where: {
-            email: contact.email,
-            campaignId: campaign.id,
-          },
+          where: { email: contact.email, campaignId: campaign.id },
           orderBy: { createdAt: "desc" },
         });
 
@@ -83,30 +76,19 @@ cron.schedule("*/1 * * * *", async () => {
         if (!lastSent) {
           nextSequence = sortedSequences[0];
         } else {
-          const lastIndex = sortedSequences.findIndex(
-            (seq) => seq.id === lastSent.sequenceId
-          );
+          const lastIndex = sortedSequences.findIndex((seq) => seq.id === lastSent.sequenceId);
           nextSequence = sortedSequences[lastIndex + 1];
 
           const lastSentTime = DateTime.fromJSDate(lastSent.createdAt).toUTC();
           const nowUTC = DateTime.utc();
 
-          if (lastSentTime.plus({ days: 1 }) > nowUTC) {
-            console.log(
-              `⏳ Skipping email to ${contact.email} - waiting period not over.`
-            );
+          if (lastSentTime.plus({ days: 1 }) > nowUTC && nextSequence) {
+            console.log(`⏳ Skipping email to ${contact.email} - waiting period not over.`);
+            continue;
           }
-          continue;
         }
 
         if (!nextSequence) {
-          await prisma.campaign.update({
-            where: { id: campaign.id },
-            data: {
-              status: 'COMPLETED',
-            },
-          });
-
           console.log(`✅ No further sequences for ${contact.email} in campaign ${campaign.campaignName}`);
           continue;
         }
@@ -144,6 +126,19 @@ cron.schedule("*/1 * * * *", async () => {
         });
 
         console.log(`📧 Sent sequence ${nextSequence.seq_number} to ${contact.email}`);
+      }
+
+      const remainingSequences = await prisma.emailCampaign.findMany({
+        where: { campaignId: campaign.id },
+        include: { contact: true },
+      });
+
+      if (remainingSequences.length === 0) {
+        await prisma.campaign.update({
+          where: { id: campaign.id },
+          data: { status: "COMPLETED" },
+        });
+        console.log(`✅ Campaign ${campaign.id} marked as COMPLETED`);
       }
     }
   } catch (error) {

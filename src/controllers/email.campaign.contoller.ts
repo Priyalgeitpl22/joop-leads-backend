@@ -424,7 +424,8 @@ export const getAllEmailCampaigns = async (req: AuthenticatedRequest, res: Respo
           csvFile: true,
           schedule: true,
           status: true,
-          CampaignAnalytics: true
+          CampaignAnalytics: true,
+          EmailTriggerLog: true
         },
         orderBy: {
           createdAt: "desc",
@@ -464,6 +465,7 @@ export const getCampaignById = async (req: AuthenticatedRequest, res: Response):
           }
         },
         CampaignAnalytics: true,
+        EmailTriggerLog: true,
         email_campaign_settings: true,
         emailCampaigns: {
           where: {
@@ -493,10 +495,65 @@ export const getCampaignById = async (req: AuthenticatedRequest, res: Response):
 
     const csv_detials = campaignDetails?.csvFile as unknown as CsvFile;
 
+    let campaignStats;
+    if (campaignDetails) {
+      const totalLeads = campaignDetails.emailCampaigns.length;
+      const totalSequences = campaignDetails.sequences.length;
+      const totalEmailsNeeded = totalLeads * totalSequences;
+
+      const totalEmailsSent = campaignDetails.EmailTriggerLog.length;
+
+      const completedPercentage =
+        totalEmailsNeeded > 0
+          ? ((totalEmailsSent / totalEmailsNeeded) * 100).toFixed(2)
+          : "0";
+
+      const leadsYetToStart = campaignDetails.emailCampaigns.filter((emailCampaign) => {
+        return !campaignDetails.EmailTriggerLog.some((log) => log.email === emailCampaign.contact.email);
+      }).length;
+
+      const leadsInProgress = campaignDetails.emailCampaigns.filter((emailCampaign) => {
+        const leadEmails = campaignDetails.EmailTriggerLog.filter(
+          (log) => log.email === emailCampaign.contact.email
+        );
+
+        return leadEmails.length > 0 && leadEmails.length < totalSequences;
+      }).length;
+
+      const leadsCompleted = campaignDetails.emailCampaigns.filter((emailCampaign) => {
+        const leadEmails = campaignDetails.EmailTriggerLog.filter(
+          (log) => log.email === emailCampaign.contact.email
+        );
+
+        return leadEmails.length === totalSequences;
+      }).length;
+
+      let nextSequenceTrigger: string | null = null;
+      const lastSentEmails = campaignDetails.EmailTriggerLog.sort(
+        (a, b) => new Date(b.triggeredAt).getTime() - new Date(a.triggeredAt).getTime()
+      );
+
+      if (lastSentEmails.length > 0) {
+        const lastSentTime = new Date(lastSentEmails[0].triggeredAt);
+        nextSequenceTrigger = new Date(lastSentTime.getTime() + 24 * 60 * 60 * 1000).toISOString(); // Next day
+      }
+
+     campaignStats = {
+        completedPercentage: completedPercentage,
+        totalLeads,
+        leadsYetToStart,
+        leadsInProgress,
+        leadsCompleted,
+        nextSequenceTrigger: nextSequenceTrigger ?? null,
+        status: campaignDetails.status
+      };
+    }
+
     let campaign = {
       id: campaignDetails?.id,
       createdAt: campaignDetails?.createdAt,
       contacts,
+      campaignStats,
       sender_accounts,
       sequences,
       analytics_count: campaignDetails?.CampaignAnalytics[0],
