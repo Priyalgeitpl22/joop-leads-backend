@@ -246,12 +246,15 @@ export const addLeadsToCampaign = async (req: AuthenticatedRequest, res: Respons
 };
 
 export const addSequenceToCampaign = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response
 ): Promise<any> => {
   const { campaign_id, sequences } = req.body;
 
   try {
+
+    const user = req.user;
+
     if (!campaign_id) {
       return res.status(400).json({ code: 400, message: "Campaign ID is required" });
     }
@@ -259,6 +262,21 @@ export const addSequenceToCampaign = async (
     const campaign = await prisma.campaign.findUnique({
       where: { id: campaign_id },
     });
+
+    const campaign_analytics = await prisma.campaignAnalytics.findUnique({
+      where: {
+        campaignId: campaign_id
+      }
+    });
+
+    if (!campaign_analytics && user) {
+      await prisma.campaignAnalytics.create({
+        data: {
+          campaignId: campaign_id,
+          orgId: user?.orgId
+        },
+      });
+    }
 
     if (!campaign) {
       return res.status(404).json({ code: 404, message: `Campaign with ID ${campaign_id} not found` });
@@ -528,6 +546,8 @@ export const getCampaignById = async (req: AuthenticatedRequest, res: Response):
         return leadEmails.length === totalSequences;
       }).length;
 
+      const totalSequencesLeft = totalSequences - Math.floor(totalEmailsSent / totalLeads);
+
       let nextSequenceTrigger: string | null = null;
       const lastSentEmails = campaignDetails.EmailTriggerLog.sort(
         (a, b) => new Date(b.triggeredAt).getTime() - new Date(a.triggeredAt).getTime()
@@ -538,12 +558,13 @@ export const getCampaignById = async (req: AuthenticatedRequest, res: Response):
         nextSequenceTrigger = new Date(lastSentTime.getTime() + 24 * 60 * 60 * 1000).toISOString(); // Next day
       }
 
-     campaignStats = {
+      campaignStats = {
         completedPercentage: completedPercentage,
         totalLeads,
         leadsYetToStart,
         leadsInProgress,
         leadsCompleted,
+        totalSequencesLeft,
         nextSequenceTrigger: nextSequenceTrigger ?? null,
         status: campaignDetails.status
       };
@@ -692,6 +713,48 @@ export const scheduleEmailCampaign = async (req: Request, res: Response) => {
     res
       .status(500)
       .json({ code: 500, message: "Error fetching email campaigns" });
+  }
+};
+
+export const updateCampaignStatus = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { campaignId, status } = req.body;
+
+    if (!campaignId || !status) {
+      return res.status(400).json({
+        code: 400,
+        message: "campaignId and status are required",
+      });
+    }
+
+    const existingCampaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+    });
+
+    if (!existingCampaign) {
+      return res.status(404).json({
+        code: 404,
+        message: "Campaign not found",
+      });
+    }
+
+    const updatedCampaign = await prisma.campaign.update({
+      where: { id: campaignId },
+      data: { status },
+    });
+
+    return res.status(200).json({
+      code: 200,
+      data: updatedCampaign,
+      message: "Campaign status updated successfully",
+    });
+
+  } catch (err) {
+    console.error("Error updating campaign status:", err);
+    return res.status(500).json({
+      code: 500,
+      message: "Error updating campaign status",
+    });
   }
 };
 
