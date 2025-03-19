@@ -662,19 +662,23 @@ export const getAllContacts = async (req: Request, res: Response): Promise<any> 
     res.status(500).json({ code: 500, message: "Error fetching contacts" });
   }
 };
-
-export const searchEmailCampaigns = async (req: any, res: any) => {
+export const searchEmailCampaigns = async (req: AuthenticatedRequest, res: any) => {
   try {
-    const { query } = req.query;
+    const query = typeof req.query.query === "string" ? req.query.query : "";
+    const user = req.user;
+
     if (!query) {
-      return res
-        .status(400)
-        .json({ code: 400, message: "Campaign name is required" });
+      return res.status(400).json({ code: 400, message: "Campaign name is required" });
+    }
+
+    if (!user?.orgId) {
+      return res.status(401).json({ code: 401, message: "Unauthorized" });
     }
 
     let data = await prisma.campaign.findMany({
       where: {
         campaignName: { contains: query, mode: "insensitive" },
+        orgId: user.orgId,
       },
       select: {
         campaignName: true,
@@ -699,13 +703,11 @@ export const searchEmailCampaigns = async (req: any, res: any) => {
     res.status(200).json({
       code: 200,
       data,
-      message: data ? "Success" : "No contacts found",
+      message: data.length ? "Success" : "No campaigns found",
     });
   } catch (err) {
     console.error("Error fetching email campaigns:", err);
-    res
-      .status(500)
-      .json({ code: 500, message: "Error fetching email campaigns" });
+    res.status(500).json({ code: 500, message: "Error fetching email campaigns" });
   }
 };
 
