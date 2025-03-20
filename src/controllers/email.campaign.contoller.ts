@@ -641,19 +641,19 @@ export const getAllContacts = async (req: Request, res: Response): Promise<any> 
 
     const data = await prisma.emailCampaign.findMany({
       where: { campaignId: campaignId },
-      include: { contact: true }, // Ensure contacts are included
+      include: { contact: true }, 
     });
 
     if (!data || data.length === 0) {
       return res.status(404).json({ code: 404, message: "No contacts found" });
     }
 
-    // Extract all contacts from the campaigns
+   
     const contacts = data.flatMap((campaign) => campaign.contact);
 
     res.status(200).json({
       code: 200,
-      data: contacts, // Send only contacts
+      data: contacts,
       total: contacts.length,
       message: "Success",
     });
@@ -780,36 +780,60 @@ export const updateCampaignStatus = async (req: Request, res: Response): Promise
   }
 };
 
-export const getEmailCampaignsBySender = async (req: Request, res: Response): Promise<any> => {
+export const getEmailCampaignsBySender = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<any> => {
   try {
-    const accountId = req.query.sender_account_id
+    const accountId = req.query.sender_account_id as string;
+    const user = req.user;
     if (!accountId) {
-      return res.status(400).json({ code: 400, message: "sender_account_id is required" });
+      return res
+        .status(400)
+        .json({ code: 400, message: "sender_account_id is required" });
     }
-    const campaigns = await prisma.$queryRaw<
-      Array<{
-        campaign_id: string;
-        campaign_name: string;
-        campaign_status: string;
-        sender_accounts: any[];
-        created_at: Date;
-      }>
-    >`
-    SELECT
-      c.id AS campaign_id,
-      c."campaignName" AS campaign_name,  --  Use double quotes
-      c.status AS campaign_status,
-      ecs.sender_accounts AS sender_accounts,
-      c."createdAt" AS created_at --  Use double quotes
-    FROM "Campaign" c
-    JOIN "EmailCampaignSettings" ecs ON c.id = ecs.campaign_id,
-    LATERAL unnest(ecs.sender_accounts) AS sa
-    WHERE sa->>'account_id' = ${accountId}
-  `;
-    res.status(200).json({ code: 200, campaigns, message: "success" });
+
+    const campaigns = await prisma.campaign.findMany({
+      include: {
+        email_campaign_settings: {
+          select: {
+            sender_accounts: true,
+          },
+        },
+      },
+    });
+
+    const filteredCampaigns = campaigns
+      .map((campaign) => ({
+        campaign_id: campaign.id,
+        campaign_name: campaign.campaignName,
+        campaign_status: campaign.status,
+        sender_accounts: campaign.email_campaign_settings.flatMap(
+          (setting) => setting.sender_accounts
+        ),
+        created_at: campaign.createdAt,
+      }))
+      .filter((campaign) =>
+        campaign.sender_accounts.some(
+          (account: any) => account.account_id === accountId
+        )
+      );
+    const campaignMessage = filteredCampaigns.length
+      ? "Campaigns found for this account"
+      : "No campaigns found for this account.";
+
+    return res.status(200).json({
+      code: 200,
+      campaigns: filteredCampaigns,
+      usedInCount: filteredCampaigns.length,
+      message: campaignMessage,
+    });
   } catch (err: any) {
-    console.error("Error fetching email campaigns:", err);
-    res.status(500).json({ code: 500, message: "Error fetching email campaigns", details: err.message });
+    return res.status(500).json({
+      code: 500,
+      message: "Error fetching email campaigns",
+      details: err.message,
+    });
   }
 };
 

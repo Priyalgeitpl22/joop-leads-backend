@@ -4,6 +4,7 @@ import { authMiddleware } from "../middlewares/authMiddleware";
 
 const router = Router();
 
+router.get('/sender-account', getEmailCampaignsBySender)
 router.get('/search-contact',searchAccountInContacts)
 router.put('/schedule-campaign', authMiddleware, scheduleEmailCampaign)
 router.get("/", authMiddleware, getAllEmailCampaigns);
@@ -14,7 +15,6 @@ router.post("/add-email-campaign-settings", authMiddleware, addEmailCampaignSett
 router.get("/sequences/:campaign_id", authMiddleware, getAllSequences);
 router.get("/contacts/:campaign_id", authMiddleware, getAllContacts);
 router.get("/search/campaign", authMiddleware, searchEmailCampaigns);
-router.get('/get-campaigns-by-sender', getEmailCampaignsBySender)
 router.delete('/delete', deleteCampaign);
 router.get('/dashboard/data', getDashboardData);
 router.put("/status", updateCampaignStatus);
