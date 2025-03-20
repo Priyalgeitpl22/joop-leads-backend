@@ -224,6 +224,7 @@ export const searchContacts = async (req: AuthenticatedRequest, res: any) => {
         OR: [
           { email: { contains: query as string, mode: "insensitive" } },
           { first_name: { contains: query as string, mode: "insensitive" } },
+          { last_name: { contains: query as string, mode: "insensitive" } },
         ],
         orgId: user?.orgId,
       },
