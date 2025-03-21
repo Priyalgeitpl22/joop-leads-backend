@@ -28,6 +28,16 @@ export const getUsers = async (req: AuthenticatedRequest, res: Response) => {
         orgId: user?.orgId,
       },
     });
+
+    const organization = await prisma.organization.findUnique({
+      where: {
+        id: user?.orgId, 
+      },
+    });
+
+    if (!organization) {
+     res.status(404).json({ code: 404, message: "Organization not found" });
+    }
     if (users.length > 0) {
       for (const user of users) {
         if (user.profilePicture) {
@@ -35,7 +45,8 @@ export const getUsers = async (req: AuthenticatedRequest, res: Response) => {
         }
       }
     }
-    res.status(200).json({ code: 200, data: users, message: "success" });
+    const message=users?`User fetched  from ${organization?.name}` :"Users not found"
+    res.status(200).json({ code: 200, message: message,data: users});
   } catch (err) {
     res.status(500).json({ code: 500, message: "Error fetching users" });
   }
