@@ -187,3 +187,70 @@ export const createUser = async (
     }
   });
 };
+
+export const deleteUser = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const {user_id} = req.params
+
+    if (!user_id) {
+      return res
+        .status(400)
+        .json({ code: 400, message: "user_id is required" });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: user_id },
+    });
+
+    if (!user) {
+      return res.status(404).json({ code: 404, message: "User not found" });
+    }
+
+    await prisma.user.delete({
+      where: { id: user_id },
+    });
+
+    return res
+      .status(200)
+      .json({ code: 200, message: "User deleted successfully" });
+  } catch (error: any) {
+    console.error("Error deleting user:", error);
+    return res
+      .status(500)
+      .json({
+        code: 500,
+        message: "Error deleting user",
+        details: error.message,
+      });
+  }
+};
+
+export const searchUser = async (req: AuthenticatedRequest, res: any) => {
+  try {
+    const { query } = req.query;
+    const user = req.user;
+
+    const data = await prisma.user.findMany({
+      where: {
+        OR: [
+          { email: { contains: query as string, mode: "insensitive" } },
+          { role: { contains: query as string, mode: "insensitive" } },
+          { fullName: { contains: query as string, mode: "insensitive" } },
+        ],
+        orgId: user?.orgId,
+      },
+    });
+
+    res.status(200).json({
+      code: 200,
+      data,
+      message: data.length > 0 ? "Success" : "No contacts found",
+    });
+  } catch (err) {
+    console.error("Error fetching contacts:", err);
+    res.status(500).json({ code: 500, message: "Error fetching contacts" });
+  }
+};
