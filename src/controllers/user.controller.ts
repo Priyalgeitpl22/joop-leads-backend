@@ -138,7 +138,6 @@ export const createUser = async (
         .json({ code: 400, message: "All fields are required." });
     }
     try {
-      debugger
       const existingUser = await prisma.user.findUnique({ where: { email } });
       if (existingUser) {
         return res
@@ -232,7 +231,11 @@ export const searchUser = async (req: AuthenticatedRequest, res: any) => {
   try {
     const { query } = req.query;
     const user = req.user;
-
+    if (!user?.orgId) {
+      return res
+        .status(400)
+        .json({ code: 400, message: "Organization ID is required ." });
+    }
     const data = await prisma.user.findMany({
       where: {
         OR: [
@@ -244,13 +247,17 @@ export const searchUser = async (req: AuthenticatedRequest, res: any) => {
       },
     });
 
+    if (!user) {
+      return res.status(500).json({ code: 404, message: "User not found " });
+    }
+
     res.status(200).json({
       code: 200,
       data,
-      message: data.length > 0 ? "Success" : "No contacts found",
+      message: data.length > 0 ? "Success" : "No users found",
     });
   } catch (err) {
-    console.error("Error fetching contacts:", err);
-    res.status(500).json({ code: 500, message: "Error fetching contacts" });
+    console.error("Error fetching user:", err);
+    res.status(500).json({ code: 500, message: "Error fetching user" });
   }
 };
