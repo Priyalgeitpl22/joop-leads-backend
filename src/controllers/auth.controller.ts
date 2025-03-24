@@ -118,7 +118,7 @@ export const resendOtp = async (req: Request, res: Response): Promise<any> => {
     await sendOtpEmail(email, otp.code);
     res
       .status(200)
-      .json({ code: 200, message: "New OTP sent. Please verify your email." });
+      .json({ code: 200, message: "New OTP sent. Please check your email." });
   } catch (error) {
     res.status(500).json({ code: 500, message: "Server error" });
   }
