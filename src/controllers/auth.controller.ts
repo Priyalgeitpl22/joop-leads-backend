@@ -199,6 +199,15 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
             return res.status(403).json({code:403, message: 'Existing password is incorrect' });
         }
 
+        if (existingPassword === newPassword) {
+            return res
+              .status(400)
+              .json({
+                code: 400,
+                message:
+                  "New password should not be the same as the existing password",
+              });
+          }
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
         await prisma.user.update({
