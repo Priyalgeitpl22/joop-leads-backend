@@ -236,6 +236,7 @@ export const searchUser = async (req: AuthenticatedRequest, res: any) => {
         .status(400)
         .json({ code: 400, message: "Organization ID is required ." });
     }
+
     const data = await prisma.user.findMany({
       where: {
         OR: [
@@ -246,6 +247,17 @@ export const searchUser = async (req: AuthenticatedRequest, res: any) => {
         orgId: user?.orgId,
       },
     });
+    for (let userData of data) {
+      if (userData.profilePicture) {
+        userData.profilePicture = await getPresignedUrl(
+          userData.profilePicture
+        );
+      }
+    }
+
+    if (data.length === 0) {
+      return res.status(404).json({ code: 404, message: "No users found." });
+    }
 
     if (!user) {
       return res.status(500).json({ code: 404, message: "User not found " });
