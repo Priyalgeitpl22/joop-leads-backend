@@ -34,6 +34,7 @@ model Organization {
   contacts    Contact[]
   campaigns   Campaign[]
   campaign_analytics   CampaignAnalytics[]
+  CampaignFolder  CampaignFolder[]
 
   createdAt DateTime @default(now())
 }
@@ -93,6 +94,7 @@ model Contact {
 model Campaign {
   id                         String                  @id @default(uuid())
   orgId                      String // Foreign key for Organization
+  folderId                   String?
   campaignName               String
   csvSettings                Json?
   csvFile                    Json?
@@ -109,6 +111,7 @@ model Campaign {
   organization               Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
   EmailTriggerLog            EmailTriggerLog[]
   CampaignAnalytics          CampaignAnalytics[]
+  folder                     CampaignFolder?         @relation(fields: [folderId], references: [id], onDelete: Cascade)
 }
 
 model EmailCampaign {
@@ -178,10 +181,22 @@ model CampaignAnalytics {
   replied_count         Int      @default(0)
   positive_reply_count  Int      @default(0)
   bounced_count         Int      @default(0)
-
   campaign Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   organization       Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([campaignId]) // Ensures campaignId is unique
 }
+
+
+model CampaignFolder {
+  id           String       @id @default(uuid())
+  name         String
+  orgId        String
+  createdAt    DateTime     @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaigns    Campaign[]   // One-to-many relationship with Campaign
+}
+
+
 

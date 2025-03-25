@@ -641,14 +641,14 @@ export const getAllContacts = async (req: Request, res: Response): Promise<any> 
 
     const data = await prisma.emailCampaign.findMany({
       where: { campaignId: campaignId },
-      include: { contact: true }, 
+      include: { contact: true },
     });
 
     if (!data || data.length === 0) {
       return res.status(404).json({ code: 404, message: "No contacts found" });
     }
 
-   
+
     const contacts = data.flatMap((campaign) => campaign.contact);
 
     res.status(200).json({
@@ -992,3 +992,90 @@ export const getDashboardData = async (req: AuthenticatedRequest, res: Response)
       });
   }
 };
+export const updateFolderId = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { campaignId, folderId } = req.body;
+
+    if (!campaignId || !folderId) {
+      return res.status(400).json({
+        code: 400,
+        message: "campaignId and folderId are required",
+      });
+    }
+
+    const existingCampaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+    });
+
+    if (!existingCampaign) {
+      return res.status(404).json({
+        code: 404,
+        message: "Campaign not found",
+      });
+    }
+
+    const updatedCampaign = await prisma.campaign.update({
+      where: { id: campaignId },
+      data: { folderId },
+    });
+
+    return res.status(200).json({
+      code: 200,
+      data: updatedCampaign,
+      message: "Campaign folder updated successfully",
+    });
+
+  } catch (err) {
+    console.error("Error updating campaign folder:", err);
+    return res.status(500).json({
+      code: 500,
+      message: "Error updating campaign folder",
+    });
+  }
+};
+
+export const removeFolderId = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { campaignId} = req.body;
+
+    if (!campaignId) {
+      return res.status(400).json({
+        code: 400,
+        message: "campaignId is required"
+      })
+    }
+    const existingCampaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+      select : {folderId : true},
+    });
+
+    if(!existingCampaign){
+      return res.status(404).json({
+        code:404,
+        message:"campaign not found"
+      })
+    }
+
+    const updatedCampaign = await prisma.campaign.update({
+      where: { id: campaignId },
+      data: { folderId : null },
+    });
+
+
+    return res.status(200).json({
+      code:200,
+      data:updatedCampaign,
+      message:"Folder Id Removed sucessfully"
+    })
+
+  } catch (err) {
+    console.log("Error Removing campaign folder Id", err);
+    return res.status(500).json({
+      code: 500,
+      message: "Error in Removing the folder Id",
+    });
+  }
+}
