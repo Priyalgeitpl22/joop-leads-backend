@@ -1055,7 +1055,7 @@ export const removeFolderId = async (
     if(!existingCampaign){
       return res.status(404).json({
         code:404,
-        message:"campaign not found"
+        message:"Campaign not found"
       })
     }
 
@@ -1079,3 +1079,4 @@ export const removeFolderId = async (
     });
   }
 }
+

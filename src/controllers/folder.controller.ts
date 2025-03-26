@@ -58,9 +58,7 @@ export const folderList = async (
         message: "Organization Id is required",
       });
     }
-
-
-   const foldersList = await prisma.campaignFolder.findMany({
+  const foldersList = await prisma.campaignFolder.findMany({
       where: { orgId: user.orgId },
     });
 
