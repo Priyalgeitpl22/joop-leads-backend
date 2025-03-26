@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign, deleteCampaign, getAllContacts, getAllEmailCampaigns, getAllSequences, getCampaignById, getDashboardData, getEmailCampaignsBySender, scheduleEmailCampaign, searchAccountInContacts, searchEmailCampaigns, updateCampaignStatus } from "../controllers/email.campaign.contoller";
+import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign, deleteCampaign, getAllContacts, getAllEmailCampaigns, getAllSequences, getCampaignById, getDashboardData, getEmailCampaignsBySender, removeFolderId, scheduleEmailCampaign, searchAccountInContacts, searchEmailCampaigns, updateCampaignStatus, updateFolderId } from "../controllers/email.campaign.contoller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 
 const router = Router();
@@ -18,5 +18,8 @@ router.get("/search/campaign", authMiddleware, searchEmailCampaigns);
 router.delete('/delete', deleteCampaign);
 router.get('/dashboard/data', getDashboardData);
 router.put("/status", updateCampaignStatus);
+
+router.put("/email-campaign-add",updateFolderId);
+router.put("/email-campaign-remove",removeFolderId);
 
 export default router;
