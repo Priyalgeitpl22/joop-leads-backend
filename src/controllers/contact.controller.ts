@@ -339,3 +339,33 @@ export const deleteContact = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+export const filterContacts = async (req: AuthenticatedRequest, res: any) => {
+  try {
+    const { status } = req.query;
+    const user = req.user;
+    if (!user?.orgId) {
+      return res.status(401).json({ code: 401, message: "Unauthorized" });
+    }
+    const whereCondition: any = {
+      orgId: user?.orgId,
+    };
+
+    if (status !== undefined) {
+      const isActive = status === "true";
+      whereCondition.active = isActive;
+    }
+
+    const data = await prisma.contact.findMany({
+      where: whereCondition,
+    });
+    res.status(200).json({
+      code: 200,
+      data,
+      message: data.length > 0 ? "Success" : "No contacts found",
+    });
+  } catch (err) {
+    console.error("Error fetching contacts:", err);
+    res.status(500).json({ code: 500, message: "Error fetching contacts" });
+  }
+};

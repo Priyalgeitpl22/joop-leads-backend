@@ -1080,3 +1080,49 @@ export const removeFolderId = async (
   }
 }
 
+export const filterEmailCampaigns = async (req: AuthenticatedRequest, res: any) => {
+  try {
+    const { status } = req.query;
+    const user = req.user;
+
+    if (!user?.orgId) {
+      return res.status(401).json({ code: 401, message: "Unauthorized" });
+    }
+   
+    let data = await prisma.campaign.findMany({
+      where: {
+        orgId: user?.orgId,
+       status: { contains: status as string, mode: "insensitive" },
+      },
+      select: {
+        campaignName: true,
+        id: true,
+        createdAt: true,
+        sequencesIds: true,
+        sequences: true,
+        csvSettings: true,
+        csvFile: true,
+        schedule: true,
+        status: true,
+        CampaignAnalytics: true,
+        EmailTriggerLog: true,
+      },
+    });
+
+   
+    data = data.map((campaign) => ({
+      ...campaign,
+      analytics_count: campaign.CampaignAnalytics?.length || 0, 
+    }));
+
+   
+    res.status(200).json({
+      code: 200,
+      data,
+      message: data.length ? "Success" : "No campaigns found",
+    }); 
+  } catch (err) {
+    console.error("Error fetching email campaigns:", err);
+    res.status(500).json({ code: 500, message: "Error fetching email campaigns" });
+  }
+};
