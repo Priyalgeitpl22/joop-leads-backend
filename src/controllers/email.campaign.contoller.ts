@@ -1126,3 +1126,70 @@ export const filterEmailCampaigns = async (req: AuthenticatedRequest, res: any) 
     res.status(500).json({ code: 500, message: "Error fetching email campaigns" });
   }
 };
+
+type Campaign = {
+  id: number;
+  orgId: string;
+  folderId: string;
+
+};
+export const getEmailCampaignsByFolderId = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<any> => {
+  try {
+    const user = req.user;
+    const { folderId } = req.query;
+
+   
+    if (!user?.orgId) {
+      return res.status(400).json({
+        code: 400,
+        message: "Organization Id is required",
+      });
+    }
+
+   
+    const whereCondition: any = { orgId: user.orgId };
+
+  
+    if (folderId) {
+      whereCondition.id = folderId;
+    }
+
+   
+    const foldersList = await prisma.campaignFolder.findMany({
+      where: whereCondition,
+    });
+
+    
+    let campaigns: Campaign[] = [];
+
+    if (folderId) {
+      campaigns = await prisma.$queryRaw<Campaign[]>`
+        SELECT * 
+        FROM public."Campaign"
+        WHERE "orgId" = ${user.orgId} AND "folderId" = ${folderId}
+        ORDER BY "id" ASC
+      `;
+    }
+
+   
+    const campaignCount = campaigns.length;
+
+   
+    res.status(200).json({
+      code: 200,
+      data: foldersList,
+      campaigns,
+      campaignCount, 
+      message: foldersList.length > 0 ? "Folders fetched successfully" : "No folders found",
+    });
+  } catch (err) {
+    console.error("Error fetching folders:", err);
+    res.status(500).json({
+      code: 500,
+      message: "Error fetching folders",
+    });
+  }
+};
