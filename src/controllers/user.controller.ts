@@ -273,3 +273,47 @@ export const searchUser = async (req: AuthenticatedRequest, res: any) => {
     res.status(500).json({ code: 500, message: "Error fetching user" });
   }
 };
+
+export const filterUsers = async (req: AuthenticatedRequest, res: any) => {
+  try {
+    const { query } = req.query;
+    const user = req.user;
+
+    if (!user?.orgId) {
+      return res.status(401).json({ code: 401, message: "Unauthorized" });
+    }
+
+    const data = await prisma.user.findMany({
+      where: {
+        role: { contains: query as string, mode: "insensitive" },
+        orgId: user?.orgId,
+      },
+    });
+    for (let userData of data) {
+      if (userData.profilePicture) {
+        userData.profilePicture = await getPresignedUrl(
+          userData.profilePicture
+        );
+      }
+    }
+
+    if (data.length === 0) {
+      return res.status(404).json({ code: 404, message: "No users found." });
+    }
+
+    if (!user) {
+      return res.status(500).json({ code: 404, message: "User not found " });
+    }
+
+    res.status(200).json({
+      code: 200,
+      data,
+      message: data.length ? "Success" : "No campaigns found",
+    });
+  } catch (err) {
+    console.error("Error fetching email campaigns:", err);
+    res
+      .status(500)
+      .json({ code: 500, message: "Error fetching email campaigns" });
+  }
+};
