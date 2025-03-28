@@ -1082,18 +1082,43 @@ export const removeFolderId = async (
 
 export const filterEmailCampaigns = async (req: AuthenticatedRequest, res: any) => {
   try {
-    const { status } = req.query;
+    const { status, startDate, endDate } = req.query;
     const user = req.user;
 
     if (!user?.orgId) {
       return res.status(401).json({ code: 401, message: "Unauthorized" });
     }
-   
+    const filters: any = { orgId: user.orgId };
+
+    if (status) {
+      filters.status = { contains: status as string, mode: "insensitive" };
+    }
+
+    if (startDate) {
+      const parsedStartDate = new Date(startDate as string);
+      if (isNaN(parsedStartDate.getTime())) {
+        return res
+          .status(400)
+          .json({ code: 400, message: "Invalid start date format." });
+      }
+      filters.createdAt = {
+        ...(filters.createdAt || {}),
+        gte: parsedStartDate,
+      };
+    }
+
+    if (endDate) {
+      const parsedEndDate = new Date(endDate as string);
+      if (isNaN(parsedEndDate.getTime())) {
+        return res
+          .status(400)
+          .json({ code: 400, message: "Invalid end date format." });
+      }
+      filters.createdAt = { ...(filters.createdAt || {}), lte: parsedEndDate };
+    }
+
     let data = await prisma.campaign.findMany({
-      where: {
-        orgId: user?.orgId,
-       status: { contains: status as string, mode: "insensitive" },
-      },
+      where: filters,
       select: {
         campaignName: true,
         id: true,
@@ -1127,69 +1152,4 @@ export const filterEmailCampaigns = async (req: AuthenticatedRequest, res: any) 
   }
 };
 
-type Campaign = {
-  id: number;
-  orgId: string;
-  folderId: string;
 
-};
-export const getEmailCampaignsByFolderId = async (
-  req: AuthenticatedRequest,
-  res: Response
-): Promise<any> => {
-  try {
-    const user = req.user;
-    const { folderId } = req.query;
-
-   
-    if (!user?.orgId) {
-      return res.status(400).json({
-        code: 400,
-        message: "Organization Id is required",
-      });
-    }
-
-   
-    const whereCondition: any = { orgId: user.orgId };
-
-  
-    if (folderId) {
-      whereCondition.id = folderId;
-    }
-
-   
-    const foldersList = await prisma.campaignFolder.findMany({
-      where: whereCondition,
-    });
-
-    
-    let campaigns: Campaign[] = [];
-
-    if (folderId) {
-      campaigns = await prisma.$queryRaw<Campaign[]>`
-        SELECT * 
-        FROM public."Campaign"
-        WHERE "orgId" = ${user.orgId} AND "folderId" = ${folderId}
-        ORDER BY "id" ASC
-      `;
-    }
-
-   
-    const campaignCount = campaigns.length;
-
-   
-    res.status(200).json({
-      code: 200,
-      data: foldersList,
-      campaigns,
-      campaignCount, 
-      message: foldersList.length > 0 ? "Folders fetched successfully" : "No folders found",
-    });
-  } catch (err) {
-    console.error("Error fetching folders:", err);
-    res.status(500).json({
-      code: 500,
-      message: "Error fetching folders",
-    });
-  }
-};

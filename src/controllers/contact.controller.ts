@@ -342,7 +342,7 @@ export const deleteContact = async (req: Request, res: Response) => {
 
 export const filterContacts = async (req: AuthenticatedRequest, res: any) => {
   try {
-    const { status } = req.query;
+    const { status, startDate, endDate } = req.query;
     const user = req.user;
     if (!user?.orgId) {
       return res.status(401).json({ code: 401, message: "Unauthorized" });
@@ -352,8 +352,33 @@ export const filterContacts = async (req: AuthenticatedRequest, res: any) => {
     };
 
     if (status !== undefined) {
-      const isActive = status === "true";
-      whereCondition.active = isActive;
+      whereCondition.active = status === "true";
+    }
+
+    if (startDate) {
+      const parsedStartDate = new Date(startDate as string);
+      if (isNaN(parsedStartDate.getTime())) {
+        return res
+          .status(400)
+          .json({ code: 400, message: "Invalid start date format." });
+      }
+      whereCondition.createdAt = {
+        ...(whereCondition.createdAt || {}),
+        gte: parsedStartDate,
+      };
+    }
+
+    if (endDate) {
+      const parsedEndDate = new Date(endDate as string);
+      if (isNaN(parsedEndDate.getTime())) {
+        return res
+          .status(400)
+          .json({ code: 400, message: "Invalid end date format." });
+      }
+      whereCondition.createdAt = {
+        ...(whereCondition.createdAt || {}),
+        lte: parsedEndDate,
+      };
     }
 
     const data = await prisma.contact.findMany({
