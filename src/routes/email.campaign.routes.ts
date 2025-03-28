@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign, deleteCampaign, filterEmailCampaigns, getAllContacts, getAllEmailCampaigns, getAllSequences, getCampaignById, getDashboardData, getEmailCampaignsByFolderId, getEmailCampaignsBySender, removeFolderId, scheduleEmailCampaign, searchAccountInContacts, searchEmailCampaigns, updateCampaignStatus, updateFolderId } from "../controllers/email.campaign.contoller";
+import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign, deleteCampaign, filterEmailCampaigns, getAllContacts, getAllEmailCampaigns, getAllSequences, getCampaignById, getDashboardData, getEmailCampaignsBySender, removeFolderId, scheduleEmailCampaign, searchAccountInContacts, searchEmailCampaigns, updateCampaignStatus, updateFolderId } from "../controllers/email.campaign.contoller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 
 const router = Router();
 
-router.get('/folder',authMiddleware,getEmailCampaignsByFolderId)
+
 router.get('/filter',authMiddleware,filterEmailCampaigns)
 router.get('/sender-account', getEmailCampaignsBySender)
 router.get('/search-contact',searchAccountInContacts)
