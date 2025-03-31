@@ -276,34 +276,54 @@ export const searchUser = async (req: AuthenticatedRequest, res: any) => {
 
 export const filterUsers = async (req: AuthenticatedRequest, res: any) => {
   try {
-    const { query } = req.query;
+    const { query, startDate, endDate } = req.query;
     const user = req.user;
 
     if (!user?.orgId) {
       return res.status(401).json({ code: 401, message: "Unauthorized" });
     }
 
-    const data = await prisma.user.findMany({
-      where: {
-        role: { contains: query as string, mode: "insensitive" },
-        orgId: user?.orgId,
-      },
-    });
-    for (let userData of data) {
-      if (userData.profilePicture) {
-        userData.profilePicture = await getPresignedUrl(
-          userData.profilePicture
-        );
+    const whereCondition: any = { orgId: user.orgId };
+
+    if (query) {
+      whereCondition.role = { contains: query as string, mode: "insensitive" };
+    }
+
+    if (startDate) {
+      const parsedStartDate = new Date(startDate as string);
+      if (isNaN(parsedStartDate.getTime())) {
+        return res
+          .status(400)
+          .json({ code: 400, message: "Invalid start date format." });
       }
+      whereCondition.createdAt = {
+        ...(whereCondition.createdAt || {}),
+        gte: parsedStartDate,
+      };
     }
 
-    if (data.length === 0) {
-      return res.status(404).json({ code: 404, message: "No users found." });
+    if (endDate) {
+      const parsedEndDate = new Date(endDate as string);
+      if (isNaN(parsedEndDate.getTime())) {
+        return res
+          .status(400)
+          .json({ code: 400, message: "Invalid end date format." });
+      }
+      whereCondition.createdAt = {
+        ...(whereCondition.createdAt || {}),
+        lte: parsedEndDate,
+      };
     }
+    const users = await prisma.user.findMany({ where: whereCondition });
 
-    if (!user) {
-      return res.status(500).json({ code: 404, message: "User not found " });
-    }
+    const data = await Promise.all(
+      users.map(async (userData) => ({
+        ...userData,
+        profilePicture: userData.profilePicture
+          ? await getPresignedUrl(userData.profilePicture)
+          : null,
+      }))
+    );
 
     res.status(200).json({
       code: 200,

@@ -202,12 +202,6 @@ export const deleteFolder = async (
   }
 };
 
-type Campaign = {
-  id: number;
-  orgId: string;
-  folderId: string;
-};
-
 export const getFolderById = async (
   req: AuthenticatedRequest,
   res: Response
@@ -231,20 +225,33 @@ export const getFolderById = async (
 
     const foldersList = await prisma.campaignFolder.findMany({
       where: whereCondition,
+      include: {
+        campaigns: {
+          select: {
+            campaignName: true,
+            id: true,
+            createdAt: true,
+            sequencesIds: true,
+            sequences: true,
+            csvSettings: true,
+            csvFile: true,
+            schedule: true,
+            status: true,
+            CampaignAnalytics: true,
+            EmailTriggerLog: true,
+          },
+        },
+      },
     });
 
-    let campaigns: Campaign[] = [];
+    let campaignCount = 0;
 
     if (folderId) {
-      campaigns = await prisma.$queryRaw<Campaign[]>`
-        SELECT * 
-        FROM public."Campaign"
-        WHERE "orgId" = ${user.orgId} AND "folderId" = ${folderId}
-        ORDER BY "id" ASC
-      `;
+      const folder = foldersList.find((folder) => folder.id === folderId);
+      if (folder) {
+        campaignCount = folder.campaigns.length;
+      }
     }
-
-    const campaignCount = campaigns.length;
 
     res.status(200).json({
       code: 200,
