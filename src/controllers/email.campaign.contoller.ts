@@ -1014,9 +1014,12 @@ export const updateFolderId = async (req: Request, res: Response): Promise<any> 
       });
     }
 
-    const updatedCampaign = await prisma.campaign.update({
-      where: { id: campaignId },
-      data: { folderId },
+
+    const updatedCampaign = await prisma.campaignFolderMapping.create({
+      data: {
+        campaignId,
+        folderId,
+      },
     });
 
     return res.status(200).json({
@@ -1039,43 +1042,39 @@ export const removeFolderId = async (
   res: Response
 ): Promise<any> => {
   try {
-    const { campaignId} = req.body;
+    const { campaignId, folderId} = req.body;
 
-    if (!campaignId) {
+    if (!campaignId || !folderId) {
       return res.status(400).json({
         code: 400,
-        message: "campaignId is required"
+        message: "campaignId and folder Id are required"
       })
     }
-    const existingCampaign = await prisma.campaign.findUnique({
-      where: { id: campaignId },
-      select : {folderId : true},
+    const existingMapping  = await prisma.campaignFolderMapping.findFirst({
+      where: {campaignId,folderId },
     });
 
-    if(!existingCampaign){
+    if(!existingMapping){
       return res.status(404).json({
         code:404,
         message:"Campaign not found"
       })
     }
 
-    const updatedCampaign = await prisma.campaign.update({
-      where: { id: campaignId },
-      data: { folderId : null },
+    await prisma.campaignFolderMapping.delete({
+      where: { id: existingMapping.id },
     });
-
 
     return res.status(200).json({
       code:200,
-      data:updatedCampaign,
-      message:"Folder Id Removed sucessfully"
+      message:"Campaign from folder Removed sucessfully"
     })
 
   } catch (err) {
-    console.log("Error Removing campaign folder Id", err);
+    console.log("Error Removing campaign from folder ", err);
     return res.status(500).json({
       code: 500,
-      message: "Error in Removing the folder Id",
+      message: "Error in Removing the campaign from folder ",
     });
   }
 }
@@ -1134,18 +1133,18 @@ export const filterEmailCampaigns = async (req: AuthenticatedRequest, res: any) 
       },
     });
 
-   
+
     data = data.map((campaign) => ({
       ...campaign,
-      analytics_count: campaign.CampaignAnalytics?.length || 0, 
+      analytics_count: campaign.CampaignAnalytics?.length || 0,
     }));
 
-   
+
     res.status(200).json({
       code: 200,
       data,
       message: data.length ? "Success" : "No campaigns found",
-    }); 
+    });
   } catch (err) {
     console.error("Error fetching email campaigns:", err);
     res.status(500).json({ code: 500, message: "Error fetching email campaigns" });
