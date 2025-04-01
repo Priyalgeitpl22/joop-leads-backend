@@ -31,10 +31,10 @@ export const createFolder = async (
       data: { name, orgId: user?.orgId },
     });
 
-    res.status(200).json({
-      code: 200,
+    res.status(201).json({
+      code: 201,
       data: campaignFolder,
-      message: "campaign folder created successfully",
+      message: "Campaign folder created successfully",
     });
   } catch (err) {
     console.error("Error creating folder:", err);
@@ -222,7 +222,7 @@ export const getFolderById = async (
     if (folderId) {
       whereCondition.id = folderId;
     }
-    const foldersList = await prisma.campaignFolder.findMany({
+    let foldersList = await prisma.campaignFolder.findMany({
       where: whereCondition,
       include: {
         campaigns: {
@@ -246,7 +246,18 @@ export const getFolderById = async (
         },
       },
     });
-
+    
+    foldersList = foldersList.map((folder) => ({
+      ...folder,
+      sequence_count: folder.campaigns.reduce(
+        (count, campaign) => count + (campaign.campaign.sequences?.length || 0),
+        0
+      ),
+      analytics_count: folder.campaigns.reduce(
+        (count, campaign) => count + (campaign.campaign.CampaignAnalytics?.length || 0),
+        0
+      ),
+    }));
     let campaignCount = 0;
 
     if (folderId) {
@@ -262,7 +273,7 @@ export const getFolderById = async (
       campaignCount,
       message:
         foldersList.length > 0
-          ? "Folders fetched successfully"
+          ? `Folder fetched successfully ${campaignCount} campaign(s) found`
           : "No folders found",
     });
   } catch (err) {
