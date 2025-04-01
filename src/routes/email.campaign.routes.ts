@@ -21,9 +21,9 @@ router.delete('/delete', deleteCampaign);
 router.get('/dashboard/data', getDashboardData);
 router.put("/status", updateCampaignStatus);
 
-router.put("/email-campaign-add",updateFolderId);
-router.put("/email-campaign-remove",removeFolderId);
+router.post("/add",updateFolderId);
+router.delete("/remove",removeFolderId);
 
 
- 
+
 export default router;

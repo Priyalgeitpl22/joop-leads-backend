@@ -222,23 +222,26 @@ export const getFolderById = async (
     if (folderId) {
       whereCondition.id = folderId;
     }
-
     const foldersList = await prisma.campaignFolder.findMany({
       where: whereCondition,
       include: {
         campaigns: {
-          select: {
-            campaignName: true,
-            id: true,
-            createdAt: true,
-            sequencesIds: true,
-            sequences: true,
-            csvSettings: true,
-            csvFile: true,
-            schedule: true,
-            status: true,
-            CampaignAnalytics: true,
-            EmailTriggerLog: true,
+          include: {
+            campaign: {
+              select: {
+                id: true,
+                campaignName: true,
+                createdAt: true,
+                sequencesIds: true,
+                sequences: true,
+                csvSettings: true,
+                csvFile: true,
+                schedule: true,
+                status: true,
+                CampaignAnalytics: true,
+                EmailTriggerLog: true,
+              },
+            },
           },
         },
       },
