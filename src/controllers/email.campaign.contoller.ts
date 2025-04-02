@@ -1014,7 +1014,21 @@ export const updateFolderId = async (req: Request, res: Response): Promise<any> 
       });
     }
 
+    const existingMapping = await prisma.campaignFolderMapping.findUnique({
+      where: {
+        campaignId_folderId: {
+          campaignId: campaignId,
+          folderId: folderId,
+        },
+      },
+    });
 
+    if (existingMapping) {
+      return res.status(400).json({
+        code: 400,
+        message: "This campaign is already added to the specified folder.",
+      });
+    }
     const updatedCampaign = await prisma.campaignFolderMapping.create({
       data: {
         campaignId,
