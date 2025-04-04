@@ -394,3 +394,29 @@ export const filterContacts = async (req: AuthenticatedRequest, res: any) => {
     res.status(500).json({ code: 500, message: "Error fetching contacts" });
   }
 };
+
+export const unsubscribeContact = async (req: Request, res: Response) => {
+  try {
+    const contactId = req.body.contactId as string;
+
+    const contact = await prisma.contact.findUnique({
+      where: { id: contactId },
+    });
+
+    if (!contact) {
+      res.status(404).json({ message: "Contact not found" });
+    }
+
+    await prisma.contact.update({
+      where: { id: contactId },
+      data: { unsubscribed: true },
+    });
+
+    res
+      .status(200)
+      .json({ code: 200, message: "Contact unsubscribed successfully" });
+  } catch (error) {
+    console.error("Error unsubscribing contact:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};

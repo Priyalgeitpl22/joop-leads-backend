@@ -64,6 +64,11 @@ cron.schedule("*/1 * * * *", async () => {
       for (const emailCampaign of campaign.emailCampaigns) {
         const contact = emailCampaign.contact;
         if (!contact || !contact.email) continue;
+        
+        if (contact?.unsubscribed) {
+          console.log(`⏳ Skipping email to ${contact.email} - unsubscribed.`);
+          continue;
+        }
 
         const lastSent = await prisma.emailTriggerLog.findFirst({
           where: { email: contact.email, campaignId: campaign.id },
@@ -107,11 +112,18 @@ cron.schedule("*/1 * * * *", async () => {
           nextSequence.seq_variants[0].subject || `Your Campaign: {{campaign_name}}`,
           variables
         );
+        const setting = campaign.email_campaign_settings?.[0]
+          ?.campaign_settings as unknown as Record<string, any>;
+        const unsubscribe = setting?.Unsubscribe ?? true;
+
+        const unsubscribeLink = unsubscribe
+          ? `<br/><br/> <a href="http://localhost:5173/unsubscribe/${contact.email}">Unsubscribe</a>`
+          : "";
 
         const body = replaceTemplateVariables(
           nextSequence.seq_variants[0].emailBody || `<p>Hi {{first_name}},</p><p>test email</p>`,
           variables
-        );
+        ) + unsubscribeLink;
 
         const senderAccount = campaign.email_campaign_settings?.[0]?.sender_accounts?.[0] as unknown as EmailAccount;
 
