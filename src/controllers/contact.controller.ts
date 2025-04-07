@@ -145,8 +145,8 @@ export const getallContacts = async (
           },
         },
       },
-      orderBy: { 
-        createdAt: 'desc', 
+      orderBy: {
+        createdAt: 'desc',
       },
     });
 
@@ -174,6 +174,71 @@ export const getallContacts = async (
     res.status(500).json({ code: 500, message: "Error fetching contacts" });
   }
 };
+export const updateContact = async (
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const user = req.user;
+
+    if (!user) {
+      res.status(404).json({ code: 404, message: "User not found" });
+      return;
+    }
+
+    const contactId = req.params.id;
+
+    const {
+      first_name,
+      last_name,
+      email,
+      phone_number,
+      company_name,
+      website,
+      location,
+      file_name,
+      blocked,
+      unsubscribed,
+      active,
+    } = req.body;
+
+    const existingContact = await prisma.contact.findUnique({
+      where: { id: contactId },
+    });
+
+    if (!existingContact) {
+      res.status(404).json({ code: 404, message: "Contact not found" });
+      return;
+    }
+
+    const updatedContact = await prisma.contact.update({
+      where: { id: contactId },
+      data: {
+        first_name,
+        last_name,
+        email,
+        phone_number,
+        company_name,
+        website,
+        location,
+        file_name,
+        blocked,
+        unsubscribed,
+        active,
+      },
+    });
+
+    res.status(200).json({
+      code: 200,
+      message: "Contact updated successfully",
+      data: updatedContact,
+    });
+  } catch (error) {
+    console.error("Error updating contact:", error);
+    res.status(500).json({ code: 500, message: "Error updating contact" });
+  }
+};
+
 
 export const deactivateContacts = async (req: Request, res: Response) => {
   try {
