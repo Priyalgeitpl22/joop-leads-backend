@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authMiddleware } from "../middlewares/authMiddleware";
 
-import { createCampaignWithContacts, createContact, deactivateContacts, deleteContact, filterContacts, getallContacts, getContactsById, searchContacts, unsubscribeContact } from "../controllers/contact.controller";
+import { createCampaignWithContacts, createContact, deactivateContacts, deleteContact, filterContacts, getallContacts, getContactsById, searchContacts, unsubscribeContact, updateContact } from "../controllers/contact.controller";
 
 
 const router = Router();

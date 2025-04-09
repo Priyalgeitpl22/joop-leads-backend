@@ -116,6 +116,11 @@ cron.schedule("*/1 * * * *", async () => {
           ?.campaign_settings as unknown as Record<string, any>;
         const unsubscribe = setting?.Unsubscribe ?? true;
 
+      
+        const isPlainText = setting?.emailDeliveryOptimization ?? true;
+
+        const tarcking = setting?.trackLinkClicks ?? "";
+
         const unsubscribeLink = unsubscribe
           ? `<br/><br/> <a href="http://localhost:5173/unsubscribe/${contact.email}">Unsubscribe</a>`
           : "";
@@ -127,8 +132,17 @@ cron.schedule("*/1 * * * *", async () => {
 
         const senderAccount = campaign.email_campaign_settings?.[0]?.sender_accounts?.[0] as unknown as EmailAccount;
 
-        if(campaign.status !== 'PAUSED')
-        await sendEmail(campaign.id, campaign.orgId, senderAccount, contact.email, subject, body);
+        if (campaign.status !== "PAUSED")
+          await sendEmail(
+            campaign.id,
+            campaign.orgId,
+            senderAccount,
+            contact.email,
+            subject,
+            body,
+            isPlainText,
+            tarcking
+          );
 
         await prisma.emailTriggerLog.create({
           data: {
