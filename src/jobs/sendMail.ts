@@ -88,7 +88,8 @@ const sendEmailFromGoogle = async (
   subject: string,
   body: string,
   isPlainText: boolean,
-  tracking: boolean
+  tracking: boolean,
+  tarckingOpenEmail:boolean
 ): Promise<any> => {
   if (!toEmail) throw new Error("Recipient email is required!");
 
@@ -134,7 +135,7 @@ const sendEmailFromGoogle = async (
           <br/>
           <a href="${replyTrackingUrl}" target="_blank">Reply</a> to this email.
           <br/>
-          <img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" />
+          ${tarckingOpenEmail ? `<img src="${trackingPixelUrl}" width="100px" height="100px" style="display:none;" />` : ''}
         </body>
       </html>
     `;
@@ -247,7 +248,7 @@ const sendEmailWithSMTP = async (campaignId: string, account: EmailAccount, from
   }
 };
 
-export const sendEmail = async (campaignId: string, orgId: string, account: EmailAccount, toEmail: string, subject: string, body: string,isPlainText:boolean,tarcking:boolean): Promise<any> => {
+export const sendEmail = async (campaignId: string, orgId: string, account: EmailAccount, toEmail: string, subject: string, body: string,isPlainText:boolean,tarcking:boolean,tarckingOpenEmail:boolean): Promise<any> => {
   try {
     const org = await prisma.organization.findUnique({ where: { id: orgId } });
 
@@ -255,7 +256,7 @@ export const sendEmail = async (campaignId: string, orgId: string, account: Emai
 
     switch (account.type) {
       case "gmail":
-        return sendEmailFromGoogle(campaignId, account, org.name, account.email, toEmail, subject, body,isPlainText,tarcking);
+        return sendEmailFromGoogle(campaignId, account, org.name, account.email, toEmail, subject, body,isPlainText,tarcking,tarckingOpenEmail);
       case "outlook":
         return sendEmailFromMicrosoft(campaignId, account, org.name, toEmail, subject, body);
       case "imap":
