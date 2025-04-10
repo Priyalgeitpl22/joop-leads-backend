@@ -158,12 +158,15 @@ model EmailCampaignSettings {
 }
 
 model EmailTriggerLog {
-  id          String   @id @default(uuid())
-  email       String
-  campaignId  String
-  sequenceId  String
-  triggeredAt DateTime @default(now())
-  createdAt   DateTime  @default(now())
+  id              String   @id @default(uuid())
+  email           String
+  campaignId      String
+  sequenceId      String
+  email_clicked   Boolean?      @default(false)
+  email_opened    Boolean?      @default(false)
+  replied_mail    Boolean?      @default(false)
+  triggeredAt     DateTime @default(now())
+  createdAt       DateTime  @default(now())
 
   campaign Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   sequence Sequences @relation(fields: [sequenceId], references: [id], onDelete: Cascade)

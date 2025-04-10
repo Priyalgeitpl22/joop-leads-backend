@@ -27,8 +27,24 @@ export const trackEvent = async (req: Request, res: Response): Promise<any> => {
     console.log(`🔍 Tracking Event: ${type} for ${email} in campaign ${campaignId}`);
 
     if (type === "opened_count") {
-      console.log("One email opened")
+      console.log("One email opened");
+      const log = await prisma.emailTriggerLog.findFirst({
+        where: {
+          campaignId,
+          email,
+        },
+      });
+      console.log("log", log);
+      if (log) {
+        const data = await prisma.emailTriggerLog.update({
+          where: { id: log.id },
+          data: { email_opened: true },
+        });
+      }
       incrementCampaignCount(campaignId, "opened_count");
+
+      console.log("One email opened");
+
       const imagePath = path.join(__dirname, "transparent.png");
       if (fs.existsSync(imagePath)) {
         res.setHeader("Content-Type", "image/png");
@@ -40,14 +56,43 @@ export const trackEvent = async (req: Request, res: Response): Promise<any> => {
     }
 
     if (type === "clicked_count" && redirect) {
+      const log = await prisma.emailTriggerLog.findFirst({
+        where: {
+          campaignId,
+          email,
+        },
+      });
+      console.log("log", log);
+      if (log) {
+        const data = await prisma.emailTriggerLog.update({
+          where: { id: log.id },
+          data: { email_clicked: true },
+        });
+      }
       incrementCampaignCount(campaignId, "clicked_count");
-      console.log("One email clicked")
+      console.log("One email clicked");
       console.log(`🔀 Redirecting to: ${redirect}`);
       return res.redirect(redirect.toString());
     }
 
     if (type === "replied_count") {
       console.log(`📩 Reply detected from ${email}`);
+      const log = await prisma.emailTriggerLog.findFirst({
+        where: {
+          campaignId,
+          email,
+        },
+      });
+
+      if (log) {
+        const data = await prisma.emailTriggerLog.update({
+          where: { id: log.id },
+          data: { replied_mail: true },
+        });
+      }
+      incrementCampaignCount(campaignId, "replied_count");
+
+      console.log("Replied to one email");
     }
 
     res.status(200).json({ message: `✅ ${type} updated for ${email}` });
