@@ -86,7 +86,9 @@ const sendEmailFromGoogle = async (
   fromEmail: string,
   toEmail: string,
   subject: string,
-  body: string
+  body: string,
+  isPlainText: boolean,
+  tracking: boolean
 ): Promise<any> => {
   if (!toEmail) throw new Error("Recipient email is required!");
 
@@ -102,30 +104,49 @@ const sendEmailFromGoogle = async (
 
   // Tracking links
   const trackingPixelUrl = `${baseUrl}/track/track-email/${trackingId}/opened_count`;
-  const clickTrackingUrl = `${baseUrl}/track/track-email/${trackingId}/clicked_count?redirect=https://goldeneagle.ai/`;
-  const replyTrackingUrl = `mailto:${fromEmail}?subject=Re: ${encodeURIComponent(subject)}&body=Replying to your email`;
+  const defaultRedirectUrl = "https://goldeneagle.ai/";
 
-  // Construct email content with tracking
-  const emailContent = `
-    <html>
-      <body>
-        ${body}
-        <br/><br/>
-        <a href="${clickTrackingUrl}" target="_blank">Click here</a> to visit.
-        <br/>
-        <a href="${replyTrackingUrl}" target="_blank">Reply</a> to this email.
-        <br/>
-        <img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" />
-      </body>
-    </html>
-  `;
+  let clickTrackingUrl = `${baseUrl}/track/track-email/${trackingId}/clicked_count?redirect=https://goldeneagle.ai/`;
+  if (!tracking) {
+    clickTrackingUrl = `${baseUrl}/track/track-email/${trackingId}/clicked_count?redirect=${defaultRedirectUrl}`;
+  } else {
+    clickTrackingUrl = defaultRedirectUrl;
+  }
+  const replyTrackingUrl = `mailto:${fromEmail}?subject=Re: ${encodeURIComponent(
+    subject
+  )}&body=Replying to your email`;
+  let emailContent: string;
+  let contentType: string;
+  if (isPlainText) {
+    const stripHtmlTags = (html: string): string =>
+      html.replace(/<\/?[^>]+(>|$)/g, "");
+
+    const plainBody = stripHtmlTags(body);
+    emailContent = `${plainBody}\n\nVisit: ${clickTrackingUrl}\nReply: ${replyTrackingUrl}`;
+    contentType = `text/plain; charset="UTF-8"`;
+  } else {
+    emailContent = `
+      <html>
+        <body>
+          ${body}
+          <br/><br/>
+          <a href="${clickTrackingUrl}" target="_blank">Click here</a> to visit.
+          <br/>
+          <a href="${replyTrackingUrl}" target="_blank">Reply</a> to this email.
+          <br/>
+          <img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" />
+        </body>
+      </html>
+    `;
+    contentType = `text/html; charset="UTF-8"`;
+  }
 
   const encodedMessage = Buffer.from(
     `From: "${fromName}" <${fromEmail}>\r\n` +
-    `To: <${toEmail}>\r\n` +
-    `Subject: ${subject}\r\n` +
-    `Content-Type: text/html; charset="UTF-8"\r\n\r\n` +
-    emailContent
+      `To: <${toEmail}>\r\n` +
+      `Subject: ${subject}\r\n` +
+      `Content-Type: ${contentType}\r\n\r\n` +
+      emailContent
   )
     .toString("base64")
     .replace(/\+/g, "-")
@@ -136,16 +157,27 @@ const sendEmailFromGoogle = async (
     const response = await axios.post(
       "https://www.googleapis.com/gmail/v1/users/me/messages/send",
       { raw: encodedMessage },
-      { headers: { Authorization: `Bearer ${access_token}`, "Content-Type": "application/json" } }
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          "Content-Type": "application/json",
+        },
+      }
     );
 
     incrementCampaignCount(campaignId, "sent_count");
-    console.log(`✅ Google Email Sent to ${toEmail}, Tracking ID: ${trackingId}`);
+    console.log(
+      `✅ Google Email Sent to ${toEmail}, Tracking ID: ${trackingId}`
+    );
     return response.data;
   } catch (error: any) {
-    console.log("One email counced")
+    console.log("One email counced");
     incrementCampaignCount(campaignId, "bounced_count");
-    console.error("❌ Google Email Error: Failed to send email to", toEmail, error.message);
+    console.error(
+      "❌ Google Email Error: Failed to send email to",
+      toEmail,
+      error.message
+    );
   }
 };
 
@@ -215,7 +247,7 @@ const sendEmailWithSMTP = async (campaignId: string, account: EmailAccount, from
   }
 };
 
-export const sendEmail = async (campaignId: string, orgId: string, account: EmailAccount, toEmail: string, subject: string, body: string): Promise<any> => {
+export const sendEmail = async (campaignId: string, orgId: string, account: EmailAccount, toEmail: string, subject: string, body: string,isPlainText:boolean,tarcking:boolean): Promise<any> => {
   try {
     const org = await prisma.organization.findUnique({ where: { id: orgId } });
 
@@ -223,7 +255,7 @@ export const sendEmail = async (campaignId: string, orgId: string, account: Emai
 
     switch (account.type) {
       case "gmail":
-        return sendEmailFromGoogle(campaignId, account, org.name, account.email, toEmail, subject, body);
+        return sendEmailFromGoogle(campaignId, account, org.name, account.email, toEmail, subject, body,isPlainText,tarcking);
       case "outlook":
         return sendEmailFromMicrosoft(campaignId, account, org.name, toEmail, subject, body);
       case "imap":
