@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { trackEvent } from "../controllers/tracking.controller";
+import { processInboundEmail, trackEvent } from "../controllers/tracking.controller";
 
 const router = Router();
 
 router.get("/track-email/:trackingId/:type", trackEvent);
+router.post('/inbound/email',processInboundEmail);
 
 export default router;

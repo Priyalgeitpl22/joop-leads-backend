@@ -167,7 +167,7 @@ model EmailTriggerLog {
   replied_mail    Boolean?      @default(false)
   triggeredAt     DateTime @default(now())
   createdAt       DateTime  @default(now())
-
+google_message_id   String?
   campaign Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   sequence Sequences @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
 }

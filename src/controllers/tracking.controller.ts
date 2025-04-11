@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
 import { incrementCampaignCount } from "./analytics.controller";
+import { simpleParser } from 'mailparser'; // Import the mailparser
 
 const prisma = new PrismaClient();
 
@@ -74,25 +75,25 @@ export const trackEvent = async (req: Request, res: Response): Promise<any> => {
       console.log(`🔀 Redirecting to: ${redirect}`);
       return res.redirect(redirect.toString());
     }
-
     if (type === "replied_count") {
-      console.log(`📩 Reply detected from ${email}`);
+      console.log("************8");
+      // Update log
       const log = await prisma.emailTriggerLog.findFirst({
-        where: {
-          campaignId,
-          email,
-        },
+        where: { campaignId, email },
       });
 
       if (log) {
-        const data = await prisma.emailTriggerLog.update({
+        await prisma.emailTriggerLog.update({
           where: { id: log.id },
           data: { replied_mail: true },
         });
       }
-      incrementCampaignCount(campaignId, "replied_count");
 
-      console.log("Replied to one email");
+      incrementCampaignCount(campaignId, "replied_count");
+      console.log(`📩 Reply detected from ${email}`);
+
+      // Do NOT redirect for replied_count. Simply respond with success.
+      return res.status(200).json({ message: `✅ Reply tracked for ${email}` });
     }
 
     res.status(200).json({ message: `✅ ${type} updated for ${email}` });
@@ -102,5 +103,43 @@ export const trackEvent = async (req: Request, res: Response): Promise<any> => {
       message: "Error tracking event",
       details: error.message,
     });
+  }
+};
+
+export const processInboundEmail = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Assuming your piping mechanism sends the raw email data in the request body
+    const rawEmail = req.body.toString(); // Get the raw email as a string
+
+    if (!rawEmail) {
+      console.warn("No raw email data received.");
+      res.status(400).send("No email data received.");
+    }
+
+    const parsedEmail = await simpleParser(rawEmail);
+    const inReplyTo = parsedEmail.inReplyTo as string | undefined;
+
+    if (inReplyTo) {
+      const originalEmailLog = await prisma.emailTriggerLog.findFirst({
+        where: { google_message_id: inReplyTo },
+      });
+
+      if (originalEmailLog) {
+        console.log(
+          `📧 Received reply to message ID: ${inReplyTo}, campaign: ${originalEmailLog.campaignId}, original recipient: ${originalEmailLog.email}`
+        );
+        await incrementCampaignCount(originalEmailLog.campaignId, "replied_count");
+        res.status(200).send("Reply tracked successfully.");
+        return;
+      } else {
+        console.log(`⚠️ Original email not found for message ID: ${inReplyTo}`);
+      }
+    }
+
+    // If not a reply or original email not found
+    res.status(200).send("Email processed (no reply tracked).");
+  } catch (error: any) {
+    console.error("Error processing inbound email:", error);
+    res.status(500).send("Error processing email.");
   }
 };

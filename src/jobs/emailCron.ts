@@ -120,7 +120,7 @@ cron.schedule("*/1 * * * *", async () => {
         const emailTriggerLog = await prisma.emailTriggerLog.findFirst({
           where: { email: contact.email, campaignId: campaign.id },
         });
-        
+      //stop sending mail
         if (emailTriggerLog) {
           if (stopSending === "clicks" && emailTriggerLog.email_clicked) {
             console.log(`⏳ Skipping email to ${contact.email} - email has been clicked.`);

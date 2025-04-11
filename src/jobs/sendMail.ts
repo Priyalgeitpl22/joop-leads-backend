@@ -78,6 +78,11 @@ const refreshMicrosoftOAuthToken = async (
     throw new Error(`❌ Failed to refresh Microsoft OAuth token: ${error.response?.data?.error_description || error.message}`);
   }
 };
+interface GmailSendResponse {
+  id: string;
+  threadId: string;
+  labelIds?: string[];
+}
 
 const sendEmailFromGoogle = async (
   campaignId: string,
@@ -113,9 +118,9 @@ const sendEmailFromGoogle = async (
   } else {
     clickTrackingUrl = defaultRedirectUrl;
   }
-  const replyTrackingUrl = `mailto:${fromEmail}?subject=Re: ${encodeURIComponent(
-    subject
-  )}&body=Replying to your email`;
+  const replyTrackingUrl = `${baseUrl}/track/track-email/${trackingId}/replied_count`;
+
+
   let emailContent: string;
   let contentType: string;
   if (isPlainText) {
@@ -133,7 +138,9 @@ const sendEmailFromGoogle = async (
           <br/><br/>
           <a href="${clickTrackingUrl}" target="_blank">Click here</a> to visit.
           <br/>
-          <a href="${replyTrackingUrl}" target="_blank">Reply</a> to this email.
+        <a href="mailto:${fromEmail}?subject=Re:${encodeURIComponent(
+      subject
+    )}&body=Replying" data-tracking-url="${replyTrackingUrl}">Reply</a> to this email.
           <br/>
           ${tarckingOpenEmail ? `<img src="${trackingPixelUrl}" width="100px" height="100px" style="display:none;" />` : ''}
         </body>
@@ -155,7 +162,7 @@ const sendEmailFromGoogle = async (
     .replace(/=+$/, "");
 
   try {
-    const response = await axios.post(
+    const response = await axios.post<GmailSendResponse>(
       "https://www.googleapis.com/gmail/v1/users/me/messages/send",
       { raw: encodedMessage },
       {
@@ -165,11 +172,35 @@ const sendEmailFromGoogle = async (
         },
       }
     );
-
+    const messageId = response.data.id;
+    console.log(messageId)
+    const threadId = response.data.threadId;
     incrementCampaignCount(campaignId, "sent_count");
     console.log(
       `✅ Google Email Sent to ${toEmail}, Tracking ID: ${trackingId}`
     );
+
+    const log = await prisma.emailTriggerLog.findFirst({
+      where: {
+        campaignId,
+        email: toEmail,
+      },
+    });
+    console.log("log",log)
+    if (log) {
+      await prisma.emailTriggerLog.update({
+        where: { id: log.id },
+        data: { google_message_id: messageId },
+      });
+    } 
+    else {
+      await prisma.emailTriggerLog.updateMany({
+        data: {
+        
+          google_message_id: messageId,
+        },
+      });
+    }
     return response.data;
   } catch (error: any) {
     console.log("One email counced");
