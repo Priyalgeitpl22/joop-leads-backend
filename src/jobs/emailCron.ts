@@ -115,12 +115,30 @@ cron.schedule("*/1 * * * *", async () => {
         const setting = campaign.email_campaign_settings?.[0]
           ?.campaign_settings as unknown as Record<string, any>;
         const unsubscribe = setting?.Unsubscribe ?? true;
-
+        const stopSending = setting?.stopSending ?? "";
+        
+        const emailTriggerLog = await prisma.emailTriggerLog.findFirst({
+          where: { email: contact.email, campaignId: campaign.id },
+        });
+        
+        if (emailTriggerLog) {
+          if (stopSending === "clicks" && emailTriggerLog.email_clicked) {
+            console.log(`⏳ Skipping email to ${contact.email} - email has been clicked.`);
+            continue;
+          } else if (stopSending === "opens" && emailTriggerLog.email_opened) {
+            console.log(`⏳ Skipping email to ${contact.email} - email has been opened.`);
+            continue;
+          } else if (stopSending === "replies" && emailTriggerLog.replied_mail) {
+            console.log(`⏳ Skipping email to ${contact.email} - email has been replied to.`);
+            continue;
+          }
+        }
       
         const isPlainText = setting?.emailDeliveryOptimization ?? true;
 
         const tarcking = setting?.trackLinkClicks ?? "";
-
+        const tarckingOpenEmail = setting?.trackEmailOpens?? "";
+        
         const unsubscribeLink = unsubscribe
           ? `<br/><br/> <a href="http://localhost:5173/unsubscribe/${contact.email}">Unsubscribe</a>`
           : "";
@@ -141,7 +159,8 @@ cron.schedule("*/1 * * * *", async () => {
             subject,
             body,
             isPlainText,
-            tarcking
+            tarcking,
+            tarckingOpenEmail
           );
 
         await prisma.emailTriggerLog.create({
