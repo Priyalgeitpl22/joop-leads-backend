@@ -1165,4 +1165,48 @@ export const filterEmailCampaigns = async (req: AuthenticatedRequest, res: any) 
   }
 };
 
+export const renameCampaign = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { newName } = req.body;
+    const { campaignId } = req.params;
+
+    if (!newName) {
+      return res.status(400).json({
+        code: 400,
+        message: "Invalid input or missing",
+      });
+    }
+
+    const existingCampaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+    });
+
+    if (!existingCampaign) {
+      return res.status(404).json({
+        code: 404,
+        message: `Campaign with the specified Id:${campaignId} does not exist`,
+      });
+    }
+
+    const updatedCampaign = await prisma.campaign.update({
+      where: { id: campaignId },
+      data: { campaignName: newName },
+    });
+
+    return res.status(200).json({
+      code: 200,
+      data: updatedCampaign,
+      message: "Campaign renamed successfully",
+    });
+  } catch (err) {
+    console.error("Error updating campaign status:", err);
+    return res.status(500).json({
+      code: 500,
+      message: "Error updating campaign status",
+    });
+  }
+};
 
