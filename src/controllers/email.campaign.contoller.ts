@@ -699,13 +699,22 @@ export const searchEmailCampaigns = async (req: AuthenticatedRequest, res: any) 
         schedule: true,
         status: true,
         CampaignAnalytics: true,
-        EmailTriggerLog: true
+        EmailTriggerLog: true,
+        emailCampaigns: {
+          select: {
+            contact: true,
+          },
+        },
       },
     });
 
     data = data.map((campaign) => ({
       ...campaign,
-      analytics_count: campaign.CampaignAnalytics[0]
+      analytics_count: campaign.CampaignAnalytics?.length || 0,
+      contact_count: campaign.emailCampaigns.filter((ec) => ec.contact).length,
+      contacts: campaign.emailCampaigns
+        .filter((ec) => ec.contact)
+        .map((ec) => ec.contact),
     }));
 
     res.status(200).json({
