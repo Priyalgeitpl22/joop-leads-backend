@@ -443,7 +443,13 @@ export const getAllEmailCampaigns = async (req: AuthenticatedRequest, res: Respo
           schedule: true,
           status: true,
           CampaignAnalytics: true,
-          EmailTriggerLog: true
+          EmailTriggerLog: true,
+          emailCampaigns: {
+            include: {
+              contact: true, 
+            },
+          },
+          
         },
         orderBy: {
           createdAt: "desc",
@@ -453,7 +459,9 @@ export const getAllEmailCampaigns = async (req: AuthenticatedRequest, res: Respo
       data = data.map((campaign) => ({
         ...campaign,
         sequence_count: campaign.sequencesIds.length,
-        analytics_count: campaign.CampaignAnalytics[0]
+        analytics_count: campaign.CampaignAnalytics[0],
+        contact_count: campaign.emailCampaigns.length,
+        contacts: campaign.emailCampaigns.map((ec) => ec.contact),
       }));
       res.status(200).json({ code: 200, data, message: "success" });
     }
