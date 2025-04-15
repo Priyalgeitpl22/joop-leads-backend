@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 const replaceTemplateVariables = (template: string, variables: any) => {
   return template.replace(/{{(.*?)}}/g, (_, key) => variables[key.trim()] || "");
 };
-const baseUrl = process.env.NODE_ENV === 'development' ? process.env.FRONTEND_URL : process.env.SERVER_URL
+
 cron.schedule("*/1 * * * *", async () => {
   console.log("🔄 Running campaign email cron job...");
 
@@ -122,7 +122,7 @@ cron.schedule("*/1 * * * *", async () => {
         const tarcking = setting?.trackLinkClicks ?? "";
 
         const unsubscribeLink = unsubscribe
-        ? `<br/><br/> <a href="${baseUrl}/unsubscribe/${contact.email}">Unsubscribe</a>`
+        ? `<br/><br/> <a href="${ process.env.FRONTEND_URL}/unsubscribe/${contact.email}">Unsubscribe</a>`
         : "";
 
         const body = replaceTemplateVariables(
