@@ -256,7 +256,7 @@ export const getFolderById = async (
       ...folder,
       campaigns: folder.campaigns.map((campaignItem) => ({
         ...campaignItem,
-        contact_count: campaignItem.campaign.emailCampaigns?.length || 0, // Count contacts for each campaign
+        contact_count: campaignItem.campaign.emailCampaigns?.length || 0, 
       })),
       sequence_count: folder.campaigns.reduce(
         (count, campaign) => count + (campaign.campaign.sequences?.length || 0),
