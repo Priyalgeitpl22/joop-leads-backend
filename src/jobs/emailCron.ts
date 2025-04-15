@@ -140,8 +140,8 @@ cron.schedule("*/1 * * * *", async () => {
         const tarckingOpenEmail = setting?.trackEmailOpens?? "";
         
         const unsubscribeLink = unsubscribe
-          ? `<br/><br/> <a href="http://localhost:5173/unsubscribe/${contact.email}">Unsubscribe</a>`
-          : "";
+        ? `<br/><br/> <a href="${ process.env.FRONTEND_URL}/unsubscribe/${contact.email}">Unsubscribe</a>`
+        : "";
 
         const body = replaceTemplateVariables(
           nextSequence.seq_variants[0].emailBody || `<p>Hi {{first_name}},</p><p>test email</p>`,
