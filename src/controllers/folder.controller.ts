@@ -240,6 +240,11 @@ export const getFolderById = async (
                 status: true,
                 CampaignAnalytics: true,
                 EmailTriggerLog: true,
+                emailCampaigns: {
+                  select: {
+                    contact: true, 
+                  },
+                },
               },
             },
           },
@@ -249,6 +254,10 @@ export const getFolderById = async (
     
     foldersList = foldersList.map((folder) => ({
       ...folder,
+      campaigns: folder.campaigns.map((campaignItem) => ({
+        ...campaignItem,
+        contact_count: campaignItem.campaign.emailCampaigns?.length || 0, 
+      })),
       sequence_count: folder.campaigns.reduce(
         (count, campaign) => count + (campaign.campaign.sequences?.length || 0),
         0
