@@ -8,6 +8,7 @@ import { isValidEmail } from "../utils/email.utils";
 import { CsvFile } from "../interfaces";
 import fs from "fs";
 import path from "path";
+import { getChannel } from "../utils/rabbitmq";
 
 const prisma = new PrismaClient();
 const upload = multer({ storage: multer.memoryStorage() }).single("csvFile");
@@ -744,6 +745,11 @@ export const scheduleEmailCampaign = async (req: Request, res: Response) => {
       where: { id: campaignId },
       data: { status },
     });
+    const channel = await getChannel();
+    const queueName = process.env.QUEUE_NAME;
+    if (!queueName) throw new Error("Email Queue name is undefined!");
+    channel.assertQueue(queueName, { durable: true });
+    channel.sendToQueue(queueName, Buffer.from(JSON.stringify({ campaignId: campaignId })))
     res
       .status(200)
       .json({ code: 200, data: updatedCampaign, message: "success" });
@@ -1073,7 +1079,7 @@ export const removeFolderId = async (
   res: Response
 ): Promise<any> => {
   try {
-    const { campaignId, folderId} = req.body;
+    const { campaignId, folderId } = req.body;
 
     if (!campaignId || !folderId) {
       return res.status(400).json({
@@ -1081,14 +1087,14 @@ export const removeFolderId = async (
         message: "campaignId and folder Id are required"
       })
     }
-    const existingMapping  = await prisma.campaignFolderMapping.findFirst({
-      where: {campaignId,folderId },
+    const existingMapping = await prisma.campaignFolderMapping.findFirst({
+      where: { campaignId, folderId },
     });
 
-    if(!existingMapping){
+    if (!existingMapping) {
       return res.status(404).json({
-        code:404,
-        message:"Campaign not found"
+        code: 404,
+        message: "Campaign not found"
       })
     }
 
@@ -1097,8 +1103,8 @@ export const removeFolderId = async (
     });
 
     return res.status(200).json({
-      code:200,
-      message:"Campaign from folder Removed sucessfully"
+      code: 200,
+      message: "Campaign from folder Removed sucessfully"
     })
 
   } catch (err) {

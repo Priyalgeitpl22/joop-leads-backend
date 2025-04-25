@@ -10,7 +10,7 @@ const replaceTemplateVariables = (template: string, variables: any) => {
   return template.replace(/{{(.*?)}}/g, (_, key) => variables[key.trim()] || "");
 };
 
-cron.schedule("*/1 * * * *", async () => {
+cron.schedule("*/1 */10 * * *", async () => {
   console.log("🔄 Running campaign email cron job...");
 
   try {
@@ -64,7 +64,7 @@ cron.schedule("*/1 * * * *", async () => {
       for (const emailCampaign of campaign.emailCampaigns) {
         const contact = emailCampaign.contact;
         if (!contact || !contact.email) continue;
-        
+
         if (contact?.unsubscribed) {
           console.log(`⏳ Skipping email to ${contact.email} - unsubscribed.`);
           continue;
@@ -116,11 +116,11 @@ cron.schedule("*/1 * * * *", async () => {
           ?.campaign_settings as unknown as Record<string, any>;
         const unsubscribe = setting?.Unsubscribe ?? true;
         const stopSending = setting?.stopSending ?? "";
-        
+
         const emailTriggerLog = await prisma.emailTriggerLog.findFirst({
           where: { email: contact.email, campaignId: campaign.id },
         });
-        
+
         if (emailTriggerLog) {
           if (stopSending === "clicks" && emailTriggerLog.email_clicked) {
             console.log(`⏳ Skipping email to ${contact.email} - email has been clicked.`);
@@ -133,15 +133,15 @@ cron.schedule("*/1 * * * *", async () => {
             continue;
           }
         }
-      
+
         const isPlainText = setting?.emailDeliveryOptimization ?? true;
 
         const tarcking = setting?.trackLinkClicks ?? "";
-        const tarckingOpenEmail = setting?.trackEmailOpens?? "";
-        
+        const tarckingOpenEmail = setting?.trackEmailOpens ?? "";
+
         const unsubscribeLink = unsubscribe
-        ? `<br/><br/> <a href="${ process.env.FRONTEND_URL}/unsubscribe/${contact.email}">Unsubscribe</a>`
-        : "";
+          ? `<br/><br/> <a href="${process.env.FRONTEND_URL}/unsubscribe/${contact.email}">Unsubscribe</a>`
+          : "";
 
         const body = replaceTemplateVariables(
           nextSequence.seq_variants[0].emailBody || `<p>Hi {{first_name}},</p><p>test email</p>`,
@@ -178,14 +178,14 @@ cron.schedule("*/1 * * * *", async () => {
         where: { campaignId: campaign.id },
         include: { contact: true },
       });
-      
+
       const campaignTriggerLogs = await prisma.emailTriggerLog.findMany({
         where: { campaignId: campaign.id },
       });
-      
+
       // Extract unique emails from campaign contacts
       const campaignContactEmails = campaignContacts.map((contact) => contact.contact.email);
-      
+
       // Group trigger logs by email
       const emailTriggerMap = new Map<string, Set<string>>();
       campaignTriggerLogs.forEach((log) => {
@@ -194,16 +194,16 @@ cron.schedule("*/1 * * * *", async () => {
         }
         emailTriggerMap.get(log.email)!.add(log.sequenceId);
       });
-      
+
       // Check if all campaign contacts have completed all sequences
       const allCompleted = campaignContacts.every((contact) => {
         const email = contact.contact.email ?? '';
         const requiredSequences = campaign.sequences
         const triggeredSequences = emailTriggerMap.get(email) || new Set();
-      
+
         return requiredSequences.every((seq) => triggeredSequences.has(seq.id));
       });
-      
+
       if (allCompleted) {
         await prisma.campaign.update({
           where: { id: campaign.id },
