@@ -18,7 +18,7 @@ router.get("/sequences/:campaign_id", authMiddleware, getAllSequences);
 router.get("/contacts/:campaign_id", authMiddleware, getAllContacts);
 router.get("/search/campaign", authMiddleware, searchEmailCampaigns);
 router.delete('/delete', deleteCampaign);
-router.get('/dashboard/data', getDashboardData);
+router.get('/dashboard/data', authMiddleware, getDashboardData);
 router.put("/status", updateCampaignStatus);
 router.put('/:campaignId/rename',renameCampaign)
 
