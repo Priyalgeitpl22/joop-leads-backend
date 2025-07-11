@@ -6,8 +6,7 @@ import csv from "csv-parser";
 import { getPresignedUrl, uploadCSVToS3 } from "../aws/imageUtils";
 import { isValidEmail } from "../utils/email.utils";
 import { CsvFile } from "../interfaces";
-import fs from "fs";
-import path from "path";
+import { subDays, format } from "date-fns";
 
 const prisma = new PrismaClient();
 const upload = multer({ storage: multer.memoryStorage() }).single("csvFile");
@@ -980,11 +979,40 @@ export const getDashboardData = async (req: AuthenticatedRequest, res: Response)
     });
 
     const total_paused_campaigns = await prisma.campaign.count({
+      where: { orgId: user?.orgId, status: "PAUSED" },
+    });
+
+    const today = new Date();
+    const past7Days = Array.from({ length: 7 }).map((_, i) => {
+      const date = subDays(today, 6 - i);
+      return format(date, "yyyy-MM-dd");
+    });
+
+    const graphDataRaw = await prisma.campaignAnalytics.findMany({
       where: {
         orgId: user?.orgId,
-        status: 'PAUSED'
-      }
+        createdAt: {
+          gte: subDays(today, 6),
+        },
+      },
+      select: {
+        sent_count: true,
+        createdAt: true,
+      },
     });
+
+    const graphMap: Record<string, number> = {};
+
+    graphDataRaw.forEach((entry) => {
+      const day = format(new Date(entry.createdAt), "yyyy-MM-dd");
+      graphMap[day] = (graphMap[day] || 0) + entry.sent_count;
+    });
+
+    const graph_data = past7Days.map((date, i) => ({
+      date,
+      today: graphMap[date] || 0,
+      yesterday: i > 0 ? graphMap[past7Days[i - 1]] || 0 : 0,
+    }));
 
     const data = {
       total_leads,
@@ -994,19 +1022,24 @@ export const getDashboardData = async (req: AuthenticatedRequest, res: Response)
       total_completed_campaigns,
       total_drafted_campaigns,
       total_scheduled_campaigns,
-      total_paused_campaigns
-    }
+      total_paused_campaigns,
+      graph_data,
+    };
 
-    return res.status(200).json({ code: 200, message: "Campaign deleted successfully", data: data });
-  } catch (error: any) {
-    console.error("Error deleting campaign:", error);
     return res
-      .status(500)
+      .status(200)
       .json({
-        code: 500,
-        message: "Error deleting campaign",
-        details: error.message,
+        code: 200,
+        message: "Dashboard data fetched successfully",
+        data,
       });
+  } catch (error: any) {
+    console.error("Error fetching dashboard data:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Error fetching dashboard data",
+      details: error.message,
+    });
   }
 };
 export const updateFolderId = async (req: Request, res: Response): Promise<any> => {
