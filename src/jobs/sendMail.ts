@@ -166,6 +166,13 @@ const sendEmailFromGoogle = async (
       }
     );
 
+
+    // now set the send data to the prisma data base
+    if(response.data){
+      const {id} = response.data as {id:string,threadId:string}
+      await prisma.trackEmails.create({data:{threadId:id,campaignId:campaignId,recipient:toEmail,sender_email:fromEmail}})
+    }
+
     incrementCampaignCount(campaignId, "sent_count");
     console.log(
       `✅ Google Email Sent to ${toEmail}, Tracking ID: ${trackingId}`

@@ -104,3 +104,33 @@ export const trackEvent = async (req: Request, res: Response): Promise<any> => {
     });
   }
 };
+
+
+export const getAllThreadFormEmailId =  async(req:Request,res:Response):Promise<any>=>{
+  try{
+    const {email}= req.params
+
+    if(email){
+      // noe fetch all the threads from this email 
+      const data = await prisma.trackEmails.findMany({where:{sender_email:email},select:{threadId:true}})
+
+      const final = data.map((elem)=>elem.threadId)
+
+      return res.status(200).json({
+        message:"Data found succssful",
+        data :final
+      })
+    }else{
+      return res.status(404).json({
+        message:"Email id not found"
+      })
+    }
+
+  }catch(err:any){
+    console.error("❌ Error gettinf data from email:", err.message);
+    res.status(500).json({
+      message: "Error tracking event",
+      details: err.message,
+    });
+  }
+}
