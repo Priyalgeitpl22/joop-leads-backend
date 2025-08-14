@@ -19,22 +19,22 @@ model access_token {
 }
 
 model Organization {
-  id          String     @id @default(uuid())
-  name        String?
-  phone       String?
-  address     String?
-  city        String?
-  state       String?
-  country     String?
-  zip         Int?
-  domain      String?
-  industry    String?
-  description String?
-  users       User[]
-  contacts    Contact[]
-  campaigns   Campaign[]
-  campaign_analytics   CampaignAnalytics[]
-  CampaignFolder  CampaignFolder[]
+  id                 String              @id @default(uuid())
+  name               String?
+  phone              String?
+  address            String?
+  city               String?
+  state              String?
+  country            String?
+  zip                Int?
+  domain             String?
+  industry           String?
+  description        String?
+  users              User[]
+  contacts           Contact[]
+  campaigns          Campaign[]
+  campaign_analytics CampaignAnalytics[]
+  CampaignFolder     CampaignFolder[]
 
   createdAt DateTime @default(now())
 }
@@ -110,7 +110,8 @@ model Campaign {
   organization               Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
   EmailTriggerLog            EmailTriggerLog[]
   CampaignAnalytics          CampaignAnalytics[]
-   folders                   CampaignFolderMapping[]
+  folders                    CampaignFolderMapping[]
+  TrackEmails                TrackEmails[]
 }
 
 model EmailCampaign {
@@ -158,57 +159,63 @@ model EmailCampaignSettings {
 }
 
 model EmailTriggerLog {
-  id              String   @id @default(uuid())
-  email           String
-  campaignId      String
-  sequenceId      String
-  email_clicked   Boolean?      @default(false)
-  email_opened    Boolean?      @default(false)
-  replied_mail    Boolean?      @default(false)
-  triggeredAt     DateTime @default(now())
-  createdAt       DateTime  @default(now())
+  id            String   @id @default(uuid())
+  email         String
+  campaignId    String
+  sequenceId    String
+  email_clicked Boolean? @default(false)
+  email_opened  Boolean? @default(false)
+  replied_mail  Boolean? @default(false)
+  triggeredAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
 
   campaign Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   sequence Sequences @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
 }
 
 model CampaignAnalytics {
-  id                    String   @id @default(uuid())
-  campaignId            String
-  orgId                 String
-  createdAt             DateTime @default(now())
-  sent_count            Int      @default(0)
-  opened_count          Int      @default(0)
-  clicked_count         Int      @default(0)
-  replied_count         Int      @default(0)
-  positive_reply_count  Int      @default(0)
-  bounced_count         Int      @default(0)
-  campaign Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  organization       Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  id                   String       @id @default(uuid())
+  campaignId           String
+  orgId                String
+  createdAt            DateTime     @default(now())
+  sent_count           Int          @default(0)
+  opened_count         Int          @default(0)
+  clicked_count        Int          @default(0)
+  replied_count        Int          @default(0)
+  positive_reply_count Int          @default(0)
+  bounced_count        Int          @default(0)
+  campaign             Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  organization         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@unique([campaignId]) // Ensures campaignId is unique
 }
 
-
 model CampaignFolder {
-  id           String       @id @default(uuid())
-  name         String
-  orgId        String
-  createdAt    DateTime     @default(now())
+  id        String   @id @default(uuid())
+  name      String
+  orgId     String
+  createdAt DateTime @default(now())
 
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  organization Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
   campaigns    CampaignFolderMapping[]
 }
 
 model CampaignFolderMapping {
-  id          String          @id @default(uuid())
-  campaignId  String
-  folderId    String
+  id         String @id @default(uuid())
+  campaignId String
+  folderId   String
 
-  campaign   Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  folder     CampaignFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  campaign Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  folder   CampaignFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
 
   @@unique([campaignId, folderId]) // Prevent duplicate entries
 }
 
-
+model TrackEmails {
+  id           String   @id @default(uuid())
+  threadId     String
+  campaignId   String
+  recipient    String
+  sender_email String
+  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
