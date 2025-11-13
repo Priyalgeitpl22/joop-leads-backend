@@ -11,10 +11,23 @@ const isTokenExpired = (expiryDate?: number): boolean => {
 
 const refreshGoogleOAuthToken = async (account: EmailAccount): Promise<string> => {
   if (!account.oauth2.clientId || !account.oauth2.clientSecret || !account.oauth2.tokens.refresh_token) {
+    console.error("❌ Missing OAuth credentials:", {
+      hasClientId: !!account.oauth2.clientId,
+      hasClientSecret: !!account.oauth2.clientSecret,
+      hasRefreshToken: !!account.oauth2.tokens.refresh_token,
+      accountEmail: account.email,
+      accountId: account.account_id
+    });
     throw new Error("Google OAuth2 credentials are missing!");
   }
 
   const tokenUrl = "https://oauth2.googleapis.com/token";
+  
+  // Log refresh token info for debugging (first 20 chars only for security)
+  const refreshTokenPreview = account.oauth2.tokens.refresh_token.substring(0, 20) + "...";
+  console.log("🔄 Attempting to refresh Google OAuth token for account:", account.email);
+  console.log("🔍 Refresh token preview:", refreshTokenPreview);
+  console.log("🔍 Client ID:", account.oauth2.clientId?.substring(0, 20) + "...");
   
   try {
     const response = await axios.post<{ access_token: string; expires_in: number }>(tokenUrl, null, {
@@ -40,10 +53,23 @@ const refreshGoogleOAuthToken = async (account: EmailAccount): Promise<string> =
     if (error.response?.data?.error === 'invalid_grant') {
       console.error("❌ Google OAuth Refresh Token Expired or Revoked");
       console.error("⚠️  The refresh token is no longer valid. User needs to re-authenticate.");
+      console.error("📋 Error details:", {
+        error: error.response?.data?.error,
+        error_description: error.response?.data?.error_description,
+        accountEmail: account.email,
+        accountId: account.account_id
+      });
       throw new Error("REAUTH_REQUIRED: Google OAuth refresh token has expired or been revoked. Please re-authenticate your Google account.");
     }
     
     console.error("❌ Google OAuth Token Refresh Error:", error.response?.data || error.message);
+    console.error("📋 Full error details:", {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      accountEmail: account.email,
+      accountId: account.account_id
+    });
     throw new Error(`Failed to refresh Google OAuth token: ${error.response?.data?.error_description || error.message}`);
   }
 };

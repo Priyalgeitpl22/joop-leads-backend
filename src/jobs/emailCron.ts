@@ -150,18 +150,46 @@ cron.schedule("*/1 * * * *", async () => {
 
         const senderAccount = campaign.email_campaign_settings?.[0]?.sender_accounts?.[0] as unknown as EmailAccount;
 
-        if (campaign.status !== "PAUSED")
-          await sendEmail(
-            campaign.id,
-            campaign.orgId,
-            senderAccount,
-            contact.email,
-            subject,
-            body,
-            isPlainText,
-            tarcking,
-            tarckingOpenEmail
-          );
+        // Debug logging for account data
+        if (senderAccount && senderAccount.type === 'gmail') {
+          console.log("📧 Sending email with account:", {
+            email: senderAccount.email,
+            accountId: senderAccount.account_id,
+            type: senderAccount.type,
+            hasRefreshToken: !!senderAccount.oauth2?.tokens?.refresh_token,
+            hasClientId: !!senderAccount.oauth2?.clientId,
+            hasClientSecret: !!senderAccount.oauth2?.clientSecret,
+            refreshTokenPreview: senderAccount.oauth2?.tokens?.refresh_token?.substring(0, 20) + "..."
+          });
+        }
+
+        if (campaign.status !== "PAUSED") {
+          try {
+            await sendEmail(
+              campaign.id,
+              campaign.orgId,
+              senderAccount,
+              contact.email,
+              subject,
+              body,
+              isPlainText,
+              tarcking,
+              tarckingOpenEmail
+            );
+          } catch (emailError: any) {
+            // Check if this is a re-authentication required error
+            if (emailError?.message?.includes("REAUTH_REQUIRED")) {
+              console.error(`🚨 REAUTH REQUIRED for account: ${senderAccount?.email || 'unknown'}`);
+              console.error(`🚨 Campaign ID: ${campaign.id}, Account ID: ${senderAccount?.account_id || 'unknown'}`);
+              console.error(`🚨 This account needs to be re-authenticated. Skipping email to ${contact.email}`);
+              // Skip this email but continue with others
+              continue;
+            }
+            // For other errors, log and continue
+            console.error(`❌ Error sending email to ${contact.email}:`, emailError.message);
+            continue;
+          }
+        }
 
         await prisma.emailTriggerLog.create({
           data: {
