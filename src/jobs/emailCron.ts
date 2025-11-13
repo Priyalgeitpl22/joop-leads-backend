@@ -87,7 +87,8 @@ cron.schedule("*/1 * * * *", async () => {
           const lastSentTime = DateTime.fromJSDate(lastSent.createdAt).toUTC();
           const nowUTC = DateTime.utc();
 
-          if (lastSentTime.plus({ days: 1 }) > nowUTC && nextSequence) {
+          // if (lastSentTime.plus({ days: 1 }) > nowUTC && nextSequence) {
+            if (lastSentTime.plus({ hours: 1 }) > nowUTC && nextSequence) {
             console.log(`⏳ Skipping email to ${contact.email} - waiting period not over.`);
             continue;
           }
