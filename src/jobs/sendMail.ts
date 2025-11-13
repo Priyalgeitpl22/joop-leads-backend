@@ -15,24 +15,37 @@ const refreshGoogleOAuthToken = async (account: EmailAccount): Promise<string> =
   }
 
   const tokenUrl = "https://oauth2.googleapis.com/token";
-  const response = await axios.post<{ access_token: string; expires_in: number }>(tokenUrl, null, {
-    params: {
-      client_id: account.oauth2.clientId,
-      client_secret: account.oauth2.clientSecret,
-      refresh_token: account.oauth2.tokens.refresh_token,
-      grant_type: "refresh_token",
-    },
-  });
+  
+  try {
+    const response = await axios.post<{ access_token: string; expires_in: number }>(tokenUrl, null, {
+      params: {
+        client_id: account.oauth2.clientId,
+        client_secret: account.oauth2.clientSecret,
+        refresh_token: account.oauth2.tokens.refresh_token,
+        grant_type: "refresh_token",
+      },
+    });
 
-  if (!response.data.access_token) {
-    throw new Error("Failed to refresh Google OAuth token");
+    if (!response.data.access_token) {
+      throw new Error("Failed to refresh Google OAuth token");
+    }
+
+    account.oauth2.tokens.access_token = response.data.access_token;
+    account.oauth2.tokens.expiry_date = Date.now() + response?.data?.expires_in * 1000;
+
+    console.log("✅ Google Access Token Refreshed!");
+    return account.oauth2.tokens.access_token;
+  } catch (error: any) {
+    // Check if the error is due to invalid/expired refresh token
+    if (error.response?.data?.error === 'invalid_grant') {
+      console.error("❌ Google OAuth Refresh Token Expired or Revoked");
+      console.error("⚠️  The refresh token is no longer valid. User needs to re-authenticate.");
+      throw new Error("REAUTH_REQUIRED: Google OAuth refresh token has expired or been revoked. Please re-authenticate your Google account.");
+    }
+    
+    console.error("❌ Google OAuth Token Refresh Error:", error.response?.data || error.message);
+    throw new Error(`Failed to refresh Google OAuth token: ${error.response?.data?.error_description || error.message}`);
   }
-
-  account.oauth2.tokens.access_token = response.data.access_token;
-  account.oauth2.tokens.expiry_date = Date.now() + response?.data?.expires_in * 1000;
-
-  console.log("✅ Google Access Token Refreshed!");
-  return account.oauth2.tokens.access_token;
 };
 
 const refreshMicrosoftOAuthToken = async (
