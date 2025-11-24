@@ -24,8 +24,27 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         }
         try {
             const existingUser = await prisma.user.findUnique({ where: { email } });
-            if (existingUser) {
-                return res.status(400).json({code: 400, message: "Email already exists" });
+
+            if (existingUser && !existingUser.verified) {
+                const otp = generateOtp();
+                
+                await prisma.user.update({
+                    where: { email },
+                    data: {
+                        otpCode: otp.code,
+                        otpExpiresAt: otp.expiresAt,
+                    },
+                });
+
+                await sendOtpEmail(email, otp.code);
+                return res.status(200).json({ 
+                    code: 200, 
+                    message: "User found but not verified. A new OTP has been sent to your email. Please verify your email to continue." 
+                });
+            }
+
+            if (existingUser && existingUser.verified) {
+                return res.status(400).json({code: 400, message: "Email already exists and is verified. Please login instead." });
             }
 
             const organizationData = {
@@ -229,7 +248,12 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         if (!user) return res.status(404).json({code:404, message: 'User not found' });
 
         if (!user.verified) {
-            return res.status(403).json({ code:403,message: 'Email verification required' });
+            return res.status(403).json({ 
+                code: 403,
+                message: 'Email verification required. Please verify your email before logging in.',
+                requiresVerification: true,
+                canResendOtp: true
+            });
         }
 
         const isUserValid = await bcrypt.compare(password, user.password)
