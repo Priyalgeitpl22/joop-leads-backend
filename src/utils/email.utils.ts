@@ -21,6 +21,10 @@ const getTransporter = () => {
       user: emailUser,
       pass: emailPassword,
     },
+    connectionTimeout: 30000, // 30 seconds
+    greetingTimeout: 30000,
+    socketTimeout: 30000,
+    dnsTimeout: 10000, // 10 seconds for DNS resolution
   });
 };
 
@@ -30,7 +34,6 @@ export const sendOtpEmail = async (email: string, otp: string) => {
   if (!emailUser) {
     throw new Error('EMAIL_USER environment variable is required');
   }
-
   const mailOptions = {
     from: emailUser,
     to: email,
