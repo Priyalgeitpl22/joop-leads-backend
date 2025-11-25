@@ -28,6 +28,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             if (existingUser && !existingUser.verified) {
                 const otp = generateOtp();
                 
+                //nothing
                 await prisma.user.update({
                     where: { email },
                     data: {
