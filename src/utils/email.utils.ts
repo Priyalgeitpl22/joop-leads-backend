@@ -14,17 +14,13 @@ const getTransporter = () => {
   }
 
   return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
+    host: 'smtp.zoho.in',
     port: 587,
     secure: false,
     auth: {
       user: emailUser,
       pass: emailPassword,
     },
-    connectionTimeout: 30000, // 30 seconds
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
-    dnsTimeout: 10000, // 10 seconds for DNS resolution
   });
 };
 
@@ -97,5 +93,10 @@ export const sendResetPasswordEmail = async (email: string, fullName: string, re
   };
 
   const transporter = getTransporter();
-  await transporter.sendMail(mailOptions);
+  try {
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error('Error sending reset password email:', error);
+    throw error;
+  }
 };
