@@ -599,6 +599,58 @@ export const getCampaignById = async (req: AuthenticatedRequest, res: Response):
   }
 };
 
+export const getCampaignsBySenderAccountId = async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const senderAccountId = req.query.sender_account_id
+      ? String(req.query.sender_account_id)
+      : req.params.sender_account_id
+      ? String(req.params.sender_account_id)
+      : undefined;
+    
+    if (!senderAccountId) {
+      return res.status(400).json({ code: 400, message: "sender_account_id is required" });
+    }
+
+    const user = req.user;
+    if (!user?.orgId) {
+      return res.status(401).json({ code: 401, message: "Unauthorized" });
+    }
+    const campaigns = await prisma.campaign.findMany({
+      where: {
+        orgId: user.orgId,
+      },
+      include: {
+        email_campaign_settings: {
+          select: {
+            sender_accounts: true,
+          },
+        },
+      },
+    });
+    
+    const filteredCampaigns = campaigns
+      .map((campaign) => {
+        const allSenderAccounts = campaign.email_campaign_settings.flatMap(
+          (setting) => setting.sender_accounts || []
+        );
+        return {
+          ...campaign,
+          sender_accounts: allSenderAccounts,
+        };
+      })
+      .filter((campaign) =>
+        campaign.sender_accounts.some(
+          (account: any) => account.account_id === senderAccountId
+        )
+      );
+    
+    res.status(200).json({ code: 200, campaigns: filteredCampaigns, message: "success" });
+  } catch (err) {
+    console.error("Error fetching email campaigns:", err);
+    res.status(500).json({ code: 500, message: "Error fetching email campaigns" });
+  }
+};
+
 export const getAllSequences = async (req: Request, res: Response) => {
   try {
     const campaignId = req.params.campaign_id

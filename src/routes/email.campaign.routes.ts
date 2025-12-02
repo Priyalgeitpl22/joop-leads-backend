@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign, deleteCampaign, filterEmailCampaigns, getAllContacts, getAllEmailCampaigns, getAllSequences, getCampaignById, getDashboardData, getEmailCampaignsBySender, removeFolderId, renameCampaign, scheduleEmailCampaign, searchAccountInContacts, searchEmailCampaigns, updateCampaignStatus, updateFolderId } from "../controllers/email.campaign.contoller";
+import { addEmailCampaignSettings, addLeadsToCampaign, addSequenceToCampaign, deleteCampaign, filterEmailCampaigns, getAllContacts, getAllEmailCampaigns, getAllSequences, getCampaignById, getCampaignsBySenderAccountId, getDashboardData, getEmailCampaignsBySender, removeFolderId, renameCampaign, scheduleEmailCampaign, searchAccountInContacts, searchEmailCampaigns, updateCampaignStatus, updateFolderId } from "../controllers/email.campaign.contoller";
 import { authMiddleware } from "../middlewares/authMiddleware";
 
 const router = Router();
@@ -10,6 +10,7 @@ router.get('/sender-account', getEmailCampaignsBySender)
 router.get('/search-contact',searchAccountInContacts)
 router.put('/schedule-campaign', authMiddleware, scheduleEmailCampaign)
 router.get("/", authMiddleware, getAllEmailCampaigns);
+router.get("/account/:sender_account_id", authMiddleware, getCampaignsBySenderAccountId);
 router.get("/:id", authMiddleware, getCampaignById);
 router.post("/add-leads-to-campaign", authMiddleware, addLeadsToCampaign);
 router.post("/add-sequence-to-campaign", authMiddleware, addSequenceToCampaign);
@@ -21,7 +22,6 @@ router.delete('/delete', deleteCampaign);
 router.get('/dashboard/data', authMiddleware, getDashboardData);
 router.put("/status", updateCampaignStatus);
 router.put('/:campaignId/rename',renameCampaign)
-
 router.post("/add",updateFolderId);
 router.delete("/remove",removeFolderId);
 
