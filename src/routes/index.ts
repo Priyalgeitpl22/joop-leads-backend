@@ -7,6 +7,8 @@ import emailCampaignRoutes from './email.campaign.routes'
 import contactRoutes from "./contact.routes";
 import trackingRoutes from "./tracking.routes";
 import folderRoutes from "./folder.routes"
+import planRoutes from "./plan.routes";
+import organizationPlanRoutes from "./organisation.plan.routes";
 
 const router = Router();
 
@@ -17,6 +19,8 @@ router.use("/email-campaign", emailCampaignRoutes)
 router.use('/contact', contactRoutes);
 router.use('/track', trackingRoutes);
 router.use('/folder', folderRoutes);
+router.use('/plan', authMiddleware, planRoutes);
+router.use('/org-plan', authMiddleware, organizationPlanRoutes);
 
 
 export default router;

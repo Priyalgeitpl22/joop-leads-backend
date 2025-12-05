@@ -1,0 +1,51 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "ts-node",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "/opt/homebrew/bin/node",
+            "program": "${workspaceFolder}/node_modules/ts-node/dist/bin.js",
+            "args": [
+                "${relativeFile}"
+            ],
+            "cwd": "${workspaceFolder}",
+            "protocol": "inspector",
+            "internalConsoleOptions": "openOnSessionStart",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "sourceMaps": true,
+            "resolveSourceMapLocations": [
+                "${workspaceFolder}/**",
+                "!**/node_modules/**"
+            ]
+        },
+        {
+            "name": "Debug Server",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "/opt/homebrew/bin/node",
+            "runtimeArgs": [
+                "-r",
+                "ts-node/register"
+            ],
+            "program": "${workspaceFolder}/src/server.ts",
+            "cwd": "${workspaceFolder}",
+            "protocol": "inspector",
+            "internalConsoleOptions": "openOnSessionStart",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "sourceMaps": true,
+            "resolveSourceMapLocations": [
+                "${workspaceFolder}/**",
+                "!**/node_modules/**"
+            ],
+            "env": {
+                "NODE_ENV": "development"
+            }
+        }
+    ]
+}

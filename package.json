@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "nodemon --ext ts --exec ts-node src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "seed:plans": "ts-node prisma/seedPlans.ts"
   },
   "keywords": [],
   "author": "",
