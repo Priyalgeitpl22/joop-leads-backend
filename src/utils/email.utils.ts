@@ -100,3 +100,30 @@ export const sendResetPasswordEmail = async (email: string, fullName: string, re
     throw error;
   }
 };
+
+export const subscriptionActivationEmail = async (planCode: string, billingPeriod: string, organizationName: string = '', contactEmail: string = '') => {
+  const adminEmail = process.env.ADMIN_EMAIL || 'priyal@goldeneagle.ai';
+  const emailUser = process.env.EMAIL_USER;
+
+  if (!emailUser) {
+    throw new Error('ADMIN_EMAIL and ADMIN_NAME environment variables are required');
+  }
+
+  const mailOptions = {
+    from: emailUser,
+    to: adminEmail,
+    subject: "Subscription Activation Request",
+    html: `
+      <p>Hello Admin,</p>
+      <p>We have received a request to activate a subscription for ${organizationName} organization.</p>
+      <p>Plan Code: ${planCode}</p>
+      <p>Billing Period: ${billingPeriod}</p>
+      <p>Contact Email: ${contactEmail}</p>
+      <p>Best regards,</p>
+      <p>Your Support Team</p>
+    `,
+  };
+
+  const transporter = getTransporter();
+  await transporter.sendMail(mailOptions);
+};

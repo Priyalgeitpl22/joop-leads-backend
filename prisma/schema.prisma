@@ -265,7 +265,7 @@ model Plan {
   includeAiResponses       Boolean @default(false)
   includeAiImprovement     Boolean @default(false)
   includeWebsiteLinkWarmup Boolean @default(false)
-
+  offer                    Int?
   supportType SupportType @default(COMMUNITY)
 
   // Relations

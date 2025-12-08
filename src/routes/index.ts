@@ -19,7 +19,7 @@ router.use("/email-campaign", emailCampaignRoutes)
 router.use('/contact', contactRoutes);
 router.use('/track', trackingRoutes);
 router.use('/folder', folderRoutes);
-router.use('/plan', authMiddleware, planRoutes);
+router.use('/plan', planRoutes);
 router.use('/org-plan', authMiddleware, organizationPlanRoutes);
 
 
