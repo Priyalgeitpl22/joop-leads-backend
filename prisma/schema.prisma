@@ -77,7 +77,6 @@ model Contact {
   company_location String?
   industry_type    String?
   email            String?
-  designation      String?
   phone_number     String?
   company_name     String?
   website          String?
