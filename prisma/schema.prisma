@@ -73,7 +73,11 @@ model Contact {
   id               String          @id @default(uuid())
   first_name       String?
   last_name        String?
+  designation      String?
+  company_location String?
+  industry_type    String?
   email            String?
+  designation      String?
   phone_number     String?
   company_name     String?
   website          String?
