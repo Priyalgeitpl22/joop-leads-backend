@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { BillingPeriod, PlanCode } from '@prisma/client';
 import { Router } from 'express';
 import { assignPlan, contactSales, getCurrentPlan } from '../controllers/organization.plan.controller';
+import { authMiddleware } from '../middlewares/authMiddleware';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ function validateAssignPlanBody(req: Request, res: Response, next: Function) {
 }
 
 router.post('/:orgId/plan/assign', assignPlan);
-router.get('/:orgId/plan/current', getCurrentPlan);
-router.post('/contact-sales', contactSales);
+router.get('/:orgId/plan/current', authMiddleware, getCurrentPlan);
+router.post('/contact-sales', authMiddleware, contactSales);
 
 export default router;

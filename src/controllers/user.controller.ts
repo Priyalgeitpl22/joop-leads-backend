@@ -21,23 +21,22 @@ export const getUsers = async (req: AuthenticatedRequest, res: Response) => {
     if (!user?.orgId) {
       res.status(400).json({ code: 400, message: "Organization ID not found" });
     }
-    console.log("user", user?.orgId);
 
     const users = await prisma.user.findMany({
-      where: {
-        orgId: user?.orgId,
-      },
-    });
+      where: { orgId: user?.orgId },
+      select: {
+        email: true,
+        fullName: true,
+        id: true,
+        online: true,
+        orgId: true,
+        phone: true,
+        profilePicture: true,
+        role: true,
+        schedule: true
+      }
+    });    
 
-    const organization = await prisma.organization.findUnique({
-      where: {
-        id: user?.orgId, 
-      },
-    });
-
-    if (!organization) {
-     res.status(404).json({ code: 404, message: "Organization not found" });
-    }
     if (users.length > 0) {
       for (const user of users) {
         if (user.profilePicture) {
@@ -45,8 +44,8 @@ export const getUsers = async (req: AuthenticatedRequest, res: Response) => {
         }
       }
     }
-    const message=users?`User fetched  from ${organization?.name}` :"Users not found"
-    res.status(200).json({ code: 200, message: message,data: users});
+
+    res.status(200).json({ code: 200, message: "Users fetched succesfully", data: users });
   } catch (err) {
     res.status(500).json({ code: 500, message: "Error fetching users" });
   }
@@ -104,7 +103,7 @@ export const updateUser = async (req: Request, res: Response): Promise<any> => {
       });
 
       res.status(200).json({
-        user: {...updatedUser, profilePicture: updatedUser.profilePicture ? await getPresignedUrl(updatedUser.profilePicture) : null},
+        user: { ...updatedUser, profilePicture: updatedUser.profilePicture ? await getPresignedUrl(updatedUser.profilePicture) : null },
         message: "User details updated successfully",
         code: 200,
       });
@@ -157,7 +156,7 @@ export const createUser = async (
           role: role || UserRoles.AGENT,
           orgId: user?.orgId,
           phone,
-          password:"",
+          password: "",
           profilePicture: profilePictureUrl,
         },
       });
@@ -192,7 +191,7 @@ export const deleteUser = async (
   res: Response
 ): Promise<any> => {
   try {
-    const {user_id} = req.params
+    const { user_id } = req.params
 
     if (!user_id) {
       return res

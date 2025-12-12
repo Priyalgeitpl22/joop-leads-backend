@@ -19,9 +19,50 @@ export const assignPlan = async (req: Request, res: Response): Promise<any> => {
       return res.status(400).json({ code: 400, message: 'Plan not found' });
     }
 
-    const organizationPlan = await prisma.organizationPlan.create({
-      data: { orgId, planId: plan.id, billingPeriod }
+    const now = new Date();
+    const endsAt = billingPeriod === 'YEARLY' 
+      ? new Date(now.getFullYear() + 1, now.getMonth(), now.getDate())
+      : billingPeriod === 'MONTHLY'
+        ? new Date(now.getFullYear(), now.getMonth() + 1, now.getDate())
+        : null;
+
+    // Check if organization already has a plan
+    const existingPlan = await prisma.organizationPlan.findFirst({
+      where: { orgId }
     });
+
+    let organizationPlan;
+    if (existingPlan) {
+      // Update existing plan
+      organizationPlan = await prisma.organizationPlan.update({
+        where: { id: existingPlan.id },
+        data: {
+          planId: plan.id,
+          billingPeriod,
+          isActive: true,
+          startsAt: now,
+          endsAt,
+          emailsSentThisPeriod: 0,
+          leadsAddedThisPeriod: 0,
+          senderAccountsInUse: 0
+        }
+      });
+    } else {
+      // Create new plan
+      organizationPlan = await prisma.organizationPlan.create({
+        data: {
+          orgId,
+          planId: plan.id,
+          billingPeriod,
+          isActive: true,
+          startsAt: now,
+          endsAt,
+          emailsSentThisPeriod: 0,
+          leadsAddedThisPeriod: 0,
+          senderAccountsInUse: 0
+        }
+      });
+    }
 
     res.status(200).json({ code: 200, message: 'Plan assigned successfully', data: organizationPlan });
   } catch (err) {
@@ -39,7 +80,7 @@ export const getCurrentPlan = async (req: Request, res: Response): Promise<any> 
     if (!currentPlan) {
       return res.status(400).json({ code: 400, message: 'No plan assigned to this organization' });
     }
-    res.status(200).json({ code: 200, message: 'Current plan fetched successfully', data: {planCode: currentPlan.plan.code, ...currentPlan.plan} });
+    res.status(200).json({ code: 200, message: 'Current plan fetched successfully', data: {planCode: currentPlan.plan.code, ...currentPlan.plan, ...currentPlan} });
   } catch (err) {
     console.error(err);
     res.status(500).json({ code: 500, message: 'Failed to get current plan' });
