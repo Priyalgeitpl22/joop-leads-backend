@@ -5,6 +5,38 @@ import { UserRoles } from "../enums";
 
 const prisma = new PrismaClient();
 
+export const assignFreePlanToOrg = async (orgId: string): Promise<void> => {
+  const freePlan = await prisma.plan.findUnique({ where: { code: PlanCode.FREE } });
+  
+  if (!freePlan) {
+    console.error('FREE plan not found in database');
+    return;
+  }
+
+  const existingPlan = await prisma.organizationPlan.findFirst({
+    where: { orgId }
+  });
+
+  if (existingPlan) {
+    return;
+  }
+
+  const now = new Date();
+  await prisma.organizationPlan.create({
+    data: {
+      orgId,
+      planId: freePlan.id,
+      billingPeriod: 'MONTHLY',
+      isActive: true,
+      startsAt: now,
+      endsAt: null,
+      emailsSentThisPeriod: 0,
+      leadsAddedThisPeriod: 0,
+      senderAccountsInUse: 0
+    }
+  });
+};
+
 export const assignPlan = async (req: Request, res: Response): Promise<any> => {
   try {
     const { orgId } = req.params;

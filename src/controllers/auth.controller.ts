@@ -7,6 +7,7 @@ import { PrismaClient } from '@prisma/client';
 import multer from "multer";
 import { uploadImageToS3 } from '../aws/imageUtils';
 import { UserRoles } from '../enums';
+import { assignFreePlanToOrg } from './organization.plan.controller';
 
 const prisma = new PrismaClient();
 const upload = multer({ storage: multer.memoryStorage() }).single("profilePicture");
@@ -58,6 +59,8 @@ export const register = async (req: Request, res: Response): Promise<any> => {
             const organization = await prisma.organization.create({
                 data: organizationData,
             });
+
+            await assignFreePlanToOrg(organization.id);
 
             const hashedPassword = await bcrypt.hash(password, 10);
             const otp = generateOtp();

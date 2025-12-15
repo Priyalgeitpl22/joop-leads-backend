@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { assignFreePlanToOrg } from './organization.plan.controller';
 
 const prisma = new PrismaClient();
 
@@ -17,6 +18,8 @@ export const saveOrganization = async (req: Request, res: Response): Promise<any
     const organization = await prisma.organization.create({
       data: { name, domain, country, phone}
     });
+
+    await assignFreePlanToOrg(organization.id);
 
     res.status(200).json({
       code: 200,
