@@ -103,8 +103,14 @@ cron.schedule("*/1 * * * *", async () => {
           first_name: contact.first_name,
           last_name: contact.last_name,
           email: contact.email,
-          campaign_name: campaign.campaignName,
+          phone_number: contact.phone_number,
+          company_name: contact.company_name,
+          company_location: contact.company_location,
+          industry_type: contact.industry_type,
           website: contact.website,
+          linkedin_profile: contact.linkedin_profile,
+          location: contact.location,
+          designation: contact.designation,
           "day of week": new Date().toLocaleString("en-US", { weekday: "long" }),
           "time of day": new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }) // e.g., "10:30 AM"
         };
