@@ -48,7 +48,7 @@ export const addLeadsToCampaign = async (req: AuthenticatedRequest, res: Respons
         campaign = await prisma.campaign.create({
           data: {
             orgId: user.orgId,
-            campaignName: "Untitled Campaign",
+            campaign_name: "Untitled Campaign",
             status: "DRAFT",
           },
         });
@@ -391,12 +391,12 @@ export const addEmailCampaignSettings = async (
       });
     }
 
-    const campaignName = campaign_settings?.campaignName || campaign.campaignName;
+    const campaign_name = campaign_settings?.campaign_name || campaign.campaign_name;
 
     await prisma.campaign.update({
       where: { id: campaign_id },
       data: {
-        campaignName: campaignName,
+        campaign_name: campaign_name,
       },
     });
 
@@ -433,7 +433,7 @@ export const getAllEmailCampaigns = async (req: AuthenticatedRequest, res: Respo
         },
         select: {
           id: true,
-          campaignName: true,
+          campaign_name: true,
           createdAt: true,
           sequencesIds: true,
           sequences: true,
@@ -736,11 +736,11 @@ export const searchEmailCampaigns = async (req: AuthenticatedRequest, res: any) 
 
     let data = await prisma.campaign.findMany({
       where: {
-        campaignName: { contains: query, mode: "insensitive" },
+        campaign_name: { contains: query, mode: "insensitive" },
         orgId: user.orgId,
       },
       select: {
-        campaignName: true,
+        campaign_name: true,
         id: true,
         createdAt: true,
         sequencesIds: true,
@@ -874,7 +874,7 @@ export const getEmailCampaignsBySender = async (
     const filteredCampaigns = campaigns
       .map((campaign) => ({
         campaign_id: campaign.id,
-        campaign_name: campaign.campaignName,
+        campaign_name: campaign.campaign_name,
         campaign_status: campaign.status,
         sender_accounts: campaign.email_campaign_settings.flatMap(
           (setting) => setting.sender_accounts
@@ -1002,10 +1002,10 @@ export const getDashboardData = async (req: AuthenticatedRequest, res: Response)
       0
     );
 
-    const total_running_campaigns = await prisma.campaign.count({
+    const total_ACTIVE_campaigns = await prisma.campaign.count({
       where: {
         orgId: user?.orgId,
-        status: 'RUNNING'
+        status: 'ACTIVE'
       }
     });
 
@@ -1031,7 +1031,7 @@ export const getDashboardData = async (req: AuthenticatedRequest, res: Response)
     });
 
     const total_paused_campaigns = await prisma.campaign.count({
-      where: { orgId: user?.orgId, status: "PAUSED" },
+      where: { orgId: user?.orgId, status: "BLOCKED" },
     });
 
     const today = new Date();
@@ -1070,7 +1070,7 @@ export const getDashboardData = async (req: AuthenticatedRequest, res: Response)
       total_leads,
       total_sent_count,
       total_bounced_count,
-      total_running_campaigns,
+      total_ACTIVE_campaigns,
       total_completed_campaigns,
       total_drafted_campaigns,
       total_scheduled_campaigns,
@@ -1235,7 +1235,7 @@ export const filterEmailCampaigns = async (req: AuthenticatedRequest, res: any) 
     let data = await prisma.campaign.findMany({
       where: filters,
       select: {
-        campaignName: true,
+        campaign_name: true,
         id: true,
         createdAt: true,
         sequencesIds: true,
@@ -1295,7 +1295,7 @@ export const renameCampaign = async (
 
     const updatedCampaign = await prisma.campaign.update({
       where: { id: campaignId },
-      data: { campaignName: newName },
+      data: { campaign_name: newName },
     });
 
     return res.status(200).json({

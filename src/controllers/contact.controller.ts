@@ -89,7 +89,7 @@ export const getContactsById = async (
             campaign: {
               select: {
                 id: true,
-                campaignName: true,
+                campaign_name: true,
                 status: true,
                 createdAt: true,
               },
@@ -348,7 +348,7 @@ export const createCampaignWithContacts = async (
     const campaign = await prisma.campaign.create({
       data: {
         orgId: user.orgId,
-        campaignName: "Untitled Campaign",
+        campaign_name: "Untitled Campaign",
         status: "DRAFT",
       },
     });

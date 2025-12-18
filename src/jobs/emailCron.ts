@@ -11,14 +11,14 @@ const replaceTemplateVariables = (template: string, variables: any) => {
 };
 
 cron.schedule("*/1 * * * *", async () => {
-  console.log("🔄 Running campaign email cron job...");
+  console.log("🔄 ACTIVE campaign email cron job...");
 
   try {
     const campaigns = await prisma.campaign.findMany({
       where: {
         OR: [
           { status: "SCHEDULED" },
-          { status: "RUNNING" }
+          { status: "ACTIVE" }
         ]
       },
       include: {
@@ -58,7 +58,7 @@ cron.schedule("*/1 * * * *", async () => {
     for (const campaign of eligibleCampaigns) {
       await prisma.campaign.update({
         where: { id: campaign.id },
-        data: { status: "RUNNING" },
+        data: { status: "ACTIVE" },
       });
 
       for (const emailCampaign of campaign.emailCampaigns) {
@@ -95,7 +95,7 @@ cron.schedule("*/1 * * * *", async () => {
         }
 
         if (!nextSequence) {
-          console.log(`✅ No further sequences for ${contact.email} in campaign ${campaign.campaignName}`);
+          console.log(`✅ No further sequences for ${contact.email} in campaign ${campaign.campaign_name}`);
           continue;
         }
 
@@ -170,7 +170,7 @@ cron.schedule("*/1 * * * *", async () => {
           });
         }
 
-        if (campaign.status !== "PAUSED") {
+        if (campaign.status !== "BLOCKED") {
           try {
             await sendEmail(
               campaign.id,
@@ -203,6 +203,8 @@ cron.schedule("*/1 * * * *", async () => {
             email: contact.email,
             campaignId: campaign.id,
             sequenceId: nextSequence.id,
+            threadId: "",
+            timezone: "",
           },
         });
 

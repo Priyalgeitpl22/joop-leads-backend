@@ -19,7 +19,7 @@ model access_token {
 }
 
 model Organization {
-  id                 String              @id @default(uuid())
+  id                 String               @id @default(uuid())
   name               String?
   phone              String?
   address            String?
@@ -35,6 +35,7 @@ model Organization {
   campaigns          Campaign[]
   campaign_analytics CampaignAnalytics[]
   CampaignFolder     CampaignFolder[]
+  CampaignTriggerLog CampaignTriggerLog[]
   plans              OrganizationPlan[]
 
   createdAt DateTime @default(now())
@@ -98,14 +99,14 @@ model Contact {
 model Campaign {
   id                         String                  @id @default(uuid())
   orgId                      String // Foreign key for Organization
-  campaignName               String
+  campaign_name              String                  @default("Untitled Campaign")
   csvSettings                Json?
   csvFile                    Json?
   counts                     Json?
   schedule                   Json?
   contacts                   String[]
   sequencesIds               String[]
-  status                     String?                 @default("DRAFT")
+  status                     CampaignStatus?         @default(DRAFT)
   sequences                  Sequences[]             @relation("CampaignToSequences")
   email_campaign_settings_id String?
   email_campaign_settings    EmailCampaignSettings[] @relation("CampaignToSettings")
@@ -114,17 +115,29 @@ model Campaign {
   organization               Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
   EmailTriggerLog            EmailTriggerLog[]
   CampaignAnalytics          CampaignAnalytics[]
+  CampaignTriggerLog         CampaignTriggerLog[]
   folders                    CampaignFolderMapping[]
   TrackEmails                TrackEmails[]
+  CampaignRuntime            CampaignRuntime[] 
 }
 
 model EmailCampaign {
   id         String @id @default(uuid())
   contactId  String
   campaignId String
+  lastSequenceSent    String  @default("")
+  emailAccountUsed    String  @default("")
 
   contact  Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
   campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  BLOCKED
 }
 
 enum SeqType {
@@ -167,6 +180,8 @@ model EmailTriggerLog {
   email         String
   campaignId    String
   sequenceId    String
+  threadId      String
+  timezone      String
   email_clicked Boolean? @default(false)
   email_opened  Boolean? @default(false)
   replied_mail  Boolean? @default(false)
@@ -175,6 +190,20 @@ model EmailTriggerLog {
 
   campaign Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   sequence Sequences @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+}
+
+model CampaignTriggerLog {
+  id                         String   @id @default(uuid())
+  campaignId                 String
+  orgId                      String
+  newEmailsSent              Int      @default(0)
+  followUpEmailsSent         Int      @default(0)
+  totalEligibleEmailAccounts Int      @default(0)
+  timezone                   String
+  createdAt                  DateTime @default(now())
+
+  campaign     Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 }
 
 model CampaignAnalytics {
@@ -259,17 +288,17 @@ model Plan {
   maxLiveCampaigns    Int? // e.g. 1, null for unlimited
 
   // Features
-  includeEmailVerification Boolean @default(false)
-  includeEmailWarmup       Boolean @default(true)
-  includeUnifiedInbox      Boolean @default(true)
-  includeTeammates         Boolean @default(false)
-  includeAiCampaignGen     Boolean @default(false)
-  includeAiTagging         Boolean @default(false)
-  includeAiResponses       Boolean @default(false)
-  includeAiImprovement     Boolean @default(false)
-  includeWebsiteLinkWarmup Boolean @default(false)
+  includeEmailVerification Boolean     @default(false)
+  includeEmailWarmup       Boolean     @default(true)
+  includeUnifiedInbox      Boolean     @default(true)
+  includeTeammates         Boolean     @default(false)
+  includeAiCampaignGen     Boolean     @default(false)
+  includeAiTagging         Boolean     @default(false)
+  includeAiResponses       Boolean     @default(false)
+  includeAiImprovement     Boolean     @default(false)
+  includeWebsiteLinkWarmup Boolean     @default(false)
   offer                    Int?
-  supportType SupportType @default(COMMUNITY)
+  supportType              SupportType @default(COMMUNITY)
 
   // Relations
   subscriptions OrganizationPlan[]
@@ -298,4 +327,37 @@ model OrganizationPlan {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model CampaignRuntime {
+  campaignId      String   @id
+  dayKey          String   // YYYY-MM-DD in campaign TZ
+  sentToday       Int      @default(0)
+  nextRunAt       DateTime
+  lockedAt        DateTime?
+  campaign        Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  @@index([nextRunAt])
+}
+
+model SenderRuntime {
+  senderId      String
+  dayKey        String      // YYYY-MM-DD in campaign TZ
+  sentToday     Int         @default(0)
+  lastSentAt    DateTime?
+  lockedAt      DateTime?
+
+  @@id([senderId, dayKey])
+}
+
+model EmailSend {
+  id          String   @id @default(uuid())
+  campaignId  String
+  senderId    String
+  leadId      String
+  status      String   @default("QUEUED") // QUEUED|SENT|FAILED
+  createdAt   DateTime @default(now())
+
+  // idempotency: do not send same lead twice
+  @@unique([campaignId, leadId])
+  @@index([campaignId, senderId, createdAt])
 }

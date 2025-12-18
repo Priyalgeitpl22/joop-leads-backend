@@ -230,7 +230,7 @@ export const getFolderById = async (
             campaign: {
               select: {
                 id: true,
-                campaignName: true,
+                campaign_name: true,
                 createdAt: true,
                 sequencesIds: true,
                 sequences: true,
