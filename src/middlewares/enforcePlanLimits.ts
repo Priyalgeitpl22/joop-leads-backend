@@ -17,7 +17,7 @@ export async function enforcePlanLimits(req: Request, res: Response, next: NextF
 
     const plan = subscription.plan;
 
-    if (plan.maxLiveCampaigns !== null) {
+    if (plan.maxCampaigns !== null && plan.maxCampaigns > 0) {
       const liveCampaignCount = await prisma.campaign.count({
         where: {
           orgId,
@@ -25,16 +25,16 @@ export async function enforcePlanLimits(req: Request, res: Response, next: NextF
         },
       });
 
-      if (liveCampaignCount >= plan.maxLiveCampaigns) {
+      if (liveCampaignCount >= plan.maxCampaigns) {
         return res.status(403).json({
-          message: `Plan limit reached: ${plan.maxLiveCampaigns} active campaign(s) allowed on ${plan.name} plan.`,
+          message: `Plan limit reached: ${plan.maxCampaigns} active campaign(s) allowed on ${plan.name} plan.`,
           code: 'PLAN_LIMIT_CAMPAIGNS',
         });
       }
     }
 
     // Example: Check for email sending limit
-    if (plan.maxEmailsPerMonth !== null) {
+    if (plan.maxEmailsPerMonth !== null && plan.maxEmailsPerMonth > 0) {
       if (subscription.emailsSentThisPeriod >= plan.maxEmailsPerMonth) {
         return res.status(403).json({
           message: `Plan limit reached: ${plan.maxEmailsPerMonth} emails/month on ${plan.name} plan.`,

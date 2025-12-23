@@ -1,15 +1,14 @@
 import { Router } from "express";
-import { authMiddleware } from "../middlewares/authMiddleware";
-import { createUser, deleteUser, filterUsers, getAuthUser, getUsers, searchUser, updateUser } from "../controllers/user.controller";
+import { getAllUsers, getUserById, createUser, updateUser, deleteUser, getAuthUser } from "../controllers/user.controller";
+import { verify } from "../middlewares/authMiddleware";
 
 const router = Router();
 
-router.get('/filter', authMiddleware, filterUsers)
-router.get("/search-user", authMiddleware, searchUser);
-router.get("/", authMiddleware, getAuthUser);
-router.get("/users", authMiddleware, getUsers);
-router.put("/", updateUser);
-router.post('/create-user', authMiddleware, createUser)
-router.delete('/:user_id', deleteUser)
+router.get("/", verify, getAuthUser);
+router.get("/all", verify, getAllUsers);
+router.get("/:id", verify, getUserById);
+router.post("/", verify, createUser);
+router.put("/:id", verify, updateUser);
+router.delete("/:id", verify, deleteUser);
 
 export default router;

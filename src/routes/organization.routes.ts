@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { getOrganization, saveOrganization, updateOrganization } from "../controllers/organization.controller"
-import { authMiddleware } from "../middlewares/authMiddleware";
+import { getOrganization, saveOrganization, updateOrganization } from "../controllers/organization.controller";
+import { verify } from "../middlewares/authMiddleware";
 
 const router = Router();
 
-router.get("/", getOrganization);
-router.post("/", saveOrganization);
-router.put("/", updateOrganization);
+router.get("/", verify, getOrganization);
+router.post("/", verify, saveOrganization);
+router.put("/", verify, updateOrganization);
 
 export default router;

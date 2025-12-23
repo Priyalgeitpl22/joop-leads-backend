@@ -1,27 +1,11 @@
-import { Request, Response } from 'express';
-import { BillingPeriod, PlanCode } from '@prisma/client';
-import { Router } from 'express';
-import { assignPlan, contactSales, getCurrentPlan } from '../controllers/organization.plan.controller';
-import { authMiddleware } from '../middlewares/authMiddleware';
+import { Router } from "express";
+import { assignPlan, contactSales, getCurrentPlan } from "../controllers/organization.plan.controller";
+import { verify } from "../middlewares/authMiddleware";
 
 const router = Router();
 
-function validateAssignPlanBody(req: Request, res: Response, next: Function) {
-  const { planCode, billingPeriod } = req.body;
-  const allowedPlans: PlanCode[] = ['FREE', 'SILVER', 'GOLD', 'PLATINUM'];
-  const allowedPeriods: BillingPeriod[] = ['MONTHLY', 'YEARLY', 'CUSTOM'];
-
-  if (!planCode || !allowedPlans.includes(planCode as PlanCode)) {
-    return res.status(400).json({ message: 'Invalid planCode' });
-  }
-  if (billingPeriod && !allowedPeriods.includes(billingPeriod as BillingPeriod)) {
-    return res.status(400).json({ message: 'Invalid billingPeriod' });
-  }
-  next();
-}
-
-router.post('/:orgId/plan/assign', assignPlan);
-router.get('/:orgId/plan/current', authMiddleware, getCurrentPlan);
-router.post('/contact-sales', authMiddleware, contactSales);
+router.post("/:orgId/plan/assign", verify, assignPlan);
+router.get("/:orgId/plan/current", verify, getCurrentPlan);
+router.post("/contact-sales", verify, contactSales);
 
 export default router;

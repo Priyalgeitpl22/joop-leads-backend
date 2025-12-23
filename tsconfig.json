@@ -7,7 +7,17 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
-    "sourceMap": true
+    "sourceMap": true,
+    "inlineSourceMap": false,
+    "inlineSources": true,
+    "typeRoots": ["./node_modules/@types"]
   },
-  "include": ["src/**/*"]
+  "ts-node": {
+    "transpileOnly": true,
+    "compilerOptions": {
+      "sourceMap": true,
+      "inlineSourceMap": false
+    }
+  },
+  "include": ["src/**/*", "src/generated/**/*"]
 }

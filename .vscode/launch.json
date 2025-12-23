@@ -1,51 +1,79 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "ts-node",
-            "type": "node",
-            "request": "launch",
-            "runtimeExecutable": "/opt/homebrew/bin/node",
-            "program": "${workspaceFolder}/node_modules/ts-node/dist/bin.js",
-            "args": [
-                "${relativeFile}"
-            ],
-            "cwd": "${workspaceFolder}",
-            "protocol": "inspector",
-            "internalConsoleOptions": "openOnSessionStart",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "sourceMaps": true,
-            "resolveSourceMapLocations": [
-                "${workspaceFolder}/**",
-                "!**/node_modules/**"
-            ]
-        },
-        {
-            "name": "Debug Server",
-            "type": "node",
-            "request": "launch",
-            "runtimeExecutable": "/opt/homebrew/bin/node",
-            "runtimeArgs": [
-                "-r",
-                "ts-node/register"
-            ],
-            "program": "${workspaceFolder}/src/server.ts",
-            "cwd": "${workspaceFolder}",
-            "protocol": "inspector",
-            "internalConsoleOptions": "openOnSessionStart",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "sourceMaps": true,
-            "resolveSourceMapLocations": [
-                "${workspaceFolder}/**",
-                "!**/node_modules/**"
-            ],
-            "env": {
-                "NODE_ENV": "development"
-            }
-        }
-    ]
+  "version": "0.2.0",
+  "compounds": [
+    {
+      "name": "Debug All (Server + Scheduler + Worker)",
+      "configurations": ["Debug Server", "Debug Scheduler (Continuous)", "Debug Worker"],
+      "stopAll": true
+    }
+  ],
+  "configurations": [
+    {
+      "name": "Debug Scheduler (Single Tick)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "/opt/homebrew/bin/node",
+      "runtimeArgs": ["-r", "ts-node/register"],
+      "args": ["${workspaceFolder}/src/emailScheduler/debugTick.ts"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "env": {
+        "TS_NODE_PROJECT": "${workspaceFolder}/tsconfig.json"
+      },
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Debug Server",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "/opt/homebrew/bin/node",
+      "runtimeArgs": ["-r", "ts-node/register"],
+      "args": ["${workspaceFolder}/src/server.ts"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "env": {
+        "TS_NODE_PROJECT": "${workspaceFolder}/tsconfig.json"
+      },
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Debug Scheduler (Continuous)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "/opt/homebrew/bin/node",
+      "runtimeArgs": ["-r", "ts-node/register"],
+      "args": ["${workspaceFolder}/src/emailScheduler/runScheduler.ts"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "env": {
+        "TS_NODE_PROJECT": "${workspaceFolder}/tsconfig.json"
+      },
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Debug Worker",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "/opt/homebrew/bin/node",
+      "runtimeArgs": ["-r", "ts-node/register"],
+      "args": ["${workspaceFolder}/src/emailScheduler/worker.ts"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "env": {
+        "TS_NODE_PROJECT": "${workspaceFolder}/tsconfig.json"
+      },
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Attach to Process",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
 }

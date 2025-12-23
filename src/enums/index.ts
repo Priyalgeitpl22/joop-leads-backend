@@ -29,3 +29,23 @@ export enum BillingPeriod {
     YEARLY = 'YEARLY',
     CUSTOM = 'CUSTOM',
 }
+
+export enum AnalyticsCountType {
+    SENT_COUNT = 'sentCount',
+    DELIVERED_COUNT = 'deliveredCount',
+    OPENED_COUNT = 'openedCount',
+    CLICKED_COUNT = 'clickedCount',
+    REPLIED_COUNT = 'repliedCount',
+    BOUNCED_COUNT = 'bouncedCount',
+    UNSUBSCRIBED_COUNT = 'unsubscribedCount',
+    COMPLAINED_COUNT = 'complainedCount',
+    FAILED_COUNT = 'failedCount',
+}
+
+
+export enum AnalyticsRateType {
+    OPEN_RATE = 'openRate',
+    CLICK_RATE = 'clickRate',
+    REPLY_RATE = 'replyRate',
+    BOUNCE_RATE = 'bounceRate',
+}

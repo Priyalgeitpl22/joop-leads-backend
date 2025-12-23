@@ -1,136 +1,38 @@
-import { PrismaClient } from "@prisma/client";
 import { Request, Response } from "express";
-import path from "path";
-import fs from "fs";
-import { incrementCampaignCount } from "./analytics.controller";
+import { TrackingService } from "../services/tracking.service";
 
-const prisma = new PrismaClient();
-
-const VALID_COUNT_TYPES = [
-  "opened_count",
-  "clicked_count",
-  "replied_count",
-  "positive_reply_count",
-  "bounced_count",
-];
-
-export const trackEvent = async (req: Request, res: Response): Promise<any> => {
+export const trackEvent = async (req: Request, res: Response): Promise<void> => {
   try {
     const { trackingId, type } = req.params;
     const { redirect } = req.query;
 
-    if (!VALID_COUNT_TYPES.includes(type)) {
-      return res.status(400).json({ message: `Invalid tracking type: ${type}` });
+    const response = await TrackingService.trackEvent(trackingId, type, redirect as string);
+
+    if (response.type === "image" && response.imagePath) {
+      res.setHeader("Content-Type", "image/png");
+      res.sendFile(response.imagePath);
+      return;
     }
 
-    const [campaignId, email] = trackingId.split("_");
-    console.log(`🔍 Tracking Event: ${type} for ${email} in campaign ${campaignId}`);
-
-    if (type === "opened_count") {
-      console.log("One email opened");
-      const log = await prisma.emailTriggerLog.findFirst({
-        where: {
-          campaignId,
-          email,
-        },
-      });
-      console.log("log", log);
-      if (log) {
-        const data = await prisma.emailTriggerLog.update({
-          where: { id: log.id },
-          data: { email_opened: true },
-        });
-      }
-      incrementCampaignCount(campaignId, "opened_count");
-
-      console.log("One email opened");
-
-      const imagePath = path.join(__dirname, "transparent.png");
-      if (fs.existsSync(imagePath)) {
-        res.setHeader("Content-Type", "image/png");
-        return res.sendFile(imagePath);
-      } else {
-        console.warn("⚠️ Tracking image not found!");
-        return res.status(404).json({ message: "Tracking image not found" });
-      }
+    if (response.type === "redirect" && response.redirectUrl) {
+      res.redirect(response.redirectUrl);
+      return;
     }
 
-    if (type === "clicked_count" && redirect) {
-      const log = await prisma.emailTriggerLog.findFirst({
-        where: {
-          campaignId,
-          email,
-        },
-      });
-      console.log("log", log);
-      if (log) {
-        const data = await prisma.emailTriggerLog.update({
-          where: { id: log.id },
-          data: { email_clicked: true },
-        });
-      }
-      incrementCampaignCount(campaignId, "clicked_count");
-      console.log("One email clicked");
-      console.log(`🔀 Redirecting to: ${redirect}`);
-      return res.redirect(redirect.toString());
-    }
-
-    if (type === "replied_count") {
-      console.log(`📩 Reply detected from ${email}`);
-      const log = await prisma.emailTriggerLog.findFirst({
-        where: {
-          campaignId,
-          email,
-        },
-      });
-
-      if (log) {
-        const data = await prisma.emailTriggerLog.update({
-          where: { id: log.id },
-          data: { replied_mail: true },
-        });
-      }
-      incrementCampaignCount(campaignId, "replied_count");
-
-      console.log("Replied to one email");
-    }
-
-    res.status(200).json({ message: `✅ ${type} updated for ${email}` });
+    res.status(response.code).json({ message: response.message });
   } catch (error: any) {
-    console.error("❌ Error tracking event:", error.message);
-    res.status(500).json({
-      message: "Error tracking event",
-      details: error.message,
-    });
+    console.error("Error tracking event:", error.message);
+    res.status(500).json({ message: "Error tracking event", details: error.message });
   }
 };
 
-
-export const getAllThreadFormEmailId =  async(req:Request,res:Response):Promise<any>=>{
-  try{
-    const {email}= req.params
-
-    if(email){
-      // noe fetch all the threads from this email 
-      const data = await prisma.trackEmails.findMany({where:{sender_email:email},select:{threadId:true}})
-
-      const final = data.map((elem)=>elem.threadId)
-
-      return res.status(200).json({
-        message:"Data found succssful",
-        data :final
-      })
-    }else{
-      return res.status(404).json({
-        message:"Email id not found"
-      })
-    }
-
-  }catch(err:any){
-    console.error("❌ Error gettinf data from email:", err.message);
-    res.status(500).json({
-      message: "Error tracking event",
-      details: err.message,
-    });
+export const getAllThreadFormEmailId = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.params;
+    const response = await TrackingService.getAllThreadsFromEmail(email);
+    res.status(response.code).json(response);
+  } catch (err: any) {
+    console.error("Error getting data from email:", err.message);
+    res.status(500).json({ code: 500, message: "Error getting data from email", details: err.message });
   }
-}
+};

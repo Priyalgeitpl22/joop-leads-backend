@@ -1,89 +1,75 @@
 import axios from "axios";
 import nodemailer from "nodemailer";
 import { PrismaClient } from "@prisma/client";
-import { EmailAccount } from "../interfaces";
+import { EmailAccount, SenderAccount } from "../interfaces";
 import { incrementCampaignCount } from "../controllers/analytics.controller";
+import { AnalyticsCountType } from "../enums";
 
 const prisma = new PrismaClient();
+
 const isTokenExpired = (expiryDate?: number): boolean => {
   return expiryDate ? Date.now() >= expiryDate : true;
 };
 
-const refreshGoogleOAuthToken = async (account: EmailAccount): Promise<string> => {
-  if (!account.oauth2.clientId || !account.oauth2.clientSecret || !account.oauth2.tokens.refresh_token) {
-    console.error("❌ Missing OAuth credentials:", {
-      hasClientId: !!account.oauth2.clientId,
-      hasClientSecret: !!account.oauth2.clientSecret,
-      hasRefreshToken: !!account.oauth2.tokens.refresh_token,
+const refreshGoogleOAuthToken = async (account: SenderAccount): Promise<string> => {
+  console.log("[sendMail] refreshGoogleOAuthToken called for:", account.email);
+
+  if (!account.accessToken || !account.refreshToken || !account.tokenExpiry) {
+    const error = new Error("Google OAuth2 credentials are missing!");
+    console.error("[sendMail] ❌ Missing OAuth credentials:", {
+      hasAccessToken: !!account.accessToken,
+      hasRefreshToken: !!account.refreshToken,
+      hasTokenExpiry: !!account.tokenExpiry,
       accountEmail: account.email,
-      accountId: account.account_id
+      accountId: account.id
     });
-    throw new Error("Google OAuth2 credentials are missing!");
+    throw error;
   }
 
   const tokenUrl = "https://oauth2.googleapis.com/token";
-  
-  // Log refresh token info for debugging (first 20 chars only for security)
-  const refreshTokenPreview = account.oauth2.tokens.refresh_token.substring(0, 20) + "...";
-  console.log("🔄 Attempting to refresh Google OAuth token for account:", account.email);
-  console.log("🔍 Refresh token preview:", refreshTokenPreview);
-  console.log("🔍 Client ID:", account.oauth2.clientId?.substring(0, 20) + "...");
-  
+  const refreshTokenPreview = account.refreshToken?.substring(0, 20) + "...";
+  console.log("[sendMail] 🔄 Refreshing Google OAuth token for:", account.email);
+  console.log("[sendMail] 🔍 Refresh token preview:", refreshTokenPreview);
+
   try {
     const response = await axios.post<{ access_token: string; expires_in: number }>(tokenUrl, null, {
       params: {
-        client_id: account.oauth2.clientId,
-        client_secret: account.oauth2.clientSecret,
-        refresh_token: account.oauth2.tokens.refresh_token,
+        client_id: process.env.GOOGLE_CLIENT_ID as string,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET as string,
+        refresh_token: account.refreshToken as string,
         grant_type: "refresh_token",
       },
     });
 
     if (!response.data.access_token) {
-      throw new Error("Failed to refresh Google OAuth token");
+      throw new Error("Failed to refresh Google OAuth token - no access_token in response");
     }
 
-    account.oauth2.tokens.access_token = response.data.access_token;
-    account.oauth2.tokens.expiry_date = Date.now() + response?.data?.expires_in * 1000;
+    account.accessToken = response.data.access_token;
+    account.tokenExpiry = new Date(Date.now() + response.data.expires_in * 1000);
 
-    console.log("✅ Google Access Token Refreshed!");
-    return account.oauth2.tokens.access_token;
+    console.log("[sendMail] ✅ Google Access Token Refreshed!");
+    return account.accessToken as string;
   } catch (error: any) {
-    // Check if the error is due to invalid/expired refresh token
     if (error.response?.data?.error === 'invalid_grant') {
-      console.error("❌ Google OAuth Refresh Token Expired or Revoked");
-      console.error("⚠️  The refresh token is no longer valid. User needs to re-authenticate.");
-      console.error("📋 Error details:", {
-        error: error.response?.data?.error,
-        error_description: error.response?.data?.error_description,
-        accountEmail: account.email,
-        accountId: account.account_id
-      });
-      throw new Error("REAUTH_REQUIRED: Google OAuth refresh token has expired or been revoked. Please re-authenticate your Google account.");
+      console.error("[sendMail] ❌ Google OAuth Refresh Token Expired or Revoked");
+      throw new Error("REAUTH_REQUIRED: Google OAuth refresh token has expired. Please re-authenticate.");
     }
-    
-    console.error("❌ Google OAuth Token Refresh Error:", error.response?.data || error.message);
-    console.error("📋 Full error details:", {
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      accountEmail: account.email,
-      accountId: account.account_id
-    });
+    console.error("[sendMail] ❌ Google OAuth Token Refresh Error:", error.response?.data || error.message);
     throw new Error(`Failed to refresh Google OAuth token: ${error.response?.data?.error_description || error.message}`);
   }
 };
 
-const refreshMicrosoftOAuthToken = async (
-  account: EmailAccount
-): Promise<{ access_token: string; expires_in: number }> => {
+const refreshMicrosoftOAuthToken = async (account: EmailAccount): Promise<{ access_token: string; expires_in: number }> => {
+  console.log("[sendMail] refreshMicrosoftOAuthToken called for:", account.email);
+
   const tokenUrl = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 
-  try {
-    if (!account?.oauth2?.tokens?.refresh_token) {
-      throw new Error("❌ Microsoft OAuth2 refresh token is missing!");
-    }
+  if (!account?.oauth2?.tokens?.refresh_token) {
+    throw new Error("Microsoft OAuth2 refresh token is missing!");
+  }
 
+  try {
     const response = await axios.post<{ access_token: string; expires_in: number }>(
       tokenUrl,
       new URLSearchParams({
@@ -93,88 +79,73 @@ const refreshMicrosoftOAuthToken = async (
         grant_type: "refresh_token",
       }),
       {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
       }
     );
 
     if (!response.data?.access_token) {
-      throw new Error("❌ Failed to retrieve access token from Microsoft OAuth!");
+      throw new Error("Failed to retrieve access token from Microsoft OAuth!");
     }
 
     account.oauth2.tokens.access_token = response.data.access_token;
     account.oauth2.tokens.expiry_date = Date.now() + response.data.expires_in * 1000;
 
-    console.log("✅ Microsoft Access Token Refreshed!");
-
-    return {
-      access_token: response.data.access_token,
-      expires_in: response.data.expires_in,
-    };
+    console.log("[sendMail] ✅ Microsoft Access Token Refreshed!");
+    return response.data;
   } catch (error: any) {
-    console.error("❌ Microsoft OAuth Token Refresh Error:", error.response?.data || error.message);
-    throw new Error(`❌ Failed to refresh Microsoft OAuth token: ${error.response?.data?.error_description || error.message}`);
+    console.error("[sendMail] ❌ Microsoft OAuth Token Refresh Error:", error.response?.data || error.message);
+    throw new Error(`Failed to refresh Microsoft OAuth token: ${error.response?.data?.error_description || error.message}`);
   }
 };
 
 const sendEmailFromGoogle = async (
   campaignId: string,
-  account: EmailAccount,
+  leadId: string,
+  account: SenderAccount,
   fromName: string,
   fromEmail: string,
   toEmail: string,
   subject: string,
   body: string,
   isPlainText: boolean,
-  tracking: boolean,
-  tarckingOpenEmail:boolean
-): Promise<any> => {
-  if (!toEmail) throw new Error("Recipient email is required!");
+  trackClicks: boolean,
+  trackOpens: boolean
+): Promise<{ id: string; threadId: string }> => {
+  console.log("[sendMail] sendEmailFromGoogle called:", { toEmail, fromEmail, subject: subject.substring(0, 50) });
 
-  let { access_token, expiry_date } = account.oauth2.tokens;
-  if (!access_token || isTokenExpired(expiry_date)) {
-    console.log("🔄 Google token expired, refreshing...");
+  if (!toEmail) {
+    throw new Error("Recipient email is required!");
+  }
+
+  let access_token = account.accessToken || "";
+
+  if (!access_token || isTokenExpired(account.tokenExpiry?.getTime())) {
+    console.log("[sendMail] 🔄 Google token expired, refreshing...");
     access_token = await refreshGoogleOAuthToken(account);
-    account.oauth2.tokens.access_token = access_token;
   }
 
-  const trackingId = `${campaignId}_${toEmail}`;
   const baseUrl = process.env.SERVER_URL || "http://localhost:5003/api";
+  const trackingId = `${campaignId}_${leadId}`;
 
-  // Tracking links
-  const trackingPixelUrl = `${baseUrl}/track/track-email/${trackingId}/opened_count`;
-  const defaultRedirectUrl = "https://goldeneagle.ai/";
-
-  let clickTrackingUrl = `${baseUrl}/track/track-email/${trackingId}/clicked_count?redirect=https://goldeneagle.ai/`;
-  if (!tracking) {
-    clickTrackingUrl = `${baseUrl}/track/track-email/${trackingId}/clicked_count?redirect=${defaultRedirectUrl}`;
-  } else {
-    clickTrackingUrl = defaultRedirectUrl;
-  }
-  const replyTrackingUrl = `mailto:${fromEmail}?subject=Re: ${encodeURIComponent(
-    subject
-  )}&body=Replying to your email`;
+  // Build email content
   let emailContent: string;
   let contentType: string;
-  if (isPlainText) {
-    const stripHtmlTags = (html: string): string =>
-      html.replace(/<\/?[^>]+(>|$)/g, "");
 
-    const plainBody = stripHtmlTags(body);
-    emailContent = `${plainBody}\n\nVisit: ${clickTrackingUrl}\nReply: ${replyTrackingUrl}`;
+  if (isPlainText) {
+    const stripHtmlTags = (html: string): string => html.replace(/<\/?[^>]+(>|$)/g, "");
+    emailContent = stripHtmlTags(body);
     contentType = `text/plain; charset="UTF-8"`;
   } else {
+    // Add tracking pixel if enabled
+    const trackingPixel = trackOpens
+      ? `<img src="${baseUrl}/track/open/${trackingId}" width="1" height="1" style="display:none;" />`
+      : "";
+
     emailContent = `
       <html>
         <body>
           ${body}
-          <br/><br/>
-          <a href="${clickTrackingUrl}" target="_blank">Click here</a> to visit.
-          <br/>
-          <a href="${replyTrackingUrl}" target="_blank">Reply</a> to this email.
-          <br/>
-          ${tarckingOpenEmail ? `<img src="${trackingPixelUrl}" width="100px" height="100px" style="display:none;" />` : ''}
+          ${trackingPixel}
         </body>
       </html>
     `;
@@ -183,10 +154,10 @@ const sendEmailFromGoogle = async (
 
   const encodedMessage = Buffer.from(
     `From: "${fromName}" <${fromEmail}>\r\n` +
-      `To: <${toEmail}>\r\n` +
-      `Subject: ${subject}\r\n` +
-      `Content-Type: ${contentType}\r\n\r\n` +
-      emailContent
+    `To: <${toEmail}>\r\n` +
+    `Subject: ${subject}\r\n` +
+    `Content-Type: ${contentType}\r\n\r\n` +
+    emailContent
   )
     .toString("base64")
     .replace(/\+/g, "-")
@@ -194,6 +165,8 @@ const sendEmailFromGoogle = async (
     .replace(/=+$/, "");
 
   try {
+    console.log("[sendMail] 📧 Sending email via Gmail API...");
+
     const response = await axios.post(
       "https://www.googleapis.com/gmail/v1/users/me/messages/send",
       { raw: encodedMessage },
@@ -205,39 +178,46 @@ const sendEmailFromGoogle = async (
       }
     );
 
+    const result = response.data as { id: string; threadId: string };
+    console.log("[sendMail] ✅ Google Email Sent to", toEmail, "MessageId:", result.id);
 
-    // now set the send data to the prisma data base
-    if(response.data){
-      const {id} = response.data as {id:string,threadId:string}
-      await prisma.trackEmails.create({data:{threadId:id,campaignId:campaignId,recipient:toEmail,sender_email:fromEmail}})
-    }
+    // Update analytics
+    incrementCampaignCount(campaignId, AnalyticsCountType.SENT_COUNT);
 
-    incrementCampaignCount(campaignId, "sent_count");
-    console.log(
-      `✅ Google Email Sent to ${toEmail}, Tracking ID: ${trackingId}`
-    );
-    return response.data;
+    return result;
   } catch (error: any) {
-    console.log("One email counced");
-    incrementCampaignCount(campaignId, "bounced_count");
-    console.error(
-      "❌ Google Email Error: Failed to send email to",
+    console.error("[sendMail] ❌ Google Email Error:", {
       toEmail,
-      error.message
-    );
+      error: error.response?.data || error.message,
+      status: error.response?.status,
+    });
+
+    // Update bounce count
+    incrementCampaignCount(campaignId, "bounced_count");
+
+    throw new Error(`Failed to send email via Google: ${error.response?.data?.error?.message || error.message}`);
   }
 };
 
-const sendEmailFromMicrosoft = async (campaignId: string, account: EmailAccount, fromName: string, toEmail: string, subject: string, body: string): Promise<any> => {
+const sendEmailFromMicrosoft = async (
+  campaignId: string,
+  account: SenderAccount,
+  fromName: string,
+  toEmail: string,
+  subject: string,
+  body: string
+): Promise<{ id: string }> => {
+  console.log("[sendMail] sendEmailFromMicrosoft called:", { toEmail, subject: subject.substring(0, 50) });
 
-  let { access_token, expires_in } = account.oauth2.tokens;
+  if (!toEmail) {
+    throw new Error("Recipient email is required!");
+  }
 
-  if (!toEmail) throw new Error("Recipient email is required!");
-  if (access_token || isTokenExpired(expires_in)) {
-    console.log("🔄 Microsoft token expired, refreshing...");
-    const response = await refreshMicrosoftOAuthToken(account);
+  let access_token = account.accessToken || "";
+  if (!access_token || isTokenExpired(account.tokenExpiry?.getTime())) {
+    console.log("[sendMail] 🔄 Microsoft token expired, refreshing...");
+    const response = await refreshMicrosoftOAuthToken(account as unknown as EmailAccount);
     access_token = response.access_token;
-    expires_in = response.expires_in;
   }
 
   const emailData = {
@@ -245,74 +225,145 @@ const sendEmailFromMicrosoft = async (campaignId: string, account: EmailAccount,
       subject,
       body: { contentType: "HTML", content: body },
       toRecipients: [{ emailAddress: { address: toEmail } }],
-      from: fromName,
     },
     saveToSentItems: true,
   };
 
   try {
+    console.log("[sendMail] 📧 Sending email via Microsoft Graph API...");
+
     const response = await axios.post(
       "https://graph.microsoft.com/v1.0/me/sendMail",
       emailData,
-      { headers: { Authorization: `Bearer ${account.oauth2.tokens.access_token}`, "Content-Type": "application/json" } }
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          "Content-Type": "application/json"
+        }
+      }
     );
 
-    console.log(`✅ Microsoft Email Sent to ${toEmail}`);
-    return response.data;
-  } catch (error) {
-    incrementCampaignCount(campaignId, 'bounced_count');
-    console.error("❌ Microsoft Email Error:", error);
-    // throw new Error("Failed to send email via Microsoft");
+    console.log("[sendMail] ✅ Microsoft Email Sent to", toEmail);
+    incrementCampaignCount(campaignId, AnalyticsCountType.SENT_COUNT);
+
+    return { id: response.headers["message-id"] || "sent" };
+  } catch (error: any) {
+    console.error("[sendMail] ❌ Microsoft Email Error:", {
+      toEmail,
+      error: error.response?.data || error.message,
+      status: error.response?.status,
+    });
+
+    incrementCampaignCount(campaignId, "bounced_count");
+    throw new Error(`Failed to send email via Microsoft: ${error.response?.data?.error?.message || error.message}`);
   }
 };
 
-const sendEmailWithSMTP = async (campaignId: string, account: EmailAccount, fromName: string, toEmail: string, subject: string, body: string): Promise<any> => {
-  if (!account.smtp) throw new Error("SMTP configuration is missing!");
-  if (!toEmail) throw new Error("Recipient email is required!");
+const sendEmailWithSMTP = async (
+  campaignId: string,
+  account: SenderAccount,
+  fromName: string,
+  toEmail: string,
+  subject: string,
+  body: string
+): Promise<{ id: string; messageId: string }> => {
+  console.log("[sendMail] sendEmailWithSMTP called:", { toEmail, subject: subject.substring(0, 50) });
+
+  if (!account.smtpHost || !account.smtpPort || !account.smtpUser || !account.smtpPass) {
+    throw new Error("SMTP configuration is missing!");
+  }
+  if (!toEmail) {
+    throw new Error("Recipient email is required!");
+  }
 
   const transporter = nodemailer.createTransport({
-    host: account.smtp.host,
-    port: account.smtp.port,
-    secure: account.smtp.secure,
-    auth: { user: account.smtp.auth.user, pass: account.smtp.auth.pass },
+    host: account.smtpHost,
+    port: account.smtpPort,
+    secure: account.smtpUser ? true : false,
+    auth: {
+      user: account.smtpUser,
+      pass: account.smtpPass
+    },
   });
 
   try {
+    console.log("[sendMail] 📧 Sending email via SMTP...");
+
     const info = await transporter.sendMail({
-      from: `${fromName} <${account.smtp.auth.user}>`,
+      from: `${fromName} <${account.smtpUser}>`,
       to: toEmail,
       subject,
       html: body,
     });
 
-    console.log(`✅ SMTP Email Sent to ${toEmail}`);
-    return info;
-  } catch (error) {
-    incrementCampaignCount(campaignId, 'bounced_count');
-    console.error("❌ SMTP Email Error:", error);
-    // throw new Error("Failed to send email via SMTP");
+    console.log("[sendMail] ✅ SMTP Email Sent to", toEmail, "MessageId:", info.messageId);
+    incrementCampaignCount(campaignId, AnalyticsCountType.SENT_COUNT);
+
+    return { id: info.messageId, messageId: info.messageId };
+  } catch (error: any) {
+    console.error("[sendMail] ❌ SMTP Email Error:", {
+      toEmail,
+      error: error.message,
+      code: error.code,
+    });
+
+    incrementCampaignCount(campaignId, "bounced_count");
+    throw new Error(`Failed to send email via SMTP: ${error.message}`);
   }
 };
 
-export const sendEmail = async (campaignId: string, orgId: string, account: EmailAccount, toEmail: string, subject: string, body: string,isPlainText:boolean,tarcking:boolean,tarckingOpenEmail:boolean): Promise<any> => {
+export const sendEmail = async (
+  campaignId: string,
+  leadId: string,
+  orgId: string,
+  account: SenderAccount,
+  toEmail: string,
+  subject: string,
+  body: string,
+  isPlainText: boolean,
+  trackClicks: boolean,
+  trackOpens: boolean
+): Promise<{ id: string; messageId?: string }> => {
+  console.log("[sendMail] sendEmail called:", {
+    campaignId,
+    leadId,
+    toEmail,
+    provider: account.provider,
+    subject: subject.substring(0, 50),
+  });
+
   try {
     const org = await prisma.organization.findUnique({ where: { id: orgId } });
 
-    if (!org || !org.name) throw new Error("Organization not found!");
-
-    switch (account.type) {
-      case "gmail":
-        return sendEmailFromGoogle(campaignId, account, org.name, account.email, toEmail, subject, body,isPlainText,tarcking,tarckingOpenEmail);
-      case "outlook":
-        return sendEmailFromMicrosoft(campaignId, account, org.name, toEmail, subject, body);
-      case "imap":
-        return sendEmailWithSMTP(campaignId, account, org.name, toEmail, subject, body);
-      default:
-        throw new Error("Invalid email provider type!");
+    if (!org || !org.name) {
+      throw new Error(`Organization not found: ${orgId}`);
     }
-  } catch (error) {
-    console.error(`❌ Failed to send email to ${toEmail}:`, error);
-    throw new Error("Email sending failed");
+
+    const fromName = org.name;
+
+    switch (account.provider) {
+      case "gmail":
+        return await sendEmailFromGoogle(
+          campaignId, leadId, account, fromName, account.email,
+          toEmail, subject, body, isPlainText, trackClicks, trackOpens
+        );
+
+      case "outlook":
+        return await sendEmailFromMicrosoft(
+          campaignId, account, fromName, toEmail, subject, body
+        );
+
+      default:
+        throw new Error(`Invalid email provider type: ${account.provider}`);
+    }
+  } catch (error: any) {
+    console.error("[sendMail] ❌ sendEmail failed:", {
+      campaignId,
+      leadId,
+      toEmail,
+      error: error.message,
+      stack: error.stack,
+    });
+    throw error; // Re-throw to let caller handle
   }
 };
-

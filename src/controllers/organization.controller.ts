@@ -1,119 +1,37 @@
-import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { assignFreePlanToOrg } from './organization.plan.controller';
+import { Request, Response } from "express";
+import { OrganizationService } from "../services/organisation.service";
 
-const prisma = new PrismaClient();
-
-export const saveOrganization = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { name, domain, country, phone } = req.body;
-
-    if (!name || !domain || !country || !phone) {
-      return res.status(400).json({
-        code: 400,
-        message: "All fields (name, domain, country, phone) are required."
-      });
-    }
-
-    const organization = await prisma.organization.create({
-      data: { name, domain, country, phone}
-    });
-
-    await assignFreePlanToOrg(organization.id);
-
-    res.status(200).json({
-      code: 200,
-      data: organization,
-      message: "Organization created successfully"
-    });
-    
-  } catch (err) {
-    console.error('Error saving organization:', err);
-    res.status(500).json({
-      code: 500,
-      message: "Error saving organization"
-    });
-  }
-};
-
+/* -------------------- Get organization -------------------- */
 export const getOrganization = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { orgId } = req.query;
-
-    if (!orgId) {
-      res.status(400).json({ code: 400, message: "Organization ID is required" });
-    }
-
-    const organization = await prisma.organization.findFirst({
-      where: { id: orgId as string }
-    });
-
-    if (!organization) {
+    const org = await OrganizationService.getById(req.user.orgId);
+    if (!org) {
       res.status(404).json({ code: 404, message: "Organization not found" });
+      return;
     }
 
-    res.status(200).json({
-      data: organization,
-      message: "Organization details fetched successfully",
-      code: 200
-    });
-
-  } catch (err) {
-    console.error("Error fetching organization details:", err);
-    res.status(500).json({ code: 500, message: "Error fetching organization details" });
+    res.json({ code: 200, data: org });
+  } catch {
+    res.status(500).json({ code: 500, message: "Failed to fetch organization" });
   }
 };
 
-export const updateOrganization = async (req: Request, res: Response): Promise<any> => {
+/* -------------------- Save organization -------------------- */
+export const saveOrganization = async (req: Request, res: Response) => {
   try {
-    const orgId = req.query.orgId as string;
-    const { name, domain, country, city, state, zip, industry, phone, address, aiOrgId, description } = req.body;
+    const org = await OrganizationService.create(req.body);
+    res.status(201).json({ code: 201, data: org });
+  } catch (e: any) {
+    res.status(400).json({ code: 400, message: e.message });
+  }
+};
 
-    if (!orgId) {
-      return res.status(400).json({
-        code: 400,
-        message: "Organization ID is required."
-      });
-    }
-
-    const existingOrg = await prisma.organization.findUnique({ where: { id: orgId } });
-
-    if (!existingOrg) {
-      return res.status(404).json({
-        code: 404,
-        message: "Organization not found."
-      });
-    }
-
-    const organizationData = {
-      name: name ?? existingOrg.name,
-      domain: domain ?? existingOrg.domain,
-      address: address ?? existingOrg.address,
-      country: country ?? existingOrg.country,
-      city: city ?? existingOrg.city,
-      state: state ?? existingOrg.state,
-      zip: Number(zip) ?? existingOrg.zip,
-      industry: industry ?? existingOrg.industry, 
-      phone: phone ?? existingOrg.phone,
-      description: description ?? existingOrg.description
-    }
-
-    const updatedOrganization = await prisma.organization.update({
-      where: { id: orgId },
-      data: organizationData
-    });
-
-    res.status(200).json({
-      code: 200,
-      data: updatedOrganization,
-      message: "Organization updated successfully"
-    });
-
-  } catch (err) {
-    console.error("Error updating organization:", err);
-    res.status(500).json({
-      code: 500,
-      message: "Error updating organization"
-    });
+/* -------------------- Update organization -------------------- */
+export const updateOrganization = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const org = await OrganizationService.update(req.user.orgId, req.body);
+    res.json({ code: 200, data: org });
+  } catch (e: any) {
+    res.status(400).json({ code: 400, message: e.message || "Update failed" });
   }
 };

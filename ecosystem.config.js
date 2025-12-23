@@ -1,0 +1,66 @@
+module.exports = {
+  apps: [
+    {
+      name: "api-server",
+      script: "src/server.ts",
+      interpreter: "./node_modules/.bin/ts-node",
+      interpreter_args: "-r tsconfig-paths/register",
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: true,
+      watch: ["src"],
+      watch_delay: 1000,
+      ignore_watch: ["node_modules", "logs", "*.log"],
+      max_memory_restart: "1G",
+      env: {
+        NODE_ENV: "development",
+        TS_NODE_PROJECT: "./tsconfig.json",
+      },
+      env_production: {
+        NODE_ENV: "production",
+        script: "dist/server.js",
+        interpreter: "node",
+      },
+    },
+    {
+      name: "campaign-scheduler",
+      script: "src/emailScheduler/runScheduler.ts",
+      interpreter: "./node_modules/.bin/ts-node",
+      interpreter_args: "-r tsconfig-paths/register",
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "512M",
+      env: {
+        NODE_ENV: "development",
+        TS_NODE_PROJECT: "./tsconfig.json",
+      },
+      env_production: {
+        NODE_ENV: "production",
+        script: "dist/emailScheduler/runScheduler.js",
+        interpreter: "node",
+      },
+    },
+    {
+      name: "email-worker",
+      script: "src/emailScheduler/worker.ts",
+      interpreter: "./node_modules/.bin/ts-node",
+      interpreter_args: "-r tsconfig-paths/register",
+      instances: 2,
+      exec_mode: "fork",
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "512M",
+      env: {
+        NODE_ENV: "development",
+        TS_NODE_PROJECT: "./tsconfig.json",
+      },
+      env_production: {
+        NODE_ENV: "production",
+        script: "dist/emailScheduler/worker.js",
+        interpreter: "node",
+      },
+    },
+  ],
+};

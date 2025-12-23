@@ -1,5 +1,14 @@
+// ============================================================================
+// IMPROVED SCHEMA - Email Campaign Automation Platform
+// ============================================================================
+
 generator client {
   provider = "prisma-client-js"
+}
+
+generator interfaces {
+  provider = "prisma-generator-typescript-interfaces"
+  output   = "../src/generated/interfaces"
 }
 
 datasource db {
@@ -7,357 +16,700 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model access_token {
-  id               String    @id @default(uuid())
-  created_datetime DateTime? @default(now())
-  updated_datetime DateTime? @default(now())
-  deleted_datetime DateTime?
-  user_id          String?   @db.VarChar(256)
-  active           Int       @default(1)
-  expiry_datetime  DateTime?
-  token            String? // Add the token field to store the JWT
-}
+// ============================================================================
+// ENUMS
+// ============================================================================
 
-model Organization {
-  id                 String               @id @default(uuid())
-  name               String?
-  phone              String?
-  address            String?
-  city               String?
-  state              String?
-  country            String?
-  zip                Int?
-  domain             String?
-  industry           String?
-  description        String?
-  users              User[]
-  contacts           Contact[]
-  campaigns          Campaign[]
-  campaign_analytics CampaignAnalytics[]
-  CampaignFolder     CampaignFolder[]
-  CampaignTriggerLog CampaignTriggerLog[]
-  plans              OrganizationPlan[]
-
-  createdAt DateTime @default(now())
-}
-
-model User {
-  id             String       @id @default(uuid())
-  email          String       @unique
-  fullName       String
-  password       String
-  phone          String?
-  role           String       @default("admin")
-  verified       Boolean      @default(false)
-  orgId          String
-  profilePicture String?
-  organization   Organization @relation(fields: [orgId], references: [id])
-  createdAt      DateTime     @default(now())
-  online         Boolean      @default(true)
-  schedule       Json?
-
-  // Fields for OTP verification
-  otpCode      String?
-  otpExpiresAt DateTime?
-
-  // Fields for password reset
-  resetToken        String?
-  resetTokenExpires DateTime?
-
-  activationToken        String?
-  activationTokenExpires DateTime?
-
-  contacts Contact[] @relation(name: "UserContacts") // The relation name must match with Contact model
-}
-
-model Contact {
-  id               String          @id @default(uuid())
-  first_name       String?
-  last_name        String?
-  designation      String?
-  company_location String?
-  industry_type    String?
-  email            String?
-  phone_number     String?
-  company_name     String?
-  website          String?
-  linkedin_profile String?
-  campaign_id      String?
-  location         String?
-  orgId            String // Foreign key for Organization
-  uploadedBy       String // Foreign key for User (MUST BE HERE)
-  file_name        String?
-  blocked          Boolean?        @default(false)
-  unsubscribed     Boolean?        @default(false)
-  active           Boolean?        @default(true)
-  createdAt        DateTime        @default(now())
-  organization     Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  uploadedUser     User            @relation(fields: [uploadedBy], references: [id], onDelete: Cascade, name: "UserContacts")
-  emailCampaigns   EmailCampaign[]
-}
-
-model Campaign {
-  id                         String                  @id @default(uuid())
-  orgId                      String // Foreign key for Organization
-  campaign_name              String                  @default("Untitled Campaign")
-  csvSettings                Json?
-  csvFile                    Json?
-  counts                     Json?
-  schedule                   Json?
-  contacts                   String[]
-  sequencesIds               String[]
-  status                     CampaignStatus?         @default(DRAFT)
-  sequences                  Sequences[]             @relation("CampaignToSequences")
-  email_campaign_settings_id String?
-  email_campaign_settings    EmailCampaignSettings[] @relation("CampaignToSettings")
-  createdAt                  DateTime                @default(now())
-  emailCampaigns             EmailCampaign[]
-  organization               Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  EmailTriggerLog            EmailTriggerLog[]
-  CampaignAnalytics          CampaignAnalytics[]
-  CampaignTriggerLog         CampaignTriggerLog[]
-  folders                    CampaignFolderMapping[]
-  TrackEmails                TrackEmails[]
-  CampaignRuntime            CampaignRuntime[] 
-}
-
-model EmailCampaign {
-  id         String @id @default(uuid())
-  contactId  String
-  campaignId String
-  lastSequenceSent    String  @default("")
-  emailAccountUsed    String  @default("")
-
-  contact  Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
-  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
 }
 
 enum CampaignStatus {
   DRAFT
   SCHEDULED
   ACTIVE
+  PAUSED
   COMPLETED
-  BLOCKED
+  ARCHIVED
 }
 
-enum SeqType {
+enum LeadStatus {
+  PENDING      // Not yet contacted
+  QUEUED       // In queue to be sent
+  SENT         // Email sent successfully
+  OPENED       // Email was opened
+  CLICKED      // Link was clicked
+  REPLIED      // Lead replied
+  BOUNCED      // Email bounced
+  UNSUBSCRIBED // Lead unsubscribed
+  FAILED       // Failed to send
+}
+
+enum EmailSendStatus {
+  QUEUED
+  SENDING
+  SENT
+  FAILED
+  BOUNCED
+}
+
+enum SequenceType {
   EMAIL
-  MANUAL
+  WAIT
+  MANUAL_TASK
 }
 
-enum SequenceSchedularType {
-  AUTOMATIC
-  MANUAL
+enum EmailProvider {
+  smtp
+  gmail
+  outlook
+  imap
 }
 
-model Sequences {
-  id                        String                 @id @default(uuid())
-  seq_number                Int?
-  sequence_schedular_type   SequenceSchedularType?
-  seq_delay_details         Json?
-  seq_type                  SeqType?
-  seq_variants              Json?
-  variant_distribution_type String?
-  campaign_id               String?
-  campaign                  Campaign?              @relation("CampaignToSequences", fields: [campaign_id], references: [id], onDelete: Cascade)
-  createdAt                 DateTime               @default(now())
-  EmailTriggerLog           EmailTriggerLog[]
-}
-
-model EmailCampaignSettings {
-  id                String    @id @default(uuid())
-  sender_accounts   Json[]
-  auto_warm_up      Boolean?
-  campaign_schedule Json?
-  campaign_settings Json?
-  campaign_id       String?
-  campaign          Campaign? @relation("CampaignToSettings", fields: [campaign_id], references: [id], onDelete: Cascade)
-  createdAt         DateTime  @default(now())
-}
-
-model EmailTriggerLog {
-  id            String   @id @default(uuid())
-  email         String
-  campaignId    String
-  sequenceId    String
-  threadId      String
-  timezone      String
-  email_clicked Boolean? @default(false)
-  email_opened  Boolean? @default(false)
-  replied_mail  Boolean? @default(false)
-  triggeredAt   DateTime @default(now())
-  createdAt     DateTime @default(now())
-
-  campaign Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  sequence Sequences @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
-}
-
-model CampaignTriggerLog {
-  id                         String   @id @default(uuid())
-  campaignId                 String
-  orgId                      String
-  newEmailsSent              Int      @default(0)
-  followUpEmailsSent         Int      @default(0)
-  totalEligibleEmailAccounts Int      @default(0)
-  timezone                   String
-  createdAt                  DateTime @default(now())
-
-  campaign     Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-}
-
-model CampaignAnalytics {
-  id                   String       @id @default(uuid())
-  campaignId           String
-  orgId                String
-  createdAt            DateTime     @default(now())
-  sent_count           Int          @default(0)
-  opened_count         Int          @default(0)
-  clicked_count        Int          @default(0)
-  replied_count        Int          @default(0)
-  positive_reply_count Int          @default(0)
-  bounced_count        Int          @default(0)
-  campaign             Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  organization         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-
-  @@unique([campaignId]) // Ensures campaignId is unique
-}
-
-model CampaignFolder {
-  id        String   @id @default(uuid())
-  name      String
-  orgId     String
-  createdAt DateTime @default(now())
-
-  organization Organization            @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  campaigns    CampaignFolderMapping[]
-}
-
-model CampaignFolderMapping {
-  id         String @id @default(uuid())
-  campaignId String
-  folderId   String
-
-  campaign Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  folder   CampaignFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
-
-  @@unique([campaignId, folderId]) // Prevent duplicate entries
-}
-
-model TrackEmails {
-  id           String   @id @default(uuid())
-  threadId     String
-  campaignId   String
-  recipient    String
-  sender_email String
-  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+enum WarmupStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  PAUSED
 }
 
 enum PlanCode {
   FREE
-  SILVER
-  GOLD
-  PLATINUM
-}
-
-enum SupportType {
-  COMMUNITY
-  EMAIL_24x7
-  PRIORITY_EMAIL_CHAT
-  PHONE_WHATSAPP
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
 }
 
 enum BillingPeriod {
   MONTHLY
   YEARLY
-  CUSTOM
 }
+
+enum EventType {
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  REPLIED
+  BOUNCED
+  UNSUBSCRIBED
+  COMPLAINED
+}
+
+enum StopSending {
+  CLICK
+  OPEN
+  REPLY
+}
+
+// ============================================================================
+// CORE MODELS: Organization & Users
+// ============================================================================
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  domain      String?  @unique
+  phone       String?
+  address     String?
+  city        String?
+  state       String?
+  country     String?
+  zip         String?
+  industry    String?
+  description String?
+  logoUrl     String?
+  timezone    String   @default("UTC")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users          User[]
+  senderAccounts SenderAccount[]
+  campaigns      Campaign[]
+  leads          Lead[]
+  plans          OrganizationPlan[]
+  apiKeys        ApiKey[]
+
+  @@index([domain])
+}
+
+model User {
+  id             String   @id @default(uuid())
+  email          String   @unique
+  fullName       String
+  password       String
+  phone          String?
+  role           UserRole @default(MEMBER)
+  profilePicture String?
+  isVerified     Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  lastLoginAt    DateTime?
+  timezone       String?
+
+  // Auth tokens
+  otpCode                  String?
+  otpExpiresAt             DateTime?
+  resetToken               String?
+  resetTokenExpiresAt      DateTime?
+  activationToken          String?
+  activationTokenExpiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  leadsUploaded Lead[]     @relation("UploadedByUser")
+  campaigns     Campaign[] @relation("CreatedByUser")
+
+  @@index([orgId])
+  @@index([email])
+}
+
+model AccessToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([token])
+  @@index([userId])
+}
+
+model ApiKey {
+  id         String    @id @default(uuid())
+  name       String
+  key        String    @unique
+  lastUsedAt DateTime?
+  isActive   Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([key])
+  @@index([orgId])
+}
+
+// ============================================================================
+// SENDER ACCOUNTS (Email accounts used to send campaigns)
+// ============================================================================
+
+model SenderAccount {
+  id       String        @id @default(uuid())
+  accountId String       @unique
+  email    String
+  name     String?       // Display name
+  provider EmailProvider 
+
+  // SMTP Config
+  smtpHost String?
+  smtpPort Int?    @default(587)
+  smtpUser String?
+  smtpPass String?
+  smtpSecure Boolean?
+
+  // IMAP Config
+  imapHost String?
+  imapPort Int?    
+  imapUser String?
+  imapPass String?
+  imapSecure Boolean?
+
+  // OAuth Config (for Gmail/Outlook API)
+  accessToken  String?   // Encrypted
+  refreshToken String?   // Encrypted
+  tokenExpiry  DateTime?
+
+  // Limits & Settings
+  dailyLimit      Int     @default(50)
+  hourlyLimit     Int     @default(10)
+  minDelaySeconds Int     @default(60) // Min gap between emails
+  isEnabled       Boolean @default(true)
+  isVerified      Boolean @default(false)
+
+  // Warmup
+  warmupStatus         WarmupStatus @default(NOT_STARTED)
+  warmupStartedAt      DateTime?
+  warmupDailyIncrement Int          @default(2)
+
+  // Signature
+  signature String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  runtime         SenderRuntime[]
+  emailSends      EmailSend[]
+  campaignSenders CampaignSender[]
+
+  @@unique([accountId, email])
+  @@index([orgId, isEnabled])
+}
+
+model SenderRuntime {
+  id           String    @id @default(uuid())
+  senderId     String
+  dayKey       String    // YYYY-MM-DD
+  sentToday    Int       @default(0)
+  sentThisHour Int       @default(0)
+  hourKey      String?   // YYYY-MM-DD-HH
+  lastSentAt   DateTime?
+  lockedAt     DateTime?
+  lockedBy     String?   // Instance ID for distributed locking
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sender SenderAccount @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, dayKey])
+  @@index([senderId, dayKey])
+}
+
+// ============================================================================
+// CAMPAIGNS
+// ============================================================================
+
+model Campaign {
+  id          String         @id @default(uuid())
+  name        String         @default("Untitled Campaign")
+  description String?
+  status      CampaignStatus @default(DRAFT)
+
+  // Schedule Settings
+  timezone        String   @default("UTC")
+  sendDays        String[] @default(["Mon", "Tue", "Wed", "Thu", "Fri"])
+  windowStart     String   @default("09:00") // HH:mm
+  windowEnd       String   @default("18:00") // HH:mm
+  intervalMinutes Int      @default(5)       // Gap between emails
+  maxEmailsPerDay Int      @default(100)     // Campaign daily limit
+
+  sendAsPlainText Boolean @default(false) // Send emails without HTML formatting
+
+  trackOpens  Boolean @default(true)  // Set to false to NOT track email opens
+  trackClicks Boolean @default(true)  // Set to false to NOT track link clicks
+
+  stopSending   StopSending @default(REPLY)
+
+  sendingPriority Int @default(50)
+  autoPauseSameDomain Boolean @default(false)
+
+  bounceRateThreshold   Float   @default(5.0)  // Pause if bounce rate exceeds this percentage
+  autoPauseOnHighBounce Boolean @default(true) // Enable auto-pause on high bounce rate
+
+  includeUnsubscribeLink Boolean @default(true)
+  unsubscribeText        String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  nextTrigger DateTime  @default(now())
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  createdById String?
+  createdBy   User?   @relation("CreatedByUser", fields: [createdById], references: [id], onDelete: SetNull)
+
+  sequences   Sequence[]
+  leads       CampaignLead[]
+  senders     CampaignSender[]
+  runtime     CampaignRuntime?
+  analytics   CampaignAnalytics?
+  emailSends  EmailSend[]
+  triggerLogs CampaignTriggerLog[]
+
+  @@index([orgId, status])
+  @@index([status, createdAt])
+}
+
+// Junction table: Campaign <-> SenderAccount (many-to-many)
+model CampaignSender {
+  id         String  @id @default(uuid())
+  campaignId String
+  senderId   String
+  weight     Int     @default(1) // For weighted distribution
+  isActive   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  campaign Campaign      @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sender   SenderAccount @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, senderId])
+  @@index([campaignId])
+}
+
+model CampaignRuntime {
+  id         String    @id @default(uuid())
+  campaignId String    @unique
+  dayKey     String    // YYYY-MM-DD in campaign TZ
+  sentToday  Int       @default(0)
+  nextRunAt  DateTime
+  lockedAt   DateTime?
+  lockedBy   String?   // Instance ID
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([nextRunAt])
+}
+
+model CampaignAnalytics {
+  id         String @id @default(uuid())
+  campaignId String @unique
+
+  totalLeads        Int @default(0)
+  sentCount         Int @default(0)
+  deliveredCount    Int @default(0)
+  openedCount       Int @default(0)
+  clickedCount      Int @default(0)
+  repliedCount      Int @default(0)
+  bouncedCount      Int @default(0)
+  unsubscribedCount Int @default(0)
+  failedCount       Int @default(0)
+
+  // Rates (computed, stored for quick access)
+  openRate   Float @default(0)
+  clickRate  Float @default(0)
+  replyRate  Float @default(0)
+  bounceRate Float @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+}
+
+model CampaignTriggerLog {
+  id         String   @id @default(uuid())
+  campaignId String
+  
+  // Trigger timing
+  triggeredAt   DateTime @default(now())  // When the trigger fired
+  timezone      String                     // Campaign timezone at trigger time
+  nextTriggerAt DateTime?                  // When the next trigger is scheduled
+  
+  // Email counts for this trigger
+  totalEmailsSent    Int @default(0)       // Total emails queued in this trigger
+  newLeadEmails      Int @default(0)       // First sequence emails (new leads)
+  followUpEmails     Int @default(0)       // Follow-up sequence emails
+  
+  // Status and activity
+  status        TriggerStatus @default(SUCCESS)
+  activityLog   String?       // Detailed log message
+  
+  // Sender breakdown (JSON: { "sender@email.com": { sent: 5, skipped: "daily limit" } })
+  senderDetails Json?
+  
+  // Lead details (JSON: [{ leadId, email, sequenceStep, status }])
+  leadDetails   Json?
+  
+  // Performance
+  durationMs    Int?          // How long the trigger took
+  
+  createdAt DateTime @default(now())
+  
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  @@index([campaignId, triggeredAt])
+  @@index([triggeredAt])
+}
+
+enum TriggerStatus {
+  SUCCESS         // Trigger completed, emails sent
+  PARTIAL         // Some emails sent, some skipped
+  SKIPPED         // Trigger ran but no emails sent (outside schedule, limits reached, etc.)
+  NO_PENDING      // No pending leads
+  OUTSIDE_SCHEDULE // Outside send window
+  DAILY_LIMIT     // Daily limit reached
+  ERROR           // Error occurred
+}
+
+// ============================================================================
+// SEQUENCES (Email steps in a campaign)
+// ============================================================================
+
+model Sequence {
+  id         String       @id @default(uuid())
+  campaignId String
+  seqNumber  Int          // 1, 2, 3...
+  type       SequenceType @default(EMAIL)
+
+  // Delay before this step (from previous step or campaign start)
+  delayDays    Int @default(0)
+  delayHours   Int @default(0)
+  delayMinutes Int @default(0)
+
+  // For EMAIL type
+  subject  String?
+  bodyHtml String?
+  bodyText String?
+
+  // For MANUAL_TASK type
+  taskTitle       String?
+  taskDescription String?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaign   Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  emailSends EmailSend[]
+
+  @@unique([campaignId, seqNumber])
+  @@index([campaignId])
+}
+
+// ============================================================================
+// LEADS (Recipients)
+// ============================================================================
+
+model Lead {
+  id        String  @id @default(uuid())
+  email     String
+  firstName String?
+  lastName  String?
+
+  // Company info
+  company     String?
+  designation String?
+  industry    String?
+  linkedinUrl String?
+  website     String?
+  phone       String?
+
+  // Location
+  city    String?
+  state   String?
+  country String?
+
+  // Custom fields (flexible)
+  customFields Json?
+
+  // Status
+  isVerified     Boolean   @default(false) // Email verified
+  isBlocked      Boolean   @default(false)
+  isUnsubscribed Boolean   @default(false)
+  unsubscribedAt DateTime?
+
+  // Source tracking
+  source   String? // csv_upload, api, manual, etc.
+  fileName String? // Original CSV file name
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  uploadedById String?
+  uploadedBy   User?   @relation("UploadedByUser", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  campaigns  CampaignLead[]
+  emailSends EmailSend[]
+  events     EmailEvent[]
+
+  @@unique([orgId, email])
+  @@index([orgId, email])
+  @@index([orgId, isUnsubscribed])
+}
+
+// Junction table: Campaign <-> Lead (with status tracking per campaign)
+model CampaignLead {
+  id         String     @id @default(uuid())
+  campaignId String
+  leadId     String
+  status     LeadStatus @default(PENDING)
+
+  // Track which sequence step we're at
+  currentSequenceStep Int @default(0) // 0 = not started
+
+  // Scheduling
+  nextSendAt DateTime?
+
+  // Stop sending flag - set when lead takes an action that triggers stop
+  isStopped     Boolean   @default(false)
+  stoppedAt     DateTime?
+  stoppedReason String?   // "REPLY", "CLICK", "OPEN"
+
+  // Last activity
+  lastSentAt    DateTime?
+  lastOpenedAt  DateTime?
+  lastClickedAt DateTime?
+  lastRepliedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lead     Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, leadId])
+  @@index([campaignId, status])
+  @@index([campaignId, nextSendAt])
+}
+
+// ============================================================================
+// EMAIL SENDS & EVENTS (Tracking)
+// ============================================================================
+
+model EmailSend {
+  id     String          @id @default(uuid())
+  status EmailSendStatus @default(QUEUED)
+
+  // Which sequence step was used
+  sequenceStep Int?
+
+  // Provider response
+  providerMsgId String?
+  threadId      String?
+
+  // Error tracking
+  errorMessage  String?
+  errorCode     String?
+  attempts      Int       @default(0)
+  lastAttemptAt DateTime?
+
+  // Timestamps
+  queuedAt DateTime  @default(now())
+  sentAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   SenderAccount @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  leadId String
+  lead   Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  sequenceId String?
+  sequence   Sequence? @relation(fields: [sequenceId], references: [id], onDelete: SetNull)
+
+  events EmailEvent[]
+
+  @@unique([campaignId, leadId, sequenceStep]) // One email per lead per step
+  @@index([campaignId, status])
+  @@index([senderId, createdAt])
+  @@index([status, queuedAt])
+}
+
+model EmailEvent {
+  id        String    @id @default(uuid())
+  type      EventType
+  timestamp DateTime  @default(now())
+
+  // Additional data
+  ipAddress String?
+  userAgent String?
+  linkUrl   String? // For CLICKED events
+
+  // Location (from IP)
+  city    String?
+  country String?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  emailSendId String
+  emailSend   EmailSend @relation(fields: [emailSendId], references: [id], onDelete: Cascade)
+
+  leadId String
+  lead   Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([emailSendId])
+  @@index([leadId, type])
+  @@index([timestamp])
+}
+
+// ============================================================================
+// BILLING & PLANS
+// ============================================================================
 
 model Plan {
   id             Int      @id @default(autoincrement())
   code           PlanCode @unique
   name           String
   description    String?
-  priceUsd       Decimal? // null => "Talk to sales" or custom
+  priceMonthly   Decimal?
+  priceYearly    Decimal?
   isContactSales Boolean  @default(false)
 
   // Limits (null = unlimited)
-  maxSenderAccounts   Int? // e.g. 5, 50, null (unlimited)
-  maxLeadListPerMonth Int? // e.g. 2000, 10000, 25000, null
-  maxEmailsPerMonth   Int? // e.g. 400, 20000, 50000, null
-  maxLiveCampaigns    Int? // e.g. 1, null for unlimited
+  maxUsers          Int?
+  maxSenderAccounts Int?
+  maxLeadsPerMonth  Int?
+  maxEmailsPerMonth Int?
+  maxCampaigns      Int?
 
   // Features
-  includeEmailVerification Boolean     @default(false)
-  includeEmailWarmup       Boolean     @default(true)
-  includeUnifiedInbox      Boolean     @default(true)
-  includeTeammates         Boolean     @default(false)
-  includeAiCampaignGen     Boolean     @default(false)
-  includeAiTagging         Boolean     @default(false)
-  includeAiResponses       Boolean     @default(false)
-  includeAiImprovement     Boolean     @default(false)
-  includeWebsiteLinkWarmup Boolean     @default(false)
-  offer                    Int?
-  supportType              SupportType @default(COMMUNITY)
-
-  // Relations
-  subscriptions OrganizationPlan[]
+  hasEmailVerification Boolean @default(false)
+  hasEmailWarmup       Boolean @default(true)
+  hasUnifiedInbox      Boolean @default(false)
+  hasApiAccess         Boolean @default(false)
+  hasCustomDomain      Boolean @default(false)
+  hasAdvancedAnalytics Boolean @default(false)
+  hasPrioritySupport   Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  subscriptions OrganizationPlan[]
 }
 
 model OrganizationPlan {
-  id           Int          @id @default(autoincrement())
-  orgId        String
-  organization Organization @relation(fields: [orgId], references: [id])
-
-  planId Int
-  plan   Plan @relation(fields: [planId], references: [id])
-
-  isActive      Boolean       @default(true)
-  startsAt      DateTime      @default(now())
-  endsAt        DateTime?
+  id            Int           @id @default(autoincrement())
+  orgId         String
+  planId        Int
   billingPeriod BillingPeriod @default(MONTHLY)
 
-  // tracking usage for current billing period (optional but useful)
+  isActive Boolean   @default(true)
+  startsAt DateTime  @default(now())
+  endsAt   DateTime?
+
+  // Current period usage
   emailsSentThisPeriod Int @default(0)
   leadsAddedThisPeriod Int @default(0)
-  senderAccountsInUse  Int @default(0)
+
+  // Stripe/Payment info
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
 
-model CampaignRuntime {
-  campaignId      String   @id
-  dayKey          String   // YYYY-MM-DD in campaign TZ
-  sentToday       Int      @default(0)
-  nextRunAt       DateTime
-  lockedAt        DateTime?
-  campaign        Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  @@index([nextRunAt])
-}
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  plan         Plan         @relation(fields: [planId], references: [id])
 
-model SenderRuntime {
-  senderId      String
-  dayKey        String      // YYYY-MM-DD in campaign TZ
-  sentToday     Int         @default(0)
-  lastSentAt    DateTime?
-  lockedAt      DateTime?
-
-  @@id([senderId, dayKey])
-}
-
-model EmailSend {
-  id          String   @id @default(uuid())
-  campaignId  String
-  senderId    String
-  leadId      String
-  status      String   @default("QUEUED") // QUEUED|SENT|FAILED
-  createdAt   DateTime @default(now())
-
-  // idempotency: do not send same lead twice
-  @@unique([campaignId, leadId])
-  @@index([campaignId, senderId, createdAt])
+  @@unique([orgId, isActive]) // Only one active plan per org
+  @@index([orgId])
 }

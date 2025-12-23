@@ -2,25 +2,33 @@ import { Router } from "express";
 import authRoutes from "./auth.routes";
 import userRoutes from "./user.routes";
 import organizationRoutes from "./organization.routes";
-import { authMiddleware } from "../middlewares/authMiddleware";
-import emailCampaignRoutes from './email.campaign.routes'
-import contactRoutes from "./contact.routes";
+import campaignRoutes from "./campaign.routes";
+import leadRoutes from "./lead.routes";
 import trackingRoutes from "./tracking.routes";
-import folderRoutes from "./folder.routes"
 import planRoutes from "./plan.routes";
 import organizationPlanRoutes from "./organisation.plan.routes";
+import { verify } from "../middlewares/authMiddleware";
+import senderAccountRoutes from "./sender.account.routes";
+import triggerLogRoutes from "./trigger.log.routes";
+import campaignAnalyticsRoutes from "./campaign.analytics.routes";
+import campaignSenderRoutes from "./campaign.sender.routes";
 
 const router = Router();
 
+// Public routes
 router.use("/auth", authRoutes);
-router.use("/user", authMiddleware, userRoutes);
-router.use("/org", authMiddleware, organizationRoutes);
-router.use("/email-campaign", emailCampaignRoutes)
-router.use('/contact', contactRoutes);
-router.use('/track', trackingRoutes);
-router.use('/folder', folderRoutes);
-router.use('/plan', planRoutes);
-router.use('/org-plan', organizationPlanRoutes);
+router.use("/track", trackingRoutes);
 
+// Protected routes
+router.use("/user", verify, userRoutes);
+router.use("/org", verify, organizationRoutes);
+router.use("/campaign", campaignRoutes);
+router.use("/lead", leadRoutes);
+router.use("/plan", planRoutes);
+router.use("/org-plan", organizationPlanRoutes);
+router.use("/sender-account", verify, senderAccountRoutes);
+router.use("/trigger-log", verify, triggerLogRoutes);
+router.use("/campaign-analytics", verify, campaignAnalyticsRoutes);
+router.use("/campaign-sender", verify, campaignSenderRoutes);
 
 export default router;

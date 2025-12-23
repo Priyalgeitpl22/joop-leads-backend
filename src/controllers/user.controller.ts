@@ -1,134 +1,90 @@
-import { PrismaClient, User } from "@prisma/client";
 import { Request, Response } from "express";
-import { deleteImageFromS3, getPresignedUrl, uploadImageToS3 } from "../aws/imageUtils";
+import { PrismaClient } from "@prisma/client";
+import { UserService } from "../services/user.service";
 import multer from "multer";
-import { generateOtp, generateRandomToken } from "../utils/otp.utils";
+import { getPresignedUrl, uploadImageToS3 } from "../aws/imageUtils";
+import { sendActivationEmail } from "../utils/email.utils";
+import { generateRandomToken } from "../utils/otp.utils";
 import { UserRoles } from "../enums";
-import { sendResetPasswordEmail } from "../utils/email.utils";
 
 const prisma = new PrismaClient();
-const upload = multer({ storage: multer.memoryStorage() }).single("profilePicture");
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed"));
+    }
+  },
+}).single("profilePicture");
 
 
-interface AuthenticatedRequest extends Request {
-  user?: User;
-}
-
-
-export const getUsers = async (req: AuthenticatedRequest, res: Response) => {
+export const getAuthUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user;
-    if (!user?.orgId) {
-      res.status(400).json({ code: 400, message: "Organization ID not found" });
+    const authUser = await UserService.getById(user.id, user.orgId);
+
+    if (!authUser) {
+      res.status(404).json({ code: 404, message: "User not found" });
+      return;
     }
 
-    const users = await prisma.user.findMany({
-      where: { orgId: user?.orgId },
-      select: {
-        email: true,
-        fullName: true,
-        id: true,
-        online: true,
-        orgId: true,
-        phone: true,
-        profilePicture: true,
-        role: true,
-        schedule: true
-      }
-    });    
+    if (authUser.profilePicture) {
+      authUser.profilePicture = await getPresignedUrl(authUser.profilePicture);
+    }
 
-    if (users.length > 0) {
-      for (const user of users) {
+    res.json({ code: 200, data: authUser });
+  } catch {
+    res.status(500).json({ code: 500, message: "Failed to fetch user" });
+  }
+};
+
+export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const users = await UserService.getByOrg(req.user.orgId);
+
+    await Promise.all(
+      users.map(async (user) => {
         if (user.profilePicture) {
           user.profilePicture = await getPresignedUrl(user.profilePicture);
         }
-      }
-    }
+      })
+    );
 
-    res.status(200).json({ code: 200, message: "Users fetched succesfully", data: users });
-  } catch (err) {
-    res.status(500).json({ code: 500, message: "Error fetching users" });
+    res.json({ code: 200, data: users });
+  } catch (e) {
+    res.status(500).json({ code: 500, message: "Failed to fetch users" });
   }
 };
 
-export const getAuthUser = async (req: Request, res: Response): Promise<void> => {
-  const user = (req as any).user;
-
-  if (user && user.profilePicture) {
-    user.profilePicture = await getPresignedUrl(user.profilePicture);
-  }
-  res.status(200).json({
-    user: user,
-    message: "User details fetched successfully",
-    code: 200
-  });
-};
-
-export const updateUser = async (req: Request, res: Response): Promise<any> => {
+export const getUserById = async (req: Request, res: Response): Promise<void> => {
   try {
-    upload(req, res, async (err) => {
-      if (err) {
-        return res.status(400).json({ code: 400, message: "Error uploading file", error: err.message });
-      }
+    const user = await UserService.getById(req.params.id, req.user.orgId);
+    if (!user) {
+      res.status(404).json({ code: 404, message: "User not found" });
+      return;
+    }
 
-      const { id, name, email, role } = req.body;
+    if (user.profilePicture) {
+      user.profilePicture = await getPresignedUrl(user.profilePicture);
+    }
 
-      if (!id) {
-        return res.status(400).json({ code: 400, message: "User ID is required." });
-      }
-
-      const existingUser = await prisma.user.findUnique({ where: { id } });
-
-      if (!existingUser) {
-        return res.status(404).json({ code: 404, message: "User not found" });
-      }
-
-      let profilePictureUrl: string | null = existingUser.profilePicture;
-      if (req.file) {
-        profilePictureUrl = await uploadImageToS3(req.file);
-        
-        if(existingUser.profilePicture)
-        await deleteImageFromS3(existingUser.profilePicture);
-      }
-
-      const updatedUser = await prisma.user.update({
-        where: { id },
-        data: {
-          fullName: name || existingUser.fullName,
-          email: email || existingUser.email,
-          role: role || existingUser.role,
-          profilePicture: profilePictureUrl,
-        },
-        select: { id: true, fullName: true, email: true, role: true, profilePicture: true },
-      });
-
-      res.status(200).json({
-        user: { ...updatedUser, profilePicture: updatedUser.profilePicture ? await getPresignedUrl(updatedUser.profilePicture) : null },
-        message: "User details updated successfully",
-        code: 200,
-      });
-    });
-
-  } catch (error) {
-    console.error("Error updating user:", error);
-    res.status(500).json({ code: 500, message: "Error updating user" });
+    res.json({ code: 200, data: user });
+  } catch {
+    res.status(500).json({ code: 500, message: "Failed to fetch user" });
   }
 };
 
-export const createUser = async (
-  req: AuthenticatedRequest,
-  res: Response
-): Promise<any> => {
-  upload(req, res, async (err) => {
-    if (err) {
-      return res
-        .status(400)
-        .json({ code: 400, message: "File upload failed", error: err });
-    }
+export const createUser = async (req: Request, res: Response): Promise<any> => {
+  try {
     const user = req.user;
     if (!user?.orgId) {
-      return res.status(400).json({ code: 400, message: "Organization ID is required to create a campaign." });
+      return res.status(400).json({ code: 400, message: "Organization ID is required to create a user." });
     }
+
     const { email, fullName, phone, role } = req.body;
 
     if (!email || !fullName) {
@@ -136,203 +92,112 @@ export const createUser = async (
         .status(400)
         .json({ code: 400, message: "All fields are required." });
     }
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      return res
+        .status(400)
+        .json({ code: 400, message: "Email already exists" });
+    }
+
+    let profilePictureUrl: string | null = null;
+    if (req.file) {
+      profilePictureUrl = await uploadImageToS3(req.file);
+    }
+
+    const newUser = await prisma.user.create({
+      data: {
+        email,
+        fullName,
+        role: role || UserRoles.AGENT,
+        orgId: user?.orgId,
+        phone,
+        password: "",
+        profilePicture: profilePictureUrl,
+      },
+    });
+
+    const tokenData = generateRandomToken(32, 18000);
+
+    const activationLink = `${process.env.FRONTEND_URL}/activate-account?token=${tokenData.token}&email=${email}`;
+    await sendActivationEmail(email, newUser?.fullName, activationLink);
+
+    await prisma.user.update({
+      where: { email },
+      data: {
+        activationToken: tokenData.token,
+        activationTokenExpiresAt: tokenData.expiresAt,
+      },
+    });
+    res.status(201).json({
+      code: 201,
+      message: "User created successfully",
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      code: 500,
+      message: "An unexpected server error occurred. Please try again later",
+      error: error.message,
+    });
+  }
+};
+
+export const updateUser = async (req: Request, res: Response): Promise<void> => {
+  upload(req, res, async (err) => {
+    if (err instanceof multer.MulterError) {
+      res.status(400).json({ code: 400, message: `Upload error: ${err.message}` });
+      return;
+    } else if (err) {
+      res.status(400).json({ code: 400, message: err.message });
+      return;
+    }
+
     try {
-      const existingUser = await prisma.user.findUnique({ where: { email } });
-      if (existingUser) {
-        return res
-          .status(400)
-          .json({ code: 400, message: "Email already exists" });
-      }
+      const updateData: any = { ...req.body };
 
-      let profilePictureUrl: string | null = null;
       if (req.file) {
-        profilePictureUrl = await uploadImageToS3(req.file);
+        const profilePictureKey = await uploadImageToS3(req.file);
+        updateData.profilePicture = profilePictureKey;
       }
-     
-      const newUser = await prisma.user.create({
-        data: {
-          email,
-          fullName,
-          role: role || UserRoles.AGENT,
-          orgId: user?.orgId,
-          phone,
-          password: "",
-          profilePicture: profilePictureUrl,
-        },
-      });
-      const tokenData = generateRandomToken(32, 3600);
 
-      const resetPasswordLink = `${process.env.FRONTEND_URL}/activate-account?token=${tokenData.token}&email=${email}`;
-      await sendResetPasswordEmail(email, newUser?.fullName, resetPasswordLink);
+      const user = await UserService.update(req.params.id, updateData);
 
-      await prisma.user.update({
-        where: { email },
-        data: {
-          resetToken: tokenData.token,
-          resetTokenExpires: tokenData.expiresAt,
-        },
-      });
-      res.status(201).json({
-        code: 201,
-        message: "User created successfully",
-      });
+      if (user.profilePicture) {
+        updateData.profilePicture = await getPresignedUrl(user.profilePicture);
+      }
+      res.json({ code: 200, data: user });
     } catch (error: any) {
-      res.status(500).json({
-        code: 500,
-        message: "An unexpected server error occurred. Please try again later",
-        error: error.message,
-      });
+      res.status(400).json({ code: 400, message: error.message || "Update failed" });
     }
   });
 };
 
-export const deleteUser = async (
-  req: Request,
-  res: Response
-): Promise<any> => {
+export const deleteUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { user_id } = req.params
-
-    if (!user_id) {
-      return res
-        .status(400)
-        .json({ code: 400, message: "user_id is required" });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: user_id },
-    });
-
-    if (!user) {
-      return res.status(404).json({ code: 404, message: "User not found" });
-    }
-
-    await prisma.user.delete({
-      where: { id: user_id },
-    });
-
-    return res
-      .status(200)
-      .json({ code: 200, message: "User deleted successfully" });
-  } catch (error: any) {
-    console.error("Error deleting user:", error);
-    return res
-      .status(500)
-      .json({
-        code: 500,
-        message: "Error deleting user",
-        details: error.message,
-      });
+    await UserService.delete(req.params.id);
+    res.json({ code: 200, message: "User deleted" });
+  } catch {
+    res.status(400).json({ code: 400, message: "Delete failed" });
   }
 };
 
-export const searchUser = async (req: AuthenticatedRequest, res: any) => {
+export const searchUsers = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { query } = req.query;
-    const user = req.user;
-    if (!user?.orgId) {
-      return res
-        .status(400)
-        .json({ code: 400, message: "Organization ID is required ." });
-    }
-
-    const data = await prisma.user.findMany({
-      where: {
-        OR: [
-          { email: { contains: query as string, mode: "insensitive" } },
-          { role: { contains: query as string, mode: "insensitive" } },
-          { fullName: { contains: query as string, mode: "insensitive" } },
-        ],
-        orgId: user?.orgId,
-      },
-    });
-    for (let userData of data) {
-      if (userData.profilePicture) {
-        userData.profilePicture = await getPresignedUrl(
-          userData.profilePicture
-        );
-      }
-    }
-
-    if (data.length === 0) {
-      return res.status(404).json({ code: 404, message: "No users found." });
-    }
-
-    if (!user) {
-      return res.status(500).json({ code: 404, message: "User not found " });
-    }
-
-    res.status(200).json({
-      code: 200,
-      data,
-      message: data.length > 0 ? "Success" : "No users found",
-    });
-  } catch (err) {
-    console.error("Error fetching user:", err);
-    res.status(500).json({ code: 500, message: "Error fetching user" });
-  }
-};
-
-export const filterUsers = async (req: AuthenticatedRequest, res: any) => {
-  try {
-    const { query, startDate, endDate } = req.query;
-    const user = req.user;
-
-    if (!user?.orgId) {
-      return res.status(401).json({ code: 401, message: "Unauthorized" });
-    }
-
-    const whereCondition: any = { orgId: user.orgId };
-
-    if (query) {
-      whereCondition.role = { contains: query as string, mode: "insensitive" };
-    }
-
-    if (startDate) {
-      const parsedStartDate = new Date(startDate as string);
-      if (isNaN(parsedStartDate.getTime())) {
-        return res
-          .status(400)
-          .json({ code: 400, message: "Invalid start date format." });
-      }
-      whereCondition.createdAt = {
-        ...(whereCondition.createdAt || {}),
-        gte: parsedStartDate,
-      };
-    }
-
-    if (endDate) {
-      const parsedEndDate = new Date(endDate as string);
-      if (isNaN(parsedEndDate.getTime())) {
-        return res
-          .status(400)
-          .json({ code: 400, message: "Invalid end date format." });
-      }
-      whereCondition.createdAt = {
-        ...(whereCondition.createdAt || {}),
-        lte: parsedEndDate,
-      };
-    }
-    const users = await prisma.user.findMany({ where: whereCondition });
-
-    const data = await Promise.all(
-      users.map(async (userData) => ({
-        ...userData,
-        profilePicture: userData.profilePicture
-          ? await getPresignedUrl(userData.profilePicture)
-          : null,
-      }))
+    const users = await UserService.search(
+      req.user.orgId,
+      String(req.query.q || "")
     );
 
-    res.status(200).json({
-      code: 200,
-      data,
-      message: data.length ? "Success" : "No campaigns found",
-    });
-  } catch (err) {
-    console.error("Error fetching email campaigns:", err);
-    res
-      .status(500)
-      .json({ code: 500, message: "Error fetching email campaigns" });
+    await Promise.all(
+      users.map(async (user) => {
+        if (user.profilePicture) {
+          user.profilePicture = await getPresignedUrl(user.profilePicture);
+        }
+      })
+    );
+
+    res.json({ code: 200, data: users });
+  } catch {
+    res.status(500).json({ code: 500, message: "Search failed" });
   }
 };
