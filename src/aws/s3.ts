@@ -1,7 +1,11 @@
 import AWS from "aws-sdk";
 import dotenv from "dotenv";
 
-dotenv.config();
+const env = process.env.NODE_ENV || 'development';
+
+dotenv.config({
+  path: `.env.${env}`,
+});
 
 const s3Conifg = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,

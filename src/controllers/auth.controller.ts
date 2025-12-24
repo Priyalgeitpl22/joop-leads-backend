@@ -91,8 +91,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const { email, password } = req.body;
     const response = await AuthService.login(email, password);
     res.status(response.code).json(response);
-  } catch {
-    res.status(500).json({ code: 500, message: "Server error" });
+  } catch (error: any) {
+    console.log(error);
+    res.status(500).json({ code: 500, message: "Server error", error: error.message });
   }
 };
 
