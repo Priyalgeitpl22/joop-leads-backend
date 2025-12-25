@@ -12,18 +12,19 @@ export const isValidEmail = (email: string): boolean => {
 const BASE_URL = process.env.SERVER_URL || "http://localhost:5003/api";
 
 /**
- * Generate tracking ID from campaignId and leadEmail
+ * Generate tracking ID from campaignId and leadId
+ * Format: campaignId_leadId
  */
-export const generateTrackingId = (campaignId: string, leadEmail: string): string => {
-  return `${campaignId}_${leadEmail}`;
+export const generateTrackingId = (campaignId: string, leadId: string): string => {
+  return `${campaignId}_${leadId}`;
 };
 
 /**
  * Generate open tracking pixel HTML
  * This invisible image is loaded when the email is opened
  */
-export const generateOpenTrackingPixel = (campaignId: string, leadEmail: string): string => {
-  const trackingId = generateTrackingId(campaignId, leadEmail);
+export const generateOpenTrackingPixel = (campaignId: string, leadId: string): string => {
+  const trackingId = generateTrackingId(campaignId, leadId);
   return `<img src="${BASE_URL}/track/open/${trackingId}" width="1" height="1" style="display:none;visibility:hidden;" alt="" />`;
 };
 
@@ -33,10 +34,10 @@ export const generateOpenTrackingPixel = (campaignId: string, leadEmail: string)
  */
 export const generateClickTrackingUrl = (
   campaignId: string,
-  leadEmail: string,
+  leadId: string,
   originalUrl: string
 ): string => {
-  const trackingId = generateTrackingId(campaignId, leadEmail);
+  const trackingId = generateTrackingId(campaignId, leadId);
   const encodedUrl = encodeURIComponent(originalUrl);
   return `${BASE_URL}/track/click/${trackingId}?url=${encodedUrl}`;
 };
@@ -44,8 +45,8 @@ export const generateClickTrackingUrl = (
 /**
  * Generate unsubscribe URL
  */
-export const generateUnsubscribeUrl = (campaignId: string, leadEmail: string): string => {
-  const trackingId = generateTrackingId(campaignId, leadEmail);
+export const generateUnsubscribeUrl = (campaignId: string, leadId: string): string => {
+  const trackingId = generateTrackingId(campaignId, leadId);
   return `${BASE_URL}/track/unsubscribe/${trackingId}`;
 };
 
@@ -56,7 +57,7 @@ export const generateUnsubscribeUrl = (campaignId: string, leadEmail: string): s
 export const replaceLinksWithTracking = (
   html: string,
   campaignId: string,
-  leadEmail: string
+  leadId: string
 ): string => {
   // Regex to match href attributes with http/https URLs
   const linkRegex = /href=["'](https?:\/\/[^"']+)["']/gi;
@@ -67,7 +68,7 @@ export const replaceLinksWithTracking = (
       return match;
     }
 
-    const trackingUrl = generateClickTrackingUrl(campaignId, leadEmail, url);
+    const trackingUrl = generateClickTrackingUrl(campaignId, leadId, url);
     return `href="${trackingUrl}"`;
   });
 };
@@ -81,7 +82,7 @@ export const replaceLinksWithTracking = (
 export const addTrackingToEmail = (
   html: string,
   campaignId: string,
-  leadEmail: string,
+  leadId: string,
   options: {
     trackOpens?: boolean;
     trackClicks?: boolean;
@@ -100,12 +101,12 @@ export const addTrackingToEmail = (
 
   // Replace links with tracking URLs
   if (trackClicks) {
-    processedHtml = replaceLinksWithTracking(processedHtml, campaignId, leadEmail);
+    processedHtml = replaceLinksWithTracking(processedHtml, campaignId, leadId);
   }
 
   // Add unsubscribe link
   if (includeUnsubscribe) {
-    const unsubscribeUrl = generateUnsubscribeUrl(campaignId, leadEmail);
+    const unsubscribeUrl = generateUnsubscribeUrl(campaignId, leadId);
     const unsubscribeHtml = `
       <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; text-align: center;">
         <a href="${unsubscribeUrl}" style="color: #666;">${unsubscribeText}</a>
@@ -116,7 +117,7 @@ export const addTrackingToEmail = (
 
   // Add open tracking pixel (at the very end)
   if (trackOpens) {
-    processedHtml += generateOpenTrackingPixel(campaignId, leadEmail);
+    processedHtml += generateOpenTrackingPixel(campaignId, leadId);
   }
 
   return processedHtml;

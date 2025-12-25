@@ -1,7 +1,5 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import path from "path";
-import fs from "fs";
 import { EmailEventService } from "../services/email.event.service";
 
 const prisma = new PrismaClient();
@@ -12,13 +10,13 @@ const prisma = new PrismaClient();
  * =====================================================
  * 
  * 1. OPEN TRACKING:
- *    - When sending email, we embed: <img src="SERVER_URL/api/track/open/CAMPAIGN_ID_LEAD_EMAIL" />
+ *    - When sending email, we embed: <img src="SERVER_URL/api/track/open/CAMPAIGN_ID_LEAD_ID" />
  *    - When recipient opens email, their email client loads the image
  *    - Our server receives the request and records the open event
  *    - We return a 1x1 transparent PNG
  * 
  * 2. CLICK TRACKING:
- *    - Original links in email are replaced with: SERVER_URL/api/track/click/CAMPAIGN_ID_LEAD_EMAIL?url=ORIGINAL_URL
+ *    - Original links in email are replaced with: SERVER_URL/api/track/click/CAMPAIGN_ID_LEAD_ID?url=ORIGINAL_URL
  *    - When recipient clicks, request comes to our server first
  *    - We record the click event, then redirect to original URL
  * 
@@ -27,6 +25,7 @@ const prisma = new PrismaClient();
  *    - Option B: Poll inbox via IMAP/API for replies to our threadId
  *    - Option C: Manual marking via API
  * 
+ * TRACKING ID FORMAT: campaignId_leadId
  * =====================================================
  */
 
@@ -39,47 +38,53 @@ const TRANSPARENT_PIXEL = Buffer.from(
 /**
  * Track email open event
  * URL: GET /api/track/open/:trackingId
- * trackingId format: campaignId_leadEmail
+ * trackingId format: campaignId_leadId
  */
 export const trackOpen = async (req: Request, res: Response): Promise<void> => {
+  const startTime = Date.now();
   try {
     const { trackingId } = req.params;
-    const [campaignId, leadEmail] = trackingId.split("_");
+    console.log(`[Tracking:Open] ========== START ==========`);
+    console.log(`[Tracking:Open] trackingId: ${trackingId}`);
+    console.log(`[Tracking:Open] IP: ${req.ip || req.headers["x-forwarded-for"]}`);
+    console.log(`[Tracking:Open] User-Agent: ${req.headers["user-agent"]}`);
 
-    if (!campaignId || !leadEmail) {
+    const [campaignId, leadId] = trackingId.split("_");
+    console.log(`[Tracking:Open] Parsed - campaignId: ${campaignId}, leadId: ${leadId}`);
+
+    if (!campaignId || !leadId) {
+      console.log(`[Tracking:Open] ❌ Invalid trackingId format`);
       res.setHeader("Content-Type", "image/png");
       res.send(TRANSPARENT_PIXEL);
       return;
     }
 
-    // Find lead by email
-    const lead = await prisma.lead.findFirst({
-      where: { email: leadEmail.toLowerCase() },
+    // Find the most recent email send for this campaign and lead
+    const emailSend = await prisma.emailSend.findFirst({
+      where: { campaignId, leadId },
+      orderBy: { createdAt: "desc" },
     });
+    console.log(`[Tracking:Open] EmailSend found: ${emailSend ? emailSend.id : "NOT FOUND"}`);
 
-    if (lead) {
-      // Find the most recent email send for this campaign and lead
-      const emailSend = await prisma.emailSend.findFirst({
-        where: { campaignId, leadId: lead.id },
-        orderBy: { createdAt: "desc" },
-      });
-
-      // Track the open event
-      await EmailEventService.trackOpened({
-        campaignId,
-        leadId: lead.id,
-        emailSendId: emailSend?.id,
-        ipAddress: req.ip || req.headers["x-forwarded-for"] as string,
-        userAgent: req.headers["user-agent"],
-      });
-    }
+    // Track the open event
+    const result = await EmailEventService.trackOpened({
+      campaignId,
+      leadId,
+      emailSendId: emailSend?.id,
+      ipAddress: req.ip || req.headers["x-forwarded-for"] as string,
+      userAgent: req.headers["user-agent"],
+    });
+    console.log(`[Tracking:Open] ✅ Event tracked:`, result);
+    console.log(`[Tracking:Open] Duration: ${Date.now() - startTime}ms`);
+    console.log(`[Tracking:Open] ========== END ==========\n`);
 
     // Always return the tracking pixel
     res.setHeader("Content-Type", "image/png");
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     res.send(TRANSPARENT_PIXEL);
   } catch (error) {
-    console.error("[Tracking] Error tracking open:", error);
+    console.error(`[Tracking:Open] ❌ Error:`, error);
+    console.log(`[Tracking:Open] Duration: ${Date.now() - startTime}ms`);
     res.setHeader("Content-Type", "image/png");
     res.send(TRANSPARENT_PIXEL);
   }
@@ -88,48 +93,55 @@ export const trackOpen = async (req: Request, res: Response): Promise<void> => {
 /**
  * Track link click event
  * URL: GET /api/track/click/:trackingId?url=ORIGINAL_URL
- * trackingId format: campaignId_leadEmail
+ * trackingId format: campaignId_leadId
  */
 export const trackClick = async (req: Request, res: Response): Promise<void> => {
+  const startTime = Date.now();
   try {
     const { trackingId } = req.params;
     const { url } = req.query;
-    const [campaignId, leadEmail] = trackingId.split("_");
+    console.log(`[Tracking:Click] ========== START ==========`);
+    console.log(`[Tracking:Click] trackingId: ${trackingId}`);
+    console.log(`[Tracking:Click] url: ${url}`);
+    console.log(`[Tracking:Click] IP: ${req.ip || req.headers["x-forwarded-for"]}`);
+
+    const [campaignId, leadId] = trackingId.split("_");
+    console.log(`[Tracking:Click] Parsed - campaignId: ${campaignId}, leadId: ${leadId}`);
 
     const redirectUrl = url as string || "https://google.com";
 
-    if (!campaignId || !leadEmail) {
+    if (!campaignId || !leadId) {
+      console.log(`[Tracking:Click] ❌ Invalid trackingId format, redirecting to: ${redirectUrl}`);
       res.redirect(redirectUrl);
       return;
     }
 
-    // Find lead by email
-    const lead = await prisma.lead.findFirst({
-      where: { email: leadEmail.toLowerCase() },
+    // Find the most recent email send for this campaign and lead
+    const emailSend = await prisma.emailSend.findFirst({
+      where: { campaignId, leadId },
+      orderBy: { createdAt: "desc" },
     });
+    console.log(`[Tracking:Click] EmailSend found: ${emailSend ? emailSend.id : "NOT FOUND"}`);
 
-    if (lead) {
-      // Find the most recent email send for this campaign and lead
-      const emailSend = await prisma.emailSend.findFirst({
-        where: { campaignId, leadId: lead.id },
-        orderBy: { createdAt: "desc" },
-      });
-
-      // Track the click event
-      await EmailEventService.trackClicked({
-        campaignId,
-        leadId: lead.id,
-        emailSendId: emailSend?.id,
-        linkUrl: redirectUrl,
-        ipAddress: req.ip || req.headers["x-forwarded-for"] as string,
-        userAgent: req.headers["user-agent"],
-      });
-    }
+    // Track the click event
+    const result = await EmailEventService.trackClicked({
+      campaignId,
+      leadId,
+      emailSendId: emailSend?.id,
+      linkUrl: redirectUrl,
+      ipAddress: req.ip || req.headers["x-forwarded-for"] as string,
+      userAgent: req.headers["user-agent"],
+    });
+    console.log(`[Tracking:Click] ✅ Event tracked:`, result);
+    console.log(`[Tracking:Click] Redirecting to: ${redirectUrl}`);
+    console.log(`[Tracking:Click] Duration: ${Date.now() - startTime}ms`);
+    console.log(`[Tracking:Click] ========== END ==========\n`);
 
     // Redirect to original URL
     res.redirect(redirectUrl);
   } catch (error) {
-    console.error("[Tracking] Error tracking click:", error);
+    console.error(`[Tracking:Click] ❌ Error:`, error);
+    console.log(`[Tracking:Click] Duration: ${Date.now() - startTime}ms`);
     res.redirect(req.query.url as string || "https://google.com");
   }
 };
@@ -140,10 +152,17 @@ export const trackClick = async (req: Request, res: Response): Promise<void> => 
  * Body: { campaignId, leadEmail, isPositive?, threadId? }
  */
 export const trackReply = async (req: Request, res: Response): Promise<any> => {
+  const startTime = Date.now();
   try {
     const { campaignId, leadEmail, isPositive = false, threadId } = req.body;
+    console.log(`[Tracking:Reply] ========== START ==========`);
+    console.log(`[Tracking:Reply] campaignId: ${campaignId}`);
+    console.log(`[Tracking:Reply] leadEmail: ${leadEmail}`);
+    console.log(`[Tracking:Reply] isPositive: ${isPositive}`);
+    console.log(`[Tracking:Reply] threadId: ${threadId}`);
 
     if (!campaignId || !leadEmail) {
+      console.log(`[Tracking:Reply] ❌ Missing required fields`);
       return res.status(400).json({ code: 400, message: "campaignId and leadEmail are required" });
     }
 
@@ -151,8 +170,10 @@ export const trackReply = async (req: Request, res: Response): Promise<any> => {
     const lead = await prisma.lead.findFirst({
       where: { email: leadEmail.toLowerCase() },
     });
+    console.log(`[Tracking:Reply] Lead found: ${lead ? lead.id : "NOT FOUND"}`);
 
     if (!lead) {
+      console.log(`[Tracking:Reply] ❌ Lead not found for email: ${leadEmail}`);
       return res.status(404).json({ code: 404, message: "Lead not found" });
     }
 
@@ -165,18 +186,23 @@ export const trackReply = async (req: Request, res: Response): Promise<any> => {
       },
       orderBy: { createdAt: "desc" },
     });
+    console.log(`[Tracking:Reply] EmailSend found: ${emailSend ? emailSend.id : "NOT FOUND"}`);
 
     // Track the reply event
-    await EmailEventService.trackReplied({
+    const result = await EmailEventService.trackReplied({
       campaignId,
       leadId: lead.id,
       emailSendId: emailSend?.id,
       isPositive,
     });
+    console.log(`[Tracking:Reply] ✅ Event tracked:`, result);
+    console.log(`[Tracking:Reply] Duration: ${Date.now() - startTime}ms`);
+    console.log(`[Tracking:Reply] ========== END ==========\n`);
 
     res.status(200).json({ code: 200, message: "Reply tracked successfully" });
   } catch (error) {
-    console.error("[Tracking] Error tracking reply:", error);
+    console.error(`[Tracking:Reply] ❌ Error:`, error);
+    console.log(`[Tracking:Reply] Duration: ${Date.now() - startTime}ms`);
     res.status(500).json({ code: 500, message: "Error tracking reply" });
   }
 };
@@ -187,18 +213,26 @@ export const trackReply = async (req: Request, res: Response): Promise<any> => {
  * Body: { campaignId, leadEmail, isSenderBounce? }
  */
 export const trackBounce = async (req: Request, res: Response): Promise<any> => {
+  const startTime = Date.now();
   try {
     const { campaignId, leadEmail, isSenderBounce = false } = req.body;
+    console.log(`[Tracking:Bounce] ========== START ==========`);
+    console.log(`[Tracking:Bounce] campaignId: ${campaignId}`);
+    console.log(`[Tracking:Bounce] leadEmail: ${leadEmail}`);
+    console.log(`[Tracking:Bounce] isSenderBounce: ${isSenderBounce}`);
 
     if (!campaignId || !leadEmail) {
+      console.log(`[Tracking:Bounce] ❌ Missing required fields`);
       return res.status(400).json({ code: 400, message: "campaignId and leadEmail are required" });
     }
 
     const lead = await prisma.lead.findFirst({
       where: { email: leadEmail.toLowerCase() },
     });
+    console.log(`[Tracking:Bounce] Lead found: ${lead ? lead.id : "NOT FOUND"}`);
 
     if (!lead) {
+      console.log(`[Tracking:Bounce] ❌ Lead not found for email: ${leadEmail}`);
       return res.status(404).json({ code: 404, message: "Lead not found" });
     }
 
@@ -206,17 +240,22 @@ export const trackBounce = async (req: Request, res: Response): Promise<any> => 
       where: { campaignId, leadId: lead.id },
       orderBy: { createdAt: "desc" },
     });
+    console.log(`[Tracking:Bounce] EmailSend found: ${emailSend ? emailSend.id : "NOT FOUND"}`);
 
-    await EmailEventService.trackBounced({
+    const result = await EmailEventService.trackBounced({
       campaignId,
       leadId: lead.id,
       emailSendId: emailSend?.id,
       isSenderBounce,
     });
+    console.log(`[Tracking:Bounce] ✅ Event tracked:`, result);
+    console.log(`[Tracking:Bounce] Duration: ${Date.now() - startTime}ms`);
+    console.log(`[Tracking:Bounce] ========== END ==========\n`);
 
     res.status(200).json({ code: 200, message: "Bounce tracked successfully" });
   } catch (error) {
-    console.error("[Tracking] Error tracking bounce:", error);
+    console.error(`[Tracking:Bounce] ❌ Error:`, error);
+    console.log(`[Tracking:Bounce] Duration: ${Date.now() - startTime}ms`);
     res.status(500).json({ code: 500, message: "Error tracking bounce" });
   }
 };
@@ -224,34 +263,38 @@ export const trackBounce = async (req: Request, res: Response): Promise<any> => 
 /**
  * Track unsubscribe event
  * URL: GET /api/track/unsubscribe/:trackingId
- * trackingId format: campaignId_leadEmail
+ * trackingId format: campaignId_leadId
  */
 export const trackUnsubscribe = async (req: Request, res: Response): Promise<void> => {
+  const startTime = Date.now();
   try {
     const { trackingId } = req.params;
-    const [campaignId, leadEmail] = trackingId.split("_");
+    console.log(`[Tracking:Unsubscribe] ========== START ==========`);
+    console.log(`[Tracking:Unsubscribe] trackingId: ${trackingId}`);
 
-    if (!campaignId || !leadEmail) {
+    const [campaignId, leadId] = trackingId.split("_");
+    console.log(`[Tracking:Unsubscribe] Parsed - campaignId: ${campaignId}, leadId: ${leadId}`);
+
+    if (!campaignId || !leadId) {
+      console.log(`[Tracking:Unsubscribe] ❌ Invalid trackingId format`);
       res.status(400).send("Invalid unsubscribe link");
       return;
     }
 
-    const lead = await prisma.lead.findFirst({
-      where: { email: leadEmail.toLowerCase() },
+    const emailSend = await prisma.emailSend.findFirst({
+      where: { campaignId, leadId },
+      orderBy: { createdAt: "desc" },
     });
+    console.log(`[Tracking:Unsubscribe] EmailSend found: ${emailSend ? emailSend.id : "NOT FOUND"}`);
 
-    if (lead) {
-      const emailSend = await prisma.emailSend.findFirst({
-        where: { campaignId, leadId: lead.id },
-        orderBy: { createdAt: "desc" },
-      });
-
-      await EmailEventService.trackUnsubscribed({
-        campaignId,
-        leadId: lead.id,
-        emailSendId: emailSend?.id,
-      });
-    }
+    const result = await EmailEventService.trackUnsubscribed({
+      campaignId,
+      leadId,
+      emailSendId: emailSend?.id,
+    });
+    console.log(`[Tracking:Unsubscribe] ✅ Event tracked:`, result);
+    console.log(`[Tracking:Unsubscribe] Duration: ${Date.now() - startTime}ms`);
+    console.log(`[Tracking:Unsubscribe] ========== END ==========\n`);
 
     // Show unsubscribe confirmation page
     res.send(`
@@ -265,7 +308,8 @@ export const trackUnsubscribe = async (req: Request, res: Response): Promise<voi
       </html>
     `);
   } catch (error) {
-    console.error("[Tracking] Error tracking unsubscribe:", error);
+    console.error(`[Tracking:Unsubscribe] ❌ Error:`, error);
+    console.log(`[Tracking:Unsubscribe] Duration: ${Date.now() - startTime}ms`);
     res.status(500).send("Error processing unsubscribe");
   }
 };
@@ -276,6 +320,7 @@ export const trackUnsubscribe = async (req: Request, res: Response): Promise<voi
 export const getAllThreadsFromEmail = async (req: Request, res: Response): Promise<any> => {
   try {
     const { email } = req.params;
+    console.log(`[Tracking:Threads] Getting threads for sender: ${email}`);
 
     if (!email) {
       return res.status(400).json({ code: 400, message: "Email is required" });
@@ -286,6 +331,7 @@ export const getAllThreadsFromEmail = async (req: Request, res: Response): Promi
     });
 
     if (!senderAccount) {
+      console.log(`[Tracking:Threads] ❌ Sender account not found: ${email}`);
       return res.status(404).json({ code: 404, message: "Sender account not found" });
     }
 
@@ -302,9 +348,10 @@ export const getAllThreadsFromEmail = async (req: Request, res: Response): Promi
         leadId: elem.leadId,
       }));
 
+    console.log(`[Tracking:Threads] ✅ Found ${threads.length} threads`);
     res.status(200).json({ code: 200, data: threads, message: "Threads found successfully" });
   } catch (error) {
-    console.error("[Tracking] Error getting threads:", error);
+    console.error("[Tracking:Threads] ❌ Error:", error);
     res.status(500).json({ code: 500, message: "Error getting threads" });
   }
 };
@@ -312,6 +359,7 @@ export const getAllThreadsFromEmail = async (req: Request, res: Response): Promi
 // Legacy support for old tracking endpoint
 export const trackEvent = async (req: Request, res: Response): Promise<void> => {
   const { type } = req.params;
+  console.log(`[Tracking:Legacy] type: ${type}, trackingId: ${req.params.trackingId}`);
   
   if (type === "opened_count" || type === "open") {
     return trackOpen(req, res);
@@ -320,5 +368,6 @@ export const trackEvent = async (req: Request, res: Response): Promise<void> => 
     return trackClick(req, res);
   }
   
+  console.log(`[Tracking:Legacy] ❌ Invalid type: ${type}`);
   res.status(400).json({ message: "Invalid tracking type" });
 };

@@ -19,12 +19,14 @@ export class EmailEventService {
    */
   static async trackSent(options: TrackEventOptions) {
     const { campaignId, leadId, emailSendId } = options;
+    console.log(`[EmailEventService] trackSent - campaignId: ${campaignId}, leadId: ${leadId}`);
 
     // Update CampaignLead lastSentAt
-    await prisma.campaignLead.updateMany({
+    const updateResult = await prisma.campaignLead.updateMany({
       where: { campaignId, leadId },
       data: { lastSentAt: new Date() },
     });
+    console.log(`[EmailEventService] Updated CampaignLead lastSentAt, count: ${updateResult.count}`);
 
     // Increment campaign analytics
     await this.incrementAnalytics(campaignId, "sentCount");
@@ -40,6 +42,7 @@ export class EmailEventService {
           userAgent: options.userAgent,
         },
       });
+      console.log(`[EmailEventService] Created SENT event for emailSendId: ${emailSendId}`);
     }
 
     return { success: true, event: "SENT" };
@@ -50,12 +53,14 @@ export class EmailEventService {
    */
   static async trackOpened(options: TrackEventOptions) {
     const { campaignId, leadId, emailSendId, ipAddress, userAgent, city, country } = options;
+    console.log(`[EmailEventService] trackOpened - campaignId: ${campaignId}, leadId: ${leadId}, emailSendId: ${emailSendId}`);
 
     // Update CampaignLead lastOpenedAt
-    await prisma.campaignLead.updateMany({
+    const updateResult = await prisma.campaignLead.updateMany({
       where: { campaignId, leadId },
       data: { lastOpenedAt: new Date() },
     });
+    console.log(`[EmailEventService] Updated CampaignLead lastOpenedAt, count: ${updateResult.count}`);
 
     // Increment campaign analytics
     await this.incrementAnalytics(campaignId, "openedCount");
@@ -73,6 +78,9 @@ export class EmailEventService {
           country,
         },
       });
+      console.log(`[EmailEventService] Created OPENED event for emailSendId: ${emailSendId}`);
+    } else {
+      console.log(`[EmailEventService] ⚠️ No emailSendId provided, skipping event creation`);
     }
 
     // Check if should stop sending based on campaign settings
@@ -86,12 +94,14 @@ export class EmailEventService {
    */
   static async trackClicked(options: TrackEventOptions) {
     const { campaignId, leadId, emailSendId, linkUrl, ipAddress, userAgent, city, country } = options;
+    console.log(`[EmailEventService] trackClicked - campaignId: ${campaignId}, leadId: ${leadId}, linkUrl: ${linkUrl}`);
 
     // Update CampaignLead lastClickedAt
-    await prisma.campaignLead.updateMany({
+    const updateResult = await prisma.campaignLead.updateMany({
       where: { campaignId, leadId },
       data: { lastClickedAt: new Date() },
     });
+    console.log(`[EmailEventService] Updated CampaignLead lastClickedAt, count: ${updateResult.count}`);
 
     // Increment campaign analytics
     await this.incrementAnalytics(campaignId, "clickedCount");
@@ -110,6 +120,9 @@ export class EmailEventService {
           country,
         },
       });
+      console.log(`[EmailEventService] Created CLICKED event for emailSendId: ${emailSendId}`);
+    } else {
+      console.log(`[EmailEventService] ⚠️ No emailSendId provided, skipping event creation`);
     }
 
     // Check if should stop sending based on campaign settings
@@ -123,12 +136,14 @@ export class EmailEventService {
    */
   static async trackReplied(options: TrackEventOptions & { isPositive?: boolean }) {
     const { campaignId, leadId, emailSendId, isPositive = false } = options;
+    console.log(`[EmailEventService] trackReplied - campaignId: ${campaignId}, leadId: ${leadId}, isPositive: ${isPositive}`);
 
     // Update CampaignLead lastRepliedAt
-    await prisma.campaignLead.updateMany({
+    const updateResult = await prisma.campaignLead.updateMany({
       where: { campaignId, leadId },
       data: { lastRepliedAt: new Date() },
     });
+    console.log(`[EmailEventService] Updated CampaignLead lastRepliedAt, count: ${updateResult.count}`);
 
     // Increment campaign analytics
     await this.incrementAnalytics(campaignId, "repliedCount");
@@ -142,6 +157,7 @@ export class EmailEventService {
           leadId,
         },
       });
+      console.log(`[EmailEventService] Created ${isPositive ? "POSITIVE_REPLY" : "REPLIED"} event`);
     }
 
     // Check if should stop sending based on campaign settings
