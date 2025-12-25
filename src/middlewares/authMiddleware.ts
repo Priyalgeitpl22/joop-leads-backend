@@ -28,6 +28,6 @@ export const verify = async (req: Request, res: Response, next: NextFunction): P
 
     next();
   } catch (error) {
-    return res.json({ code: 403, message: "Invalid or expired token" });
+    return res.status(403).json({ code: 403, message: "Invalid or expired token" });
   }
 };
