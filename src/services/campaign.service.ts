@@ -16,6 +16,10 @@ const utc = require("dayjs/plugin/utc");
 const timezone = require("dayjs/plugin/timezone");
 dayjs.extend(utc);
 dayjs.extend(timezone);
+
+const zonedTimeToUtc = (dateStr: string, tz: string): Date => {
+  return dayjs.tz(dateStr, tz).utc().toDate();
+};
 const prisma = new PrismaClient();
 const upload = multer({ storage: multer.memoryStorage() }).single("csvFile");
 export class CampaignService {
@@ -175,8 +179,13 @@ export class CampaignService {
       const campaign = await prisma.campaign.findUnique({ where: { id: campaign_id } });
       if (!campaign) return { code: 404, message: `Campaign with ID ${campaign_id} not found` };
 
-      const scheduledAtDate = scheduledAt ? new Date(scheduledAt).toISOString() : null;
-      const nextTriggerDate = nextTrigger ? new Date(nextTrigger).toISOString() : null;
+      const scheduledAtUtc = scheduledAt
+        ? zonedTimeToUtc(scheduledAt, timezone)
+        : null;
+    
+      const nextTriggerUtc = nextTrigger
+        ? zonedTimeToUtc(nextTrigger, timezone)
+        : null;
 
       await prisma.$transaction(async (tx) => {
         await tx.campaign.update({
@@ -187,8 +196,8 @@ export class CampaignService {
             sendDays: sendDays || campaign.sendDays,
             windowStart: windowStart || campaign.windowStart,
             windowEnd: windowEnd || campaign.windowEnd,
-            scheduledAt: scheduledAtDate || campaign.scheduledAt,
-            nextTrigger: nextTriggerDate || campaign.nextTrigger,
+            scheduledAt: scheduledAtUtc || campaign.scheduledAt,
+            nextTrigger: nextTriggerUtc || campaign.nextTrigger,
             intervalMinutes: intervalMinutes || campaign.intervalMinutes,
             maxEmailsPerDay: maxEmailsPerDay || campaign.maxEmailsPerDay,
             stopSending: stopSending || campaign.stopSending,
