@@ -549,8 +549,11 @@ export class CampaignService {
     let nextRunAt = new Date();
 
     if (campaign.scheduledAt) {
-      // Convert scheduledAt from campaign timezone to UTC
-      const scheduledTimeUtc = dayjs(campaign.scheduledAt).tz(tz, true).utc().toDate();
+      const scheduledTimeUtc = dayjs
+        .tz(campaign.scheduledAt, tz)
+        .utc()
+        .toDate();
+    
       if (scheduledTimeUtc > new Date()) {
         nextRunAt = scheduledTimeUtc;
       }
