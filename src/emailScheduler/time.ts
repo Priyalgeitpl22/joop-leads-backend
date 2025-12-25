@@ -11,14 +11,13 @@ export function isWithinSchedule(opts: {
   windowEnd: string;   // "11:55"
 }) {
   const now = dayjs().tz(opts.timezone);
-  const currentTime = now.format("HH:mm:ss");
   const day = now.format("ddd"); // Mon, Tue...
 
-  console.log(`[Schedule] Current time in ${opts.timezone}: ${currentTime} (${day})`);
+  console.log(`[Schedule] Current time in ${opts.timezone}: ${now.format("HH:mm:ss")} (${day})`);
   console.log(`[Schedule] Window: ${opts.windowStart} - ${opts.windowEnd}`);
   console.log(`[Schedule] Allowed days: ${opts.sendDays.join(", ")}`);
 
-  // Check day first
+  // Check
   if (opts.sendDays?.length && !opts.sendDays.includes(day)) {
     console.log(`[Schedule] ❌ Day ${day} not in allowed days`);
     return false;
@@ -27,22 +26,22 @@ export function isWithinSchedule(opts: {
   const [sh, sm] = opts.windowStart.split(":").map(Number);
   const [eh, em] = opts.windowEnd.split(":").map(Number);
 
-  const start = now.clone().hour(sh).minute(sm).second(0);
-  const end = now.clone().hour(eh).minute(em).second(0);
+  let start = now.clone().hour(sh).minute(sm).second(0);
+  let end = now.clone().hour(eh).minute(em).second(0);
 
-  const isAfterStart = now.isSameOrAfter(start);
-  const isBeforeEnd = now.isSameOrBefore(end);
-
-  console.log(`[Schedule] Start: ${start.format("HH:mm:ss")}, End: ${end.format("HH:mm:ss")}`);
-  console.log(`[Schedule] isAfterStart: ${isAfterStart}, isBeforeEnd: ${isBeforeEnd}`);
-
-  const withinWindow = isAfterStart && isBeforeEnd;
-  
-  if (!withinWindow) {
-    console.log(`[Schedule] ❌ Outside time window (current: ${currentTime})`);
-  } else {
-    console.log(`[Schedule] ✅ Within schedule window`);
+  if (start.isAfter(end)) {
+    if (now.isBefore(end)) {
+      start = start.subtract(1, "day");
+    } else {
+      end = end.add(1, "day");
+    }
   }
+
+  const withinWindow =
+    now.isSameOrAfter(start) && now.isSameOrBefore(end);
+
+  console.log(`[Schedule] Start: ${start.format()}, End: ${end.format()}`);
+  console.log(`[Schedule] withinWindow: ${withinWindow}`);
 
   return withinWindow;
 }
