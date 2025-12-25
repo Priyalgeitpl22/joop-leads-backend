@@ -353,6 +353,10 @@ export const sendEmail = async (
           campaignId, account, fromName, toEmail, subject, body
         );
 
+      case "smtp":
+        return await sendEmailWithSMTP(
+          campaignId, account, fromName, toEmail, subject, body
+        )
       default:
         throw new Error(`Invalid email provider type: ${account.provider}`);
     }
