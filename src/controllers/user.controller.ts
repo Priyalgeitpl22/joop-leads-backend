@@ -96,14 +96,18 @@ export const createUser = async (req: Request, res: Response): Promise<any> => {
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res
-        .status(400)
-        .json({ code: 400, message: "Email already exists" });
+        .status(400).json({ code: 400, message: "Email already exists" });
     }
 
     let profilePictureUrl: string | null = null;
     if (req.file) {
       profilePictureUrl = await uploadImageToS3(req.file);
     }
+
+    const tokenData = generateRandomToken(32, 18000);
+
+    const activationLink = `${process.env.FRONTEND_URL}/activate-account?token=${tokenData.token}&email=${email}`;
+    await sendActivationEmail(email, fullName, activationLink);
 
     const newUser = await prisma.user.create({
       data: {
@@ -114,26 +118,18 @@ export const createUser = async (req: Request, res: Response): Promise<any> => {
         phone,
         password: "",
         profilePicture: profilePictureUrl,
-      },
-    });
-
-    const tokenData = generateRandomToken(32, 18000);
-
-    const activationLink = `${process.env.FRONTEND_URL}/activate-account?token=${tokenData.token}&email=${email}`;
-    await sendActivationEmail(email, newUser?.fullName, activationLink);
-
-    await prisma.user.update({
-      where: { email },
-      data: {
         activationToken: tokenData.token,
         activationTokenExpiresAt: tokenData.expiresAt,
       },
     });
+
     res.status(201).json({
       code: 201,
+      data: newUser,
       message: "User created successfully",
     });
   } catch (error: any) {
+    console.error(error);
     res.status(500).json({
       code: 500,
       message: "An unexpected server error occurred. Please try again later",

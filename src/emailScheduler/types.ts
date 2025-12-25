@@ -1,3 +1,5 @@
+import { SequenceType } from "../interfaces";
+
 export const TriggerStatus = {
     SUCCESS: "SUCCESS",
     PARTIAL: "PARTIAL",
@@ -37,4 +39,20 @@ export interface TriggerContext {
     activityLog: string[];
     senderDetails: Record<string, SenderDetail>;
     leadDetails: LeadDetail[];
+}
+
+export interface SequenceAnalytics {
+    emailType: SequenceType;
+    seqNumber: number;
+    subject: string | null;
+    totalLeads: number;
+    sent: number;
+    opened: number;
+    clicked: number;
+    replied: number;
+    positiveReplies: number;
+    bounced: number;
+    senderBounced: number;
+    failed: number;
+    unsubscribed: number;
 }

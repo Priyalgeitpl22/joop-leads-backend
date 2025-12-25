@@ -4,7 +4,7 @@ export type UserRole = "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
 
 export type CampaignStatus = "DRAFT" | "SCHEDULED" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
 
-export type LeadStatus = "PENDING" | "QUEUED" | "SENT" | "OPENED" | "CLICKED" | "REPLIED" | "BOUNCED" | "UNSUBSCRIBED" | "FAILED";
+export type LeadStatus = "PENDING" | "QUEUED" | "SENT" | "OPENED" | "CLICKED" | "REPLIED" | "POSITIVE_REPLY" | "BOUNCED" | "SENDER_BOUNCED" | "UNSUBSCRIBED" | "FAILED";
 
 export type EmailSendStatus = "QUEUED" | "SENDING" | "SENT" | "FAILED" | "BOUNCED";
 
@@ -18,7 +18,7 @@ export type PlanCode = "FREE" | "STARTER" | "PROFESSIONAL" | "ENTERPRISE";
 
 export type BillingPeriod = "MONTHLY" | "YEARLY";
 
-export type EventType = "SENT" | "DELIVERED" | "OPENED" | "CLICKED" | "REPLIED" | "BOUNCED" | "UNSUBSCRIBED" | "COMPLAINED";
+export type EventType = "PENDING" | "QUEUED" | "SENT" | "OPENED" | "CLICKED" | "REPLIED" | "POSITIVE_REPLY" | "BOUNCED" | "SENDER_BOUNCED" | "UNSUBSCRIBED" | "FAILED";
 
 export type StopSending = "CLICK" | "OPEN" | "REPLY";
 

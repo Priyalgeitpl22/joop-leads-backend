@@ -1,10 +1,12 @@
-import { CampaignStatus, PrismaClient } from "@prisma/client";
+import { CampaignStatus, PrismaClient, CampaignLead, Lead } from "@prisma/client";
 import { emailQueue } from "./queue";
 import { dayKeyInTz, isWithinSchedule } from "./time";
 import { lockCampaign, unlockCampaign, lockSender, unlockSender } from "./locks";
 import { TriggerContext, TriggerStatus } from "./types";
 
 const prisma = new PrismaClient();
+
+type CampaignLeadWithLead = CampaignLead & { lead: Lead | null };
 
 async function saveTriggerLog(ctx: TriggerContext) {
   const durationMs = Date.now() - ctx.startTime.getTime();
@@ -212,10 +214,12 @@ export async function schedulerTick() {
           }
 
           // (6) sender gap must be >= campaign intervalMinutes
+          // Add 5 second tolerance for timing jitter (scheduler tick timing isn't perfect)
           if (lastSentAt) {
             const diffMin = (Date.now() - lastSentAt.getTime()) / 60_000;
+            const toleranceMin = 5 / 60; // 5 seconds tolerance
             console.log(`[Scheduler] Time since last send: ${diffMin.toFixed(2)} min (required: ${c.intervalMinutes} min)`);
-            if (diffMin < c.intervalMinutes) {
+            if (diffMin + toleranceMin < c.intervalMinutes) {
               console.log(`[Scheduler] Sender ${sender.email} gap too short - skipping`);
               triggerCtx.senderDetails[sender.email].skipped = true;
               triggerCtx.senderDetails[sender.email].skipReason = `Send gap too short (${diffMin.toFixed(1)}min < ${c.intervalMinutes}min required)`;
@@ -223,80 +227,146 @@ export async function schedulerTick() {
             }
           }
 
-          // pick ONE pending lead that is NOT stopped
-          const campaignLead = await prisma.campaignLead.findFirst({
+          // ============================================================
+          // PRIORITY-BASED LEAD SELECTION (sendingPriority logic)
+          // sendingPriority = % of emails that should be follow-ups
+          // ============================================================
+          
+          // Get all pending leads
+          const allPendingLeads = await prisma.campaignLead.findMany({
             where: {
               campaignId: c.id,
               status: "PENDING",
-              isStopped: false, // Skip leads that have been stopped (replied, clicked, opened based on settings)
+              isStopped: false,
             },
             include: { lead: true },
             orderBy: { createdAt: "asc" },
           });
-          if (!campaignLead || !campaignLead.lead) {
+
+          if (allPendingLeads.length === 0) {
             console.log(`[Scheduler] No pending leads for campaign ${c.id}`);
             triggerCtx.senderDetails[sender.email].skipped = true;
             triggerCtx.senderDetails[sender.email].skipReason = "No pending leads available";
             continue;
           }
-          const lead = campaignLead.lead;
-          console.log(`[Scheduler] Found pending lead: ${lead.email} (${lead.id}), currentStep: ${campaignLead.currentSequenceStep}`);
 
-          // Get the next sequence step for this lead
-          const nextStep = campaignLead.currentSequenceStep + 1;
-          const isNewLead = nextStep === 1;
+          // Separate into follow-up candidates and new lead candidates
+          const followUpCandidates: CampaignLeadWithLead[] = [];
+          const newLeadCandidates: CampaignLeadWithLead[] = [];
+          const isDev = process.env.NODE_ENV === 'development';
 
-          const sequence = await prisma.sequence.findFirst({
-            where: {
-              campaignId: c.id,
-              seqNumber: nextStep,
-              isActive: true,
-            },
+          // Get all sequences for delay checking
+          const allSequences = await prisma.sequence.findMany({
+            where: { campaignId: c.id, isActive: true },
+            orderBy: { seqNumber: "asc" },
           });
 
+          for (const cl of allPendingLeads) {
+            if (!cl.lead) continue;
+
+            const nextStep = cl.currentSequenceStep + 1;
+            const nextSeq = allSequences.find((s) => s.seqNumber === nextStep);
+            
+            if (!nextSeq) {
+              // No more sequences - mark as completed
+              await prisma.campaignLead.update({
+                where: { id: cl.id },
+                data: { status: "SENT" },
+              });
+              triggerCtx.activityLog.push(`Lead ${cl.lead.email} completed all sequences`);
+              continue;
+            }
+
+            if (cl.currentSequenceStep === 0) {
+              // New lead - hasn't received any email yet
+              newLeadCandidates.push(cl);
+            } else {
+              // Follow-up candidate - check if delay has passed
+              if (cl.lastSentAt && nextSeq.delayDays > 0) {
+                const timeSinceLastSent = Date.now() - cl.lastSentAt.getTime();
+                
+                let timePassed: number;
+                let requiredDelay: number;
+                
+                if (isDev) {
+                  timePassed = timeSinceLastSent / (1000 * 60 * 60); // hours
+                  requiredDelay = nextSeq.delayDays;
+                } else {
+                  timePassed = timeSinceLastSent / (1000 * 60 * 60 * 24); // days
+                  requiredDelay = nextSeq.delayDays;
+                }
+                
+                if (timePassed >= requiredDelay) {
+                  followUpCandidates.push(cl);
+                }
+                // If delay hasn't passed, skip this lead for now
+              } else if (!nextSeq.delayDays || nextSeq.delayDays === 0) {
+                // No delay required
+                followUpCandidates.push(cl);
+              }
+            }
+          }
+
+          console.log(`[Scheduler] sendingPriority=${c.sendingPriority}%, followUpCandidates=${followUpCandidates.length}, newLeadCandidates=${newLeadCandidates.length}`);
+
+          // Determine which lead to send to based on sendingPriority
+          // sendingPriority = % of emails for follow-ups (0-100)
+          let campaignLead: CampaignLeadWithLead | null = null;
+          let isNewLead = false;
+
+          const followUpRatio = c.sendingPriority / 100;
+          const currentFollowUpCount = triggerCtx.followUpEmails;
+          const currentNewCount = triggerCtx.newLeadEmails;
+          const totalSent = currentFollowUpCount + currentNewCount;
+
+          // Calculate current ratio and decide what to send next
+          let shouldSendFollowUp = false;
+          
+          if (followUpCandidates.length > 0 && newLeadCandidates.length > 0) {
+            // Both available - use priority ratio
+            const currentFollowUpRatio = totalSent > 0 ? currentFollowUpCount / totalSent : 0;
+            shouldSendFollowUp = currentFollowUpRatio < followUpRatio;
+            console.log(`[Scheduler] currentFollowUpRatio=${currentFollowUpRatio.toFixed(2)}, targetRatio=${followUpRatio}, shouldSendFollowUp=${shouldSendFollowUp}`);
+          } else if (followUpCandidates.length > 0) {
+            shouldSendFollowUp = true;
+          } else if (newLeadCandidates.length > 0) {
+            shouldSendFollowUp = false;
+          } else {
+            console.log(`[Scheduler] No eligible leads (follow-ups waiting for delay or no new leads)`);
+            triggerCtx.senderDetails[sender.email].skipped = true;
+            triggerCtx.senderDetails[sender.email].skipReason = "No eligible leads (follow-ups waiting for delay)";
+            continue;
+          }
+
+          if (shouldSendFollowUp && followUpCandidates.length > 0) {
+            campaignLead = followUpCandidates[0];
+            isNewLead = false;
+          } else if (newLeadCandidates.length > 0) {
+            campaignLead = newLeadCandidates[0];
+            isNewLead = true;
+          } else {
+            // Fallback to follow-up if no new leads
+            campaignLead = followUpCandidates[0] || null;
+            isNewLead = false;
+          }
+
+          if (!campaignLead || !campaignLead.lead) {
+            console.log(`[Scheduler] No eligible lead found`);
+            triggerCtx.senderDetails[sender.email].skipped = true;
+            triggerCtx.senderDetails[sender.email].skipReason = "No eligible leads";
+            continue;
+          }
+
+          const lead = campaignLead.lead;
+          const nextStep = campaignLead.currentSequenceStep + 1;
+          console.log(`[Scheduler] Selected lead: ${lead.email} (${lead.id}), currentStep: ${campaignLead.currentSequenceStep}, isNewLead: ${isNewLead}`);
+
+          const sequence = allSequences.find((s) => s.seqNumber === nextStep);
           if (!sequence) {
-            console.log(`[Scheduler] No sequence found for step ${nextStep} - lead ${lead.id} has completed all steps`);
-            // Mark lead as SENT (completed all sequences)
-            await prisma.campaignLead.update({
-              where: { id: campaignLead.id },
-              data: { status: "SENT" },
-            });
-            triggerCtx.activityLog.push(`Lead ${lead.email} completed all sequences`);
+            console.log(`[Scheduler] No sequence found for step ${nextStep} - should not happen`);
             continue;
           }
           console.log(`[Scheduler] Found sequence: step ${sequence.seqNumber}, subject: ${sequence.subject}`);
-
-          // Check sequence delay (delayDays) - only for follow-up sequences (step > 1)
-          // In dev environment: delayDays is treated as hours instead of days
-          if (nextStep > 1 && sequence.delayDays > 0 && campaignLead.lastSentAt) {
-            const isDev = process.env.NODE_ENV === 'development';
-            const timeSinceLastSent = Date.now() - campaignLead.lastSentAt.getTime();
-            
-            let timePassed: number;
-            let requiredDelay: number;
-            let unit: string;
-            
-            if (isDev) {
-              // In dev: treat delayDays as hours
-              timePassed = timeSinceLastSent / (1000 * 60 * 60); // hours
-              requiredDelay = sequence.delayDays; // delayDays value = hours in dev
-              unit = 'hours';
-            } else {
-              // In production: delayDays = actual days
-              timePassed = timeSinceLastSent / (1000 * 60 * 60 * 24); // days
-              requiredDelay = sequence.delayDays;
-              unit = 'days';
-            }
-            
-            console.log(`[Scheduler] Sequence ${nextStep} has delay=${requiredDelay} ${unit}, timePassed=${timePassed.toFixed(2)} ${unit} (env: ${isDev ? 'dev' : 'prod'})`);
-            
-            if (timePassed < requiredDelay) {
-              console.log(`[Scheduler] Lead ${lead.email} not ready for sequence ${nextStep} - needs ${requiredDelay} ${unit} delay, only ${timePassed.toFixed(2)} ${unit} passed`);
-              triggerCtx.senderDetails[sender.email].skipped = true;
-              triggerCtx.senderDetails[sender.email].skipReason = `Lead waiting for sequence delay (${timePassed.toFixed(1)}/${requiredDelay} ${unit})`;
-              continue;
-            }
-          }
 
           // idempotency row first
           let sendRow;

@@ -500,3 +500,26 @@ export interface EmailAccount {
     };
   };
 }
+
+// Campaign Sender with Stats
+export interface CampaignSenderStats {
+  sent: number;
+  queued: number;
+  failed: number;
+  total: number;
+  uniqueLeads: number; // Number of unique leads contacted by this sender
+}
+
+export interface CampaignSenderWithStats {
+  id: string;
+  senderId: string;
+  accountId: string;
+  email: string;
+  name: string | null;
+  provider: string;
+  dailyLimit: number;
+  isEnabled: boolean;
+  isActive: boolean;
+  weight: number;
+  stats: CampaignSenderStats;
+}

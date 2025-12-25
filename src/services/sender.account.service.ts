@@ -38,7 +38,6 @@ export class SenderAccountService {
     }
 
     static async updateSenderAccount(accountId: string, data: Account) {
-        const account = await this.buildSenderUpdateAccountData(data);
         try {
             const existingSenderAccount = await this.getSenderAccount(accountId, data.email);
             if (!existingSenderAccount) {

@@ -8,6 +8,8 @@ import { uploadCSVToS3, getPresignedUrl } from "../aws/imageUtils";
 import { subDays, format } from "date-fns";
 import { SenderAccountService } from "./sender.account.service";
 import { dayKeyInTz } from "../emailScheduler/time";
+import { SequenceAnalytics } from "../emailScheduler/types";
+import { CampaignSenderWithStats } from "../interfaces";
 
 const dayjs = require("dayjs");
 const utc = require("dayjs/plugin/utc");
@@ -16,16 +18,6 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 const prisma = new PrismaClient();
 const upload = multer({ storage: multer.memoryStorage() }).single("csvFile");
-
-interface UploadCounts {
-  uploaded: number;
-  duplicates: number;
-  blocked: number;
-  empty: number;
-  invalid: number;
-  unsubscribed: number;
-}
-
 export class CampaignService {
   static addLeadsToCampaign = (req: Request): Promise<any> =>
     new Promise((resolve, reject) => {
@@ -51,7 +43,11 @@ export class CampaignService {
           });
 
           const csvFileName = req.file.originalname;
-          const csvFileLocation = await uploadCSVToS3(campaign!.id, req.file);
+          const csvUploded = await uploadCSVToS3(campaign!.id, req.file);
+
+          if (!csvUploded) {
+            resolve({ code: 500, message: "Failed to upload csv file." });
+          }
 
           const csvSettings = typeof req.body.CSVsettings === "string" ? JSON.parse(req.body.CSVsettings) : req.body.CSVsettings || {};
           const emailFieldsToBeAdded = typeof req.body.emailFieldsToBeAdded === "string"
@@ -362,6 +358,88 @@ export class CampaignService {
     return sequences;
   }
 
+  static async getCampaignSenders(campaignId: string): Promise<CampaignSenderWithStats[]> {
+    const campaignSenders = await prisma.campaignSender.findMany({
+      where: { campaignId },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            provider: true,
+            dailyLimit: true,
+            isEnabled: true,
+            accountId: true,
+          },
+        },
+      },
+    });
+
+    const sendersWithStats = await Promise.all(
+      campaignSenders.map(async (cs) => {
+        const emailsSent = await prisma.emailSend.count({
+          where: {
+            campaignId,
+            senderId: cs.senderId,
+            status: "SENT",
+          },
+        });
+
+        const emailsQueued = await prisma.emailSend.count({
+          where: {
+            campaignId,
+            senderId: cs.senderId,
+            status: "QUEUED",
+          },
+        });
+
+        const emailsFailed = await prisma.emailSend.count({
+          where: {
+            campaignId,
+            senderId: cs.senderId,
+            status: "FAILED",
+          },
+        });
+
+        // Count unique leads that received emails from this sender
+        const uniqueLeadsResult = await prisma.emailSend.findMany({
+          where: {
+            campaignId,
+            senderId: cs.senderId,
+          },
+          select: {
+            leadId: true,
+          },
+          distinct: ["leadId"],
+        });
+        const uniqueLeads = uniqueLeadsResult.length;
+
+        return {
+          id: cs.id,
+          senderId: cs.senderId,
+          accountId: cs.sender.accountId,
+          email: cs.sender.email,
+          name: cs.sender.name,
+          provider: cs.sender.provider,
+          dailyLimit: cs.sender.dailyLimit,
+          isEnabled: cs.sender.isEnabled,
+          isActive: cs.isActive,
+          weight: cs.weight,
+          stats: {
+            sent: emailsSent,
+            queued: emailsQueued,
+            failed: emailsFailed,
+            total: emailsSent + emailsQueued + emailsFailed,
+            uniqueLeads,
+          },
+        };
+      })
+    );
+
+    return sendersWithStats;
+  }
+
   static async getAllContacts(req: Request) {
     const campaignId = req.params.campaign_id;
 
@@ -591,27 +669,75 @@ export class CampaignService {
     return { code: 200, data: campaign.nextTrigger, message: "success" };
   }
 
-  // static async getCampaignRuntime(req: Request) {
-  //   const campaignId = req.params.campaign_id;
-
-  //   if (!campaignId) return { code: 400, message: "campaign_id is required" };
-
-  //   const campaignRuntime = await prisma.campaignRuntime.findUnique({ where: { campaignId } });
-  //   if (!campaignRuntime) return { code: 404, message: "Campaign runtime not found" };
-
-  //   return { code: 200, data: {
-  //     nextTrigger: campaign.nextTrigger || new Date(),
-  //     nextRunAt: campaignRuntime.nextRunAt,
-  //     sentToday: campaignRuntime.sentToday,
-  //     dayKey: campaignRuntime.dayKey
-  //   }, message: "success" };
-  // }
-
   static async getCampaignLeads(campaignId: string) {
     const campaignLeads = await prisma.campaignLead.findMany({ where: { campaignId }, include: { lead: true } });
     if (!campaignLeads) return [];
     return campaignLeads;
   }
+
+  static async getLeadsGroupedBySender(campaignId: string) {
+    const sends = await prisma.emailSend.findMany({
+      where: { campaignId },
+      include: {
+        lead: true,
+        sender: true,
+      },
+    });
+
+    const campaignLeads = await prisma.campaignLead.findMany({
+      where: { campaignId },
+      select: {
+        leadId: true,
+        currentSequenceStep: true,
+        status: true,
+        lastSentAt: true,
+      },
+    });
+
+    const totalSequences = await prisma.sequence.count({
+      where: { campaignId, isActive: true },
+    });
+
+    const campaignLeadMap = new Map(
+      campaignLeads.map((cl) => [cl.leadId, cl])
+    );
+  
+    const groupedLeadsMap = sends.reduce((acc, send) => {
+      const leadId = send.lead.id;
+      const campaignLead = campaignLeadMap.get(leadId);
+  
+      if (!acc[leadId]) {
+        acc[leadId] = {
+          lead: send.lead,
+          currentSequenceStep: campaignLead?.currentSequenceStep || 0,
+          totalSequences,
+          campaignLeadStatus: campaignLead?.status || null,
+          lastSentAt: campaignLead?.lastSentAt || null,
+          senders: [],
+        };
+      }
+  
+      // Only add sender if not already in the list (unique by email)
+      const existingSender = acc[leadId].senders.find(
+        (s: any) => s.senderEmail === send.sender.email
+      );
+      if (!existingSender) {
+        acc[leadId].senders.push({
+          senderEmail: send.sender.email,
+          status: send.status,
+          sentAt: send.sentAt,
+        });
+      }
+  
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Convert to array
+    const groupedLeads = Object.values(groupedLeadsMap);
+
+    return { groupedLeads, totalSequences };
+  }
+  
 
   /**
    * Calculate campaign completion statistics
@@ -694,5 +820,86 @@ export class CampaignService {
       completedPercentage,    // Based on successfully sent emails
       progressPercentage,     // Based on all processed emails (sent + queued + failed)
     };
+  }
+
+  static async getSequenceAnalytics(
+    campaignId: string
+  ): Promise<SequenceAnalytics[]> {
+    const sequences = await prisma.sequence.findMany({
+      where: {
+        campaignId,
+        isActive: true,
+      },
+      orderBy: {
+        seqNumber: 'asc',
+      },
+      include: {
+        emailSends: {
+          include: {
+            events: true,
+          },
+        },
+      },
+    });
+  
+    return sequences.map(seq => {
+      const stats: SequenceAnalytics = {
+        emailType: seq.type,
+        seqNumber: seq.seqNumber,
+        subject: seq.subject ?? null,
+        totalLeads: seq.emailSends.length,
+        sent: 0,
+        opened: 0,
+        clicked: 0,
+        replied: 0,
+        positiveReplies: 0,
+        bounced: 0,
+        senderBounced: 0,
+        failed: 0,
+        unsubscribed: 0,
+      };
+  
+      for (const send of seq.emailSends) {
+        // Send-level status
+        switch (send.status) {
+          case 'SENT':
+            stats.sent++;
+            break;
+          case 'BOUNCED':
+            stats.bounced++;
+            break;
+          case 'FAILED':
+            stats.failed++;
+            break;
+        }
+  
+        // Event-level tracking
+        for (const event of send.events) {
+          switch (event.type) {
+            case 'OPENED':
+              stats.opened++;
+              break;
+  
+            case 'CLICKED':
+              stats.clicked++;
+              break;
+  
+            case 'REPLIED':
+              stats.replied++;
+              break;
+  
+            case 'POSITIVE_REPLY':
+              stats.positiveReplies++;
+              break;
+  
+            case 'UNSUBSCRIBED':
+              stats.unsubscribed++;
+              break;
+          }
+        }
+      }
+  
+      return stats;
+    });
   }
 }

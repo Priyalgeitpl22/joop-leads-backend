@@ -32,15 +32,17 @@ enum CampaignStatus {
 }
 
 enum LeadStatus {
-  PENDING      // Not yet contacted
-  QUEUED       // In queue to be sent
-  SENT         // Email sent successfully
-  OPENED       // Email was opened
-  CLICKED      // Link was clicked
-  REPLIED      // Lead replied
-  BOUNCED      // Email bounced
-  UNSUBSCRIBED // Lead unsubscribed
-  FAILED       // Failed to send
+  PENDING         // Not yet contacted
+  QUEUED          // In queue to be sent
+  SENT            // Email sent successfully
+  OPENED          // Email was opened
+  CLICKED         // Link was clicked
+  REPLIED         // Lead replied
+  POSITIVE_REPLY  // Positive reply
+  BOUNCED         // Email bounced
+  SENDER_BOUNCED  // Sender Bounced
+  UNSUBSCRIBED    // Lead unsubscribed
+  FAILED          // Failed to send
 }
 
 enum EmailSendStatus {
@@ -90,7 +92,9 @@ enum EventType {
   OPENED
   CLICKED
   REPLIED
+  POSITIVE_REPLY
   BOUNCED
+  SENDER_BOUNCED
   UNSUBSCRIBED
   COMPLAINED
 }

@@ -26,7 +26,7 @@ const getTransporter = () => {
 
 export const sendOtpEmail = async (email: string, otp: string) => {
   const emailUser = process.env.EMAIL_USER;
-  
+
   if (!emailUser) {
     throw new Error('EMAIL_USER environment variable is required');
   }
@@ -48,17 +48,18 @@ export const sendOtpEmail = async (email: string, otp: string) => {
 };
 
 export const sendActivationEmail = async (email: string, fullName: string, activationLink: string) => {
+  try {
     const emailUser = process.env.EMAIL_USER;
-    
+
     if (!emailUser) {
-        throw new Error('EMAIL_USER environment variable is required');
+      throw new Error('EMAIL_USER environment variable is required');
     }
 
     const mailOptions = {
-        from: emailUser,
-        to: email,
-        subject: "Activate Your Account",
-        html: `
+      from: emailUser,
+      to: email,
+      subject: "Activate Your Account",
+      html: `
             <p>Hello ${fullName},</p>
             <p>Your account has been created. Please activate your account by setting up a password.</p>
             <p><a href="${activationLink}">Click here to activate your account</a></p>
@@ -68,20 +69,24 @@ export const sendActivationEmail = async (email: string, fullName: string, activ
 
     const transporter = getTransporter();
     await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error('Error sending activation email:', error);
+    throw error;
+  }
 };
 
 export const sendResetPasswordEmail = async (email: string, fullName: string, resetPasswordLink: string) => {
   const emailUser = process.env.EMAIL_USER;
-  
+
   if (!emailUser) {
     throw new Error('EMAIL_USER environment variable is required');
   }
 
   const mailOptions = {
-      from: emailUser,
-      to: email,
-      subject: "Reset Your Account Password",
-      html: `
+    from: emailUser,
+    to: email,
+    subject: "Reset Your Account Password",
+    html: `
           <p>Hi ${fullName},</p>
           <p>We received a request to reset your password. Click the link below to set up a new one:</p>
           <p><a href="${resetPasswordLink}">Reset Password</a></p>

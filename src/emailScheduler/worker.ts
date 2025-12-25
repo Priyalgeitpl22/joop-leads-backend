@@ -8,6 +8,7 @@ const prisma = new PrismaClient();
 new Worker(
   "email-send",
   async (job) => {
+    try {
     const { emailSendId } = job.data as { emailSendId: string };
     console.log(`[Worker] Processing job for EmailSend: ${emailSendId}`);
 
@@ -57,6 +58,10 @@ new Worker(
       });
 
       // Rethrow so BullMQ can retry
+        throw err;
+      }
+    } catch (err: any) {
+      console.error(`[Worker] ❌ Email failed: ${job.data.emailSendId}`, err.message);
       throw err;
     }
   },
