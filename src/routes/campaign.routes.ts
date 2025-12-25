@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { addLeadsToCampaign, getLeadsGroupedBySender, addSequenceToCampaign, addEmailCampaignSettings, getAllEmailCampaigns, getCampaignById, getAllSequences, getAllContacts, searchEmailCampaigns, scheduleEmailCampaign, updateCampaignStatus, deleteCampaign, filterEmailCampaigns, renameCampaign, getDashboardData, getSequenceAnalytics, getCampaignSenders } from "../controllers/campaign.contoller";
+import { addLeadsToCampaign, getLeadsGroupedBySender, addSequenceToCampaign, addEmailCampaignSettings, getAllEmailCampaigns, getCampaignById, getAllSequences, getAllContacts, searchEmailCampaigns, scheduleEmailCampaign, updateCampaignStatus, deleteCampaign, filterEmailCampaigns, renameCampaign, getDashboardData, getSequenceAnalytics, getCampaignSenders, getCampaignsByLeadId } from "../controllers/campaign.contoller";
 import { verify } from "../middlewares/authMiddleware";
 
 const router = Router();
@@ -32,5 +32,6 @@ router.patch("/:campaignId/rename", verify, renameCampaign);
 router.get("/:id/sequences/analytics", verify, getSequenceAnalytics);
 router.get("/:id/senders", verify, getCampaignSenders);
 router.get("/:id/leads/grouped-by-sender", verify, getLeadsGroupedBySender);
+router.get("/lead/:id/campaigns-by-lead", verify, getCampaignsByLeadId);
 
 export default router;

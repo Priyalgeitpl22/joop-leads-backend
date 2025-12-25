@@ -32,6 +32,10 @@ export class LeadService {
       where: { orgId },
       // select: leadSelect,
       orderBy: { createdAt: "desc" },
+      include: {
+        uploadedBy: true, 
+        campaigns: true,
+      },
     });
   }
 

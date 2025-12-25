@@ -5,6 +5,123 @@ export const isValidEmail = (email: string): boolean => {
   return emailRegex.test(email);
 };
 
+// =====================================================
+// EMAIL TRACKING UTILITIES
+// =====================================================
+
+const BASE_URL = process.env.SERVER_URL || "http://localhost:5003/api";
+
+/**
+ * Generate tracking ID from campaignId and leadEmail
+ */
+export const generateTrackingId = (campaignId: string, leadEmail: string): string => {
+  return `${campaignId}_${leadEmail}`;
+};
+
+/**
+ * Generate open tracking pixel HTML
+ * This invisible image is loaded when the email is opened
+ */
+export const generateOpenTrackingPixel = (campaignId: string, leadEmail: string): string => {
+  const trackingId = generateTrackingId(campaignId, leadEmail);
+  return `<img src="${BASE_URL}/track/open/${trackingId}" width="1" height="1" style="display:none;visibility:hidden;" alt="" />`;
+};
+
+/**
+ * Generate click tracking URL
+ * Wraps the original URL to track clicks
+ */
+export const generateClickTrackingUrl = (
+  campaignId: string,
+  leadEmail: string,
+  originalUrl: string
+): string => {
+  const trackingId = generateTrackingId(campaignId, leadEmail);
+  const encodedUrl = encodeURIComponent(originalUrl);
+  return `${BASE_URL}/track/click/${trackingId}?url=${encodedUrl}`;
+};
+
+/**
+ * Generate unsubscribe URL
+ */
+export const generateUnsubscribeUrl = (campaignId: string, leadEmail: string): string => {
+  const trackingId = generateTrackingId(campaignId, leadEmail);
+  return `${BASE_URL}/track/unsubscribe/${trackingId}`;
+};
+
+/**
+ * Replace all links in HTML with click tracking URLs
+ * Preserves mailto: and tel: links
+ */
+export const replaceLinksWithTracking = (
+  html: string,
+  campaignId: string,
+  leadEmail: string
+): string => {
+  // Regex to match href attributes with http/https URLs
+  const linkRegex = /href=["'](https?:\/\/[^"']+)["']/gi;
+
+  return html.replace(linkRegex, (match, url) => {
+    // Skip if it's already a tracking URL
+    if (url.includes("/track/click/")) {
+      return match;
+    }
+
+    const trackingUrl = generateClickTrackingUrl(campaignId, leadEmail, url);
+    return `href="${trackingUrl}"`;
+  });
+};
+
+/**
+ * Add all tracking to email HTML body
+ * - Replaces links with click tracking URLs
+ * - Adds open tracking pixel
+ * - Adds unsubscribe link if enabled
+ */
+export const addTrackingToEmail = (
+  html: string,
+  campaignId: string,
+  leadEmail: string,
+  options: {
+    trackOpens?: boolean;
+    trackClicks?: boolean;
+    includeUnsubscribe?: boolean;
+    unsubscribeText?: string;
+  } = {}
+): string => {
+  const {
+    trackOpens = true,
+    trackClicks = true,
+    includeUnsubscribe = true,
+    unsubscribeText = "Unsubscribe",
+  } = options;
+
+  let processedHtml = html;
+
+  // Replace links with tracking URLs
+  if (trackClicks) {
+    processedHtml = replaceLinksWithTracking(processedHtml, campaignId, leadEmail);
+  }
+
+  // Add unsubscribe link
+  if (includeUnsubscribe) {
+    const unsubscribeUrl = generateUnsubscribeUrl(campaignId, leadEmail);
+    const unsubscribeHtml = `
+      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; text-align: center;">
+        <a href="${unsubscribeUrl}" style="color: #666;">${unsubscribeText}</a>
+      </div>
+    `;
+    processedHtml += unsubscribeHtml;
+  }
+
+  // Add open tracking pixel (at the very end)
+  if (trackOpens) {
+    processedHtml += generateOpenTrackingPixel(campaignId, leadEmail);
+  }
+
+  return processedHtml;
+};
+
 const getTransporter = () => {
   const emailUser = process.env.EMAIL_USER;
   const emailPassword = process.env.EMAIL_PASSWORD;

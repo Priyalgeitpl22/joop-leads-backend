@@ -358,6 +358,25 @@ export class CampaignService {
     return sequences;
   }
 
+  static async getCampaignsByLeadId(leadId: string) {
+    const campaigns = await prisma.campaignLead.findMany({ where: { leadId }, include: { campaign: { include: { sequences: true, analytics: true, leads: { include: { lead: true } }, senders: { include: { sender: true } } } } } });
+    console.log(campaigns);
+    return campaigns.map((cl) => {
+      return {
+        id: cl.campaign.id,
+        name: cl.campaign.name,
+        totalSteps: cl.campaign.sequences.length,
+        currentSequenceStep: cl.currentSequenceStep,
+        createdAt: cl.campaign.createdAt,
+        status: cl.campaign.status,
+        lastSentAt: cl.lastSentAt,
+        lastOpenedAt: cl.lastOpenedAt,
+        lastClickedAt: cl.lastClickedAt,
+        lastRepliedAt: cl.lastRepliedAt,
+      }
+    });
+  }
+
   static async getCampaignSenders(campaignId: string): Promise<CampaignSenderWithStats[]> {
     const campaignSenders = await prisma.campaignSender.findMany({
       where: { campaignId },
