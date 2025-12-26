@@ -13,6 +13,49 @@ export interface TrackEventOptions {
   country?: string;
 }
 
+// Known bot/proxy user agents that pre-fetch images
+const BOT_USER_AGENTS = [
+  "GoogleImageProxy",
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.246 Mozilla/5.0", // Microsoft Safe Links
+  "Mozilla/5.0+(compatible;+MSIE+10.0;+Windows+NT", // Outlook protection
+  "Outlook-iOS",
+  "Outlook-Android",
+  "YahooMailProxy",
+  "ZmEu",
+  "python-requests",
+  "curl",
+  "wget",
+  "Apache-HttpClient",
+  "Java/",
+];
+
+/**
+ * Check if the user agent is from a known bot/proxy that pre-fetches images
+ */
+function isBotUserAgent(userAgent?: string): boolean {
+  if (!userAgent) return false;
+  
+  const lowerUA = userAgent.toLowerCase();
+  
+  // Check for known bot patterns
+  for (const bot of BOT_USER_AGENTS) {
+    if (lowerUA.includes(bot.toLowerCase())) {
+      return true;
+    }
+  }
+  
+  // Additional checks for common patterns
+  if (lowerUA.includes("bot") || 
+      lowerUA.includes("spider") || 
+      lowerUA.includes("crawler") ||
+      lowerUA.includes("proxy") ||
+      lowerUA.includes("imageproxy")) {
+    return true;
+  }
+  
+  return false;
+}
+
 export class EmailEventService {
   /**
    * Track email sent event
@@ -54,6 +97,14 @@ export class EmailEventService {
   static async trackOpened(options: TrackEventOptions) {
     const { campaignId, leadId, emailSendId, ipAddress, userAgent, city, country } = options;
     console.log(`[EmailEventService] trackOpened - campaignId: ${campaignId}, leadId: ${leadId}, emailSendId: ${emailSendId}`);
+    console.log(`[EmailEventService] User-Agent: ${userAgent}`);
+
+    // Check if this is a bot/proxy pre-fetching the image
+    const isBot = isBotUserAgent(userAgent);
+    if (isBot) {
+      console.log(`[EmailEventService] ⚠️ Bot/proxy detected, skipping open tracking. UA: ${userAgent}`);
+      return { success: true, event: "OPENED", isFirstOpen: false, isBot: true };
+    }
 
     // Check if this email has already been opened (to only count once per email)
     let isFirstOpen = false;
@@ -101,7 +152,7 @@ export class EmailEventService {
     // Check if should stop sending based on campaign settings
     await this.checkStopSending(campaignId, leadId, "OPEN");
 
-    return { success: true, event: "OPENED", isFirstOpen };
+    return { success: true, event: "OPENED", isFirstOpen, isBot: false };
   }
 
   /**
