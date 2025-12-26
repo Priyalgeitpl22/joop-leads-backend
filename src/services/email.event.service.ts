@@ -55,6 +55,16 @@ export class EmailEventService {
     const { campaignId, leadId, emailSendId, ipAddress, userAgent, city, country } = options;
     console.log(`[EmailEventService] trackOpened - campaignId: ${campaignId}, leadId: ${leadId}, emailSendId: ${emailSendId}`);
 
+    // Check if this email has already been opened (to only count once per email)
+    let isFirstOpen = false;
+    if (emailSendId) {
+      const existingOpenEvent = await prisma.emailEvent.findFirst({
+        where: { emailSendId, type: "OPENED" },
+      });
+      isFirstOpen = !existingOpenEvent;
+      console.log(`[EmailEventService] isFirstOpen: ${isFirstOpen}`);
+    }
+
     // Update CampaignLead lastOpenedAt
     const updateResult = await prisma.campaignLead.updateMany({
       where: { campaignId, leadId },
@@ -62,8 +72,13 @@ export class EmailEventService {
     });
     console.log(`[EmailEventService] Updated CampaignLead lastOpenedAt, count: ${updateResult.count}`);
 
-    // Increment campaign analytics
-    await this.incrementAnalytics(campaignId, "openedCount");
+    // Increment campaign analytics only on first open
+    if (isFirstOpen) {
+      await this.incrementAnalytics(campaignId, "openedCount");
+      console.log(`[EmailEventService] Incremented openedCount (first open)`);
+    } else {
+      console.log(`[EmailEventService] Skipped incrementing openedCount (already opened)`);
+    }
 
     // Create event
     if (emailSendId) {
@@ -86,7 +101,7 @@ export class EmailEventService {
     // Check if should stop sending based on campaign settings
     await this.checkStopSending(campaignId, leadId, "OPEN");
 
-    return { success: true, event: "OPENED" };
+    return { success: true, event: "OPENED", isFirstOpen };
   }
 
   /**

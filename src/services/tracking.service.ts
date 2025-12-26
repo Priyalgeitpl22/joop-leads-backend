@@ -124,13 +124,23 @@ export class TrackingService {
         });
 
         if (emailSend) {
+          // Check if this email has already been opened (to only count once per email)
+          const existingOpenEvent = await prisma.emailEvent.findFirst({
+            where: { emailSendId: emailSend.id, type: "OPENED" },
+          });
+
+          // Create the event
           await prisma.emailEvent.create({
             data: { type: "OPENED", emailSendId: emailSend.id, leadId: lead.id },
           });
+
+          // Only increment count on first open
+          if (!existingOpenEvent) {
+            await incrementCampaignCount(campaignId, AnalyticsCountType.OPENED_COUNT);
+          }
         }
       }
 
-      await incrementCampaignCount(campaignId, AnalyticsCountType.OPENED_COUNT);
       await stopSendingToLead(campaignId, email, "OPEN");
 
       const imagePath = path.join(__dirname, "../controllers/transparent.png");
