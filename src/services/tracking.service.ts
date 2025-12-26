@@ -129,13 +129,32 @@ export class TrackingService {
             where: { emailSendId: emailSend.id, type: "OPENED" },
           });
 
+          const isFirstOpen = !existingOpenEvent;
+
+          // Update CampaignLead status and lastOpenedAt
+          await prisma.campaignLead.updateMany({
+            where: { campaignId, leadId: lead.id },
+            data: { 
+              lastOpenedAt: new Date(),
+              status: "OPENED",
+            },
+          });
+
+          // Update EmailSend status (only on first open)
+          if (isFirstOpen) {
+            await prisma.emailSend.update({
+              where: { id: emailSend.id },
+              data: { status: "OPENED" },
+            });
+          }
+
           // Create the event
           await prisma.emailEvent.create({
             data: { type: "OPENED", emailSendId: emailSend.id, leadId: lead.id },
           });
 
           // Only increment count on first open
-          if (!existingOpenEvent) {
+          if (isFirstOpen) {
             await incrementCampaignCount(campaignId, AnalyticsCountType.OPENED_COUNT);
           }
         }
@@ -160,13 +179,42 @@ export class TrackingService {
         });
 
         if (emailSend) {
+          // Check if this email has already been clicked (to only count once per email)
+          const existingClickEvent = await prisma.emailEvent.findFirst({
+            where: { emailSendId: emailSend.id, type: "CLICKED" },
+          });
+
+          const isFirstClick = !existingClickEvent;
+
+          // Update CampaignLead status and lastClickedAt
+          await prisma.campaignLead.updateMany({
+            where: { campaignId, leadId: lead.id },
+            data: { 
+              lastClickedAt: new Date(),
+              status: "CLICKED",
+            },
+          });
+
+          // Update EmailSend status (only on first click)
+          if (isFirstClick) {
+            await prisma.emailSend.update({
+              where: { id: emailSend.id },
+              data: { status: "CLICKED" },
+            });
+          }
+
+          // Create the event
           await prisma.emailEvent.create({
             data: { type: "CLICKED", emailSendId: emailSend.id, leadId: lead.id, linkUrl: redirect },
           });
+
+          // Only increment count on first click
+          if (isFirstClick) {
+            await incrementCampaignCount(campaignId, AnalyticsCountType.CLICKED_COUNT);
+          }
         }
       }
 
-      await incrementCampaignCount(campaignId, AnalyticsCountType.CLICKED_COUNT);
       await stopSendingToLead(campaignId, email, "CLICK");
 
       return { code: 302, type: "redirect", redirectUrl: redirect };
@@ -182,6 +230,22 @@ export class TrackingService {
         });
 
         if (emailSend) {
+          // Update CampaignLead status and lastRepliedAt
+          await prisma.campaignLead.updateMany({
+            where: { campaignId, leadId: lead.id },
+            data: { 
+              lastRepliedAt: new Date(),
+              status: "REPLIED",
+            },
+          });
+
+          // Update EmailSend status
+          await prisma.emailSend.update({
+            where: { id: emailSend.id },
+            data: { status: "REPLIED" },
+          });
+
+          // Create the event
           await prisma.emailEvent.create({
             data: { type: "REPLIED", emailSendId: emailSend.id, leadId: lead.id },
           });
@@ -193,6 +257,39 @@ export class TrackingService {
     }
 
     if (type === "bouncedCount") {
+      const lead = await prisma.lead.findFirst({ where: { email: email.toLowerCase() } });
+
+      if (lead) {
+        const emailSend = await prisma.emailSend.findFirst({
+          where: { campaignId, leadId: lead.id },
+          orderBy: { createdAt: "desc" },
+        });
+
+        // Update CampaignLead status and stop sending
+        await prisma.campaignLead.updateMany({
+          where: { campaignId, leadId: lead.id },
+          data: { 
+            status: "BOUNCED",
+            isStopped: true,
+            stoppedAt: new Date(),
+            stoppedReason: "BOUNCED",
+          },
+        });
+
+        if (emailSend) {
+          // Update EmailSend status
+          await prisma.emailSend.update({
+            where: { id: emailSend.id },
+            data: { status: "BOUNCED" },
+          });
+
+          // Create the event
+          await prisma.emailEvent.create({
+            data: { type: "BOUNCED", emailSendId: emailSend.id, leadId: lead.id },
+          });
+        }
+      }
+
       await incrementCampaignCount(campaignId, AnalyticsCountType.BOUNCED_COUNT);
       await checkBounceRateProtection(campaignId);
     }

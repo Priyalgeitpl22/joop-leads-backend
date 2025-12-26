@@ -11,6 +11,30 @@ const isTokenExpired = (expiryDate?: number): boolean => {
   return expiryDate ? Date.now() >= expiryDate : true;
 };
 
+/**
+ * Replace all links in HTML with click tracking URLs
+ * Preserves mailto: and tel: links
+ */
+const replaceLinksWithTracking = (
+  html: string,
+  baseUrl: string,
+  trackingId: string
+): string => {
+  // Regex to match href attributes with http/https URLs
+  const linkRegex = /href=["'](https?:\/\/[^"']+)["']/gi;
+
+  return html.replace(linkRegex, (match, url) => {
+    // Skip if it's already a tracking URL
+    if (url.includes("/track/click/") || url.includes("/track/unsubscribe/")) {
+      return match;
+    }
+
+    const encodedUrl = encodeURIComponent(url);
+    const trackingUrl = `${baseUrl}/track/click/${trackingId}?url=${encodedUrl}`;
+    return `href="${trackingUrl}"`;
+  });
+};
+
 const refreshGoogleOAuthToken = async (account: SenderAccount): Promise<string> => {
   console.log("[sendMail] refreshGoogleOAuthToken called for:", account.email);
 
@@ -109,7 +133,9 @@ const sendEmailFromGoogle = async (
   body: string,
   isPlainText: boolean,
   trackClicks: boolean,
-  trackOpens: boolean
+  trackOpens: boolean,
+  includeUnsubscribeLink: boolean,
+  unsubscribeText: string
 ): Promise<{ id: string; threadId: string }> => {
   console.log("[sendMail] sendEmailFromGoogle called:", { toEmail, fromEmail, subject: subject.substring(0, 50) });
 
@@ -136,6 +162,19 @@ const sendEmailFromGoogle = async (
     emailContent = stripHtmlTags(body);
     contentType = `text/plain; charset="UTF-8"`;
   } else {
+    // Replace links with click tracking URLs if enabled
+    let processedBody = body;
+    if (trackClicks) {
+      processedBody = replaceLinksWithTracking(body, baseUrl, trackingId);
+    }
+
+    // Add unsubscribe link if enabled
+    const unsubscribeHtml = includeUnsubscribeLink
+      ? `<div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; text-align: center;">
+          <a href="${baseUrl}/track/unsubscribe/${trackingId}" style="color: #666;">${unsubscribeText}</a>
+        </div>`
+      : "";
+
     // Add tracking pixel if enabled
     const trackingPixel = trackOpens
       ? `<img src="${baseUrl}/track/open/${trackingId}" width="1" height="1" style="display:none;" />`
@@ -144,7 +183,8 @@ const sendEmailFromGoogle = async (
     emailContent = `
       <html>
         <body>
-          ${body}
+          ${processedBody}
+          ${unsubscribeHtml}
           ${trackingPixel}
         </body>
       </html>
@@ -209,7 +249,9 @@ const sendEmailFromMicrosoft = async (
   body: string,
   isPlainText: boolean,
   trackClicks: boolean,
-  trackOpens: boolean
+  trackOpens: boolean,
+  includeUnsubscribeLink: boolean,
+  unsubscribeText: string
 ): Promise<{ id: string }> => {
   console.log("[sendMail] sendEmailFromMicrosoft called:", { toEmail, subject: subject.substring(0, 50) });
 
@@ -236,6 +278,19 @@ const sendEmailFromMicrosoft = async (
     emailContent = stripHtmlTags(body);
     contentType = "Text";
   } else {
+    // Replace links with click tracking URLs if enabled
+    let processedBody = body;
+    if (trackClicks) {
+      processedBody = replaceLinksWithTracking(body, baseUrl, trackingId);
+    }
+
+    // Add unsubscribe link if enabled
+    const unsubscribeHtml = includeUnsubscribeLink
+      ? `<div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; text-align: center;">
+          <a href="${baseUrl}/track/unsubscribe/${trackingId}" style="color: #666;">${unsubscribeText}</a>
+        </div>`
+      : "";
+
     // Add tracking pixel if enabled
     const trackingPixel = trackOpens
       ? `<img src="${baseUrl}/track/open/${trackingId}" width="1" height="1" style="display:none;" />`
@@ -244,7 +299,8 @@ const sendEmailFromMicrosoft = async (
     emailContent = `
       <html>
         <body>
-          ${body}
+          ${processedBody}
+          ${unsubscribeHtml}
           ${trackingPixel}
         </body>
       </html>
@@ -301,7 +357,9 @@ const sendEmailWithSMTP = async (
   body: string,
   isPlainText: boolean,
   trackClicks: boolean,
-  trackOpens: boolean
+  trackOpens: boolean,
+  includeUnsubscribeLink: boolean,
+  unsubscribeText: string
 ): Promise<{ id: string; messageId: string }> => {
   console.log("[sendMail] sendEmailWithSMTP called:", { toEmail, subject: subject.substring(0, 50) });
 
@@ -334,6 +392,19 @@ const sendEmailWithSMTP = async (
     const stripHtmlTags = (html: string): string => html.replace(/<\/?[^>]+(>|$)/g, "");
     emailContent = stripHtmlTags(body);
   } else {
+    // Replace links with click tracking URLs if enabled
+    let processedBody = body;
+    if (trackClicks) {
+      processedBody = replaceLinksWithTracking(body, baseUrl, trackingId);
+    }
+
+    // Add unsubscribe link if enabled
+    const unsubscribeHtml = includeUnsubscribeLink
+      ? `<div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #666; text-align: center;">
+          <a href="${baseUrl}/track/unsubscribe/${trackingId}" style="color: #666;">${unsubscribeText}</a>
+        </div>`
+      : "";
+
     // Add tracking pixel if enabled
     const trackingPixel = trackOpens
       ? `<img src="${baseUrl}/track/open/${trackingId}" width="1" height="1" style="display:none;" />`
@@ -342,7 +413,8 @@ const sendEmailWithSMTP = async (
     emailContent = `
       <html>
         <body>
-          ${body}
+          ${processedBody}
+          ${unsubscribeHtml}
           ${trackingPixel}
         </body>
       </html>
@@ -392,7 +464,9 @@ export const sendEmail = async (
   body: string,
   isPlainText: boolean,
   trackClicks: boolean,
-  trackOpens: boolean
+  trackOpens: boolean,
+  includeUnsubscribeLink: boolean = true,
+  unsubscribeText: string = "Unsubscribe"
 ): Promise<{ id: string; messageId?: string }> => {
   console.log("[sendMail] sendEmail called:", {
     campaignId,
@@ -400,6 +474,7 @@ export const sendEmail = async (
     toEmail,
     provider: account.provider,
     subject: subject.substring(0, 50),
+    includeUnsubscribeLink,
   });
 
   try {
@@ -415,19 +490,22 @@ export const sendEmail = async (
       case "gmail":
         return await sendEmailFromGoogle(
           campaignId, leadId, account, fromName, account.email,
-          toEmail, subject, body, isPlainText, trackClicks, trackOpens
+          toEmail, subject, body, isPlainText, trackClicks, trackOpens,
+          includeUnsubscribeLink, unsubscribeText
         );
 
       case "outlook":
         return await sendEmailFromMicrosoft(
           campaignId, leadId, account, fromName, toEmail, subject, body,
-          isPlainText, trackClicks, trackOpens
+          isPlainText, trackClicks, trackOpens,
+          includeUnsubscribeLink, unsubscribeText
         );
 
       case "smtp":
         return await sendEmailWithSMTP(
           campaignId, leadId, account, fromName, toEmail, subject, body,
-          isPlainText, trackClicks, trackOpens
+          isPlainText, trackClicks, trackOpens,
+          includeUnsubscribeLink, unsubscribeText
         )
       default:
         throw new Error(`Invalid email provider type: ${account.provider}`);

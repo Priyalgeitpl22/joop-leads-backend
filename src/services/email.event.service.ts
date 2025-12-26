@@ -64,12 +64,15 @@ export class EmailEventService {
     const { campaignId, leadId, emailSendId } = options;
     console.log(`[EmailEventService] trackSent - campaignId: ${campaignId}, leadId: ${leadId}`);
 
-    // Update CampaignLead lastSentAt
+    // Update CampaignLead lastSentAt and status
     const updateResult = await prisma.campaignLead.updateMany({
       where: { campaignId, leadId },
-      data: { lastSentAt: new Date() },
+      data: { 
+        lastSentAt: new Date(),
+        status: "SENT",
+      },
     });
-    console.log(`[EmailEventService] Updated CampaignLead lastSentAt, count: ${updateResult.count}`);
+    console.log(`[EmailEventService] Updated CampaignLead lastSentAt and status to SENT, count: ${updateResult.count}`);
 
     // Increment campaign analytics
     await this.incrementAnalytics(campaignId, "sentCount");
@@ -116,12 +119,24 @@ export class EmailEventService {
       console.log(`[EmailEventService] isFirstOpen: ${isFirstOpen}`);
     }
 
-    // Update CampaignLead lastOpenedAt
+    // Update CampaignLead lastOpenedAt and status
     const updateResult = await prisma.campaignLead.updateMany({
       where: { campaignId, leadId },
-      data: { lastOpenedAt: new Date() },
+      data: { 
+        lastOpenedAt: new Date(),
+        status: "OPENED",
+      },
     });
-    console.log(`[EmailEventService] Updated CampaignLead lastOpenedAt, count: ${updateResult.count}`);
+    console.log(`[EmailEventService] Updated CampaignLead lastOpenedAt and status to OPENED, count: ${updateResult.count}`);
+
+    // Update EmailSend status to OPENED (only on first open)
+    if (emailSendId && isFirstOpen) {
+      await prisma.emailSend.update({
+        where: { id: emailSendId },
+        data: { status: "OPENED" },
+      });
+      console.log(`[EmailEventService] Updated EmailSend status to OPENED`);
+    }
 
     // Increment campaign analytics only on first open
     if (isFirstOpen) {
@@ -162,15 +177,42 @@ export class EmailEventService {
     const { campaignId, leadId, emailSendId, linkUrl, ipAddress, userAgent, city, country } = options;
     console.log(`[EmailEventService] trackClicked - campaignId: ${campaignId}, leadId: ${leadId}, linkUrl: ${linkUrl}`);
 
-    // Update CampaignLead lastClickedAt
+    // Check if this is the first click for this email (to only count once per email)
+    let isFirstClick = false;
+    if (emailSendId) {
+      const existingClickEvent = await prisma.emailEvent.findFirst({
+        where: { emailSendId, type: "CLICKED" },
+      });
+      isFirstClick = !existingClickEvent;
+      console.log(`[EmailEventService] isFirstClick: ${isFirstClick}`);
+    }
+
+    // Update CampaignLead lastClickedAt and status
     const updateResult = await prisma.campaignLead.updateMany({
       where: { campaignId, leadId },
-      data: { lastClickedAt: new Date() },
+      data: { 
+        lastClickedAt: new Date(),
+        status: "CLICKED",
+      },
     });
-    console.log(`[EmailEventService] Updated CampaignLead lastClickedAt, count: ${updateResult.count}`);
+    console.log(`[EmailEventService] Updated CampaignLead lastClickedAt and status to CLICKED, count: ${updateResult.count}`);
 
-    // Increment campaign analytics
-    await this.incrementAnalytics(campaignId, "clickedCount");
+    // Update EmailSend status to CLICKED (only on first click)
+    if (emailSendId && isFirstClick) {
+      await prisma.emailSend.update({
+        where: { id: emailSendId },
+        data: { status: "CLICKED" },
+      });
+      console.log(`[EmailEventService] Updated EmailSend status to CLICKED`);
+    }
+
+    // Increment campaign analytics only on first click
+    if (isFirstClick) {
+      await this.incrementAnalytics(campaignId, "clickedCount");
+      console.log(`[EmailEventService] Incremented clickedCount (first click)`);
+    } else {
+      console.log(`[EmailEventService] Skipped incrementing clickedCount (already clicked)`);
+    }
 
     // Create event
     if (emailSendId) {
@@ -194,7 +236,7 @@ export class EmailEventService {
     // Check if should stop sending based on campaign settings
     await this.checkStopSending(campaignId, leadId, "CLICK");
 
-    return { success: true, event: "CLICKED" };
+    return { success: true, event: "CLICKED", isFirstClick };
   }
 
   /**
@@ -204,15 +246,31 @@ export class EmailEventService {
     const { campaignId, leadId, emailSendId, isPositive = false } = options;
     console.log(`[EmailEventService] trackReplied - campaignId: ${campaignId}, leadId: ${leadId}, isPositive: ${isPositive}`);
 
-    // Update CampaignLead lastRepliedAt
+    // Update CampaignLead lastRepliedAt and status
+    const newStatus = isPositive ? "POSITIVE_REPLY" : "REPLIED";
     const updateResult = await prisma.campaignLead.updateMany({
       where: { campaignId, leadId },
-      data: { lastRepliedAt: new Date() },
+      data: { 
+        lastRepliedAt: new Date(),
+        status: newStatus,
+      },
     });
-    console.log(`[EmailEventService] Updated CampaignLead lastRepliedAt, count: ${updateResult.count}`);
+    console.log(`[EmailEventService] Updated CampaignLead lastRepliedAt and status to ${newStatus}, count: ${updateResult.count}`);
+
+    // Update EmailSend status to REPLIED
+    if (emailSendId) {
+      await prisma.emailSend.update({
+        where: { id: emailSendId },
+        data: { status: "REPLIED" },
+      });
+      console.log(`[EmailEventService] Updated EmailSend status to REPLIED`);
+    }
 
     // Increment campaign analytics
     await this.incrementAnalytics(campaignId, "repliedCount");
+    if (isPositive) {
+      await this.incrementAnalytics(campaignId, "positiveReplyCount");
+    }
 
     // Create event
     if (emailSendId) {
@@ -240,6 +298,20 @@ export class EmailEventService {
    */
   static async trackBounced(options: TrackEventOptions & { isSenderBounce?: boolean }) {
     const { campaignId, leadId, emailSendId, isSenderBounce = false } = options;
+    console.log(`[EmailEventService] trackBounced - campaignId: ${campaignId}, leadId: ${leadId}, isSenderBounce: ${isSenderBounce}`);
+
+    // Update CampaignLead status
+    const newStatus = isSenderBounce ? "SENDER_BOUNCED" : "BOUNCED";
+    await prisma.campaignLead.updateMany({
+      where: { campaignId, leadId },
+      data: { 
+        status: newStatus,
+        isStopped: true,
+        stoppedAt: new Date(),
+        stoppedReason: newStatus,
+      },
+    });
+    console.log(`[EmailEventService] Updated CampaignLead status to ${newStatus} and stopped sending`);
 
     // Increment campaign analytics
     await this.incrementAnalytics(campaignId, "bouncedCount");
@@ -253,6 +325,7 @@ export class EmailEventService {
           leadId,
         },
       });
+      console.log(`[EmailEventService] Created ${newStatus} event`);
     }
 
     // Update email send status
@@ -261,6 +334,7 @@ export class EmailEventService {
         where: { id: emailSendId },
         data: { status: "BOUNCED" },
       });
+      console.log(`[EmailEventService] Updated EmailSend status to BOUNCED`);
     }
 
     // Check bounce rate protection
@@ -274,6 +348,28 @@ export class EmailEventService {
    */
   static async trackUnsubscribed(options: TrackEventOptions) {
     const { campaignId, leadId, emailSendId } = options;
+    console.log(`[EmailEventService] trackUnsubscribed - campaignId: ${campaignId}, leadId: ${leadId}`);
+
+    // Update CampaignLead status and stop sending
+    await prisma.campaignLead.updateMany({
+      where: { campaignId, leadId },
+      data: {
+        status: "UNSUBSCRIBED",
+        isStopped: true,
+        stoppedAt: new Date(),
+        stoppedReason: "UNSUBSCRIBED",
+      },
+    });
+    console.log(`[EmailEventService] Updated CampaignLead status to UNSUBSCRIBED and stopped sending`);
+
+    // Update EmailSend status to STOPPED
+    if (emailSendId) {
+      await prisma.emailSend.update({
+        where: { id: emailSendId },
+        data: { status: "STOPPED" },
+      });
+      console.log(`[EmailEventService] Updated EmailSend status to STOPPED`);
+    }
 
     // Increment campaign analytics
     await this.incrementAnalytics(campaignId, "unsubscribedCount");
@@ -287,17 +383,18 @@ export class EmailEventService {
           leadId,
         },
       });
+      console.log(`[EmailEventService] Created UNSUBSCRIBED event`);
     }
 
-    // Stop sending to this lead
-    await prisma.campaignLead.updateMany({
-      where: { campaignId, leadId },
+    // Also mark lead as unsubscribed globally
+    await prisma.lead.update({
+      where: { id: leadId },
       data: {
-        isStopped: true,
-        stoppedAt: new Date(),
-        stoppedReason: "UNSUBSCRIBED",
+        isUnsubscribed: true,
+        unsubscribedAt: new Date(),
       },
     });
+    console.log(`[EmailEventService] Marked lead as globally unsubscribed`);
 
     return { success: true, event: "UNSUBSCRIBED" };
   }

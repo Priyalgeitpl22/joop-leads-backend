@@ -56,7 +56,9 @@ export async function processAndSendEmail(emailSendId: string): Promise<SendResu
     body,
     campaign.sendAsPlainText || false,
     campaign.trackClicks ?? true,
-    campaign.trackOpens ?? true
+    campaign.trackOpens ?? true,
+    campaign.includeUnsubscribeLink ?? true,
+    campaign.unsubscribeText || "Unsubscribe"
   );
 
   console.log(`[EmailSender] Email sent - messageId: ${result?.id}, threadId: ${result?.threadId}`);
