@@ -201,11 +201,15 @@ const sendEmailFromGoogle = async (
 
 const sendEmailFromMicrosoft = async (
   campaignId: string,
+  leadId: string,
   account: SenderAccount,
   fromName: string,
   toEmail: string,
   subject: string,
-  body: string
+  body: string,
+  isPlainText: boolean,
+  trackClicks: boolean,
+  trackOpens: boolean
 ): Promise<{ id: string }> => {
   console.log("[sendMail] sendEmailFromMicrosoft called:", { toEmail, subject: subject.substring(0, 50) });
 
@@ -220,10 +224,38 @@ const sendEmailFromMicrosoft = async (
     access_token = response.access_token;
   }
 
+  // Build email content with tracking
+  const baseUrl = process.env.SERVER_URL || "http://localhost:5003/api";
+  const trackingId = `${campaignId}_${leadId}`;
+
+  let emailContent: string;
+  let contentType: "Text" | "HTML";
+
+  if (isPlainText) {
+    const stripHtmlTags = (html: string): string => html.replace(/<\/?[^>]+(>|$)/g, "");
+    emailContent = stripHtmlTags(body);
+    contentType = "Text";
+  } else {
+    // Add tracking pixel if enabled
+    const trackingPixel = trackOpens
+      ? `<img src="${baseUrl}/track/open/${trackingId}" width="1" height="1" style="display:none;" />`
+      : "";
+
+    emailContent = `
+      <html>
+        <body>
+          ${body}
+          ${trackingPixel}
+        </body>
+      </html>
+    `;
+    contentType = "HTML";
+  }
+
   const emailData = {
     message: {
       subject,
-      body: { contentType: "HTML", content: body },
+      body: { contentType, content: emailContent },
       toRecipients: [{ emailAddress: { address: toEmail } }],
     },
     saveToSentItems: true,
@@ -261,11 +293,15 @@ const sendEmailFromMicrosoft = async (
 
 const sendEmailWithSMTP = async (
   campaignId: string,
+  leadId: string,
   account: SenderAccount,
   fromName: string,
   toEmail: string,
   subject: string,
-  body: string
+  body: string,
+  isPlainText: boolean,
+  trackClicks: boolean,
+  trackOpens: boolean
 ): Promise<{ id: string; messageId: string }> => {
   console.log("[sendMail] sendEmailWithSMTP called:", { toEmail, subject: subject.substring(0, 50) });
 
@@ -288,15 +324,47 @@ const sendEmailWithSMTP = async (
     },
   });
 
+  // Build email content with tracking
+  const baseUrl = process.env.SERVER_URL || "http://localhost:5003/api";
+  const trackingId = `${campaignId}_${leadId}`;
+
+  let emailContent: string;
+
+  if (isPlainText) {
+    const stripHtmlTags = (html: string): string => html.replace(/<\/?[^>]+(>|$)/g, "");
+    emailContent = stripHtmlTags(body);
+  } else {
+    // Add tracking pixel if enabled
+    const trackingPixel = trackOpens
+      ? `<img src="${baseUrl}/track/open/${trackingId}" width="1" height="1" style="display:none;" />`
+      : "";
+
+    emailContent = `
+      <html>
+        <body>
+          ${body}
+          ${trackingPixel}
+        </body>
+      </html>
+    `;
+  }
+
   try {
     console.log("[sendMail] 📧 Sending email via SMTP...");
 
-    const info = await transporter.sendMail({
+    const mailOptions: any = {
       from: `${fromName} <${account.smtpUser}>`,
       to: toEmail,
       subject,
-      html: body,
-    });
+    };
+
+    if (isPlainText) {
+      mailOptions.text = emailContent;
+    } else {
+      mailOptions.html = emailContent;
+    }
+
+    const info = await transporter.sendMail(mailOptions);
 
     console.log("[sendMail] ✅ SMTP Email Sent to", toEmail, "MessageId:", info.messageId);
     incrementCampaignCount(campaignId, AnalyticsCountType.SENT_COUNT);
@@ -352,12 +420,14 @@ export const sendEmail = async (
 
       case "outlook":
         return await sendEmailFromMicrosoft(
-          campaignId, account, fromName, toEmail, subject, body
+          campaignId, leadId, account, fromName, toEmail, subject, body,
+          isPlainText, trackClicks, trackOpens
         );
 
       case "smtp":
         return await sendEmailWithSMTP(
-          campaignId, account, fromName, toEmail, subject, body
+          campaignId, leadId, account, fromName, toEmail, subject, body,
+          isPlainText, trackClicks, trackOpens
         )
       default:
         throw new Error(`Invalid email provider type: ${account.provider}`);
