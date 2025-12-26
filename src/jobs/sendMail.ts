@@ -276,10 +276,12 @@ const sendEmailWithSMTP = async (
     throw new Error("Recipient email is required!");
   }
 
+  const isSecure = account.smtpSecure ?? (account.smtpPort === 465);
+
   const transporter = nodemailer.createTransport({
     host: account.smtpHost,
     port: account.smtpPort,
-    secure: account.smtpUser ? true : false,
+    secure: isSecure,
     auth: {
       user: account.smtpUser,
       pass: account.smtpPass
