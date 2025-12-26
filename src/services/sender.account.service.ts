@@ -148,13 +148,13 @@ export class SenderAccountService {
                 smtpPort: data.smtp?.port ? data.smtp?.port : null,
                 smtpUser: data.smtp?.auth?.user ? data.smtp?.auth?.user : null,
                 smtpPass: data.smtp?.auth?.pass ? data.smtp?.auth?.pass : null,
-                smtpSecure: data.smtp?.secure ? data.smtp?.secure : null,
+                smtpSecure: data.smtp?.secure ?? false,
 
                 imapHost: data.imap?.host ? data.imap?.host : null,
                 imapPort: data.imap?.port ? data.imap?.port : null,
                 imapUser: data.imap?.auth?.user ? data.imap?.auth?.user : null,
                 imapPass: data.imap?.auth?.pass ? data.imap?.auth?.pass : null,
-                imapSecure: data.imap?.secure ? data.imap?.secure : null,
+                imapSecure: data.imap?.secure ?? false,
 
                 isEnabled: true,
                 accessToken: data?.oauth2?.tokens?.access_token ? data?.oauth2?.tokens?.access_token : null,
