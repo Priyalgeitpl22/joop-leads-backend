@@ -8,7 +8,7 @@ export type CampaignStatus = "DRAFT" | "SCHEDULED" | "ACTIVE" | "PAUSED" | "COMP
 
 export type LeadStatus = "PENDING" | "QUEUED" | "SENT" | "OPENED" | "CLICKED" | "REPLIED" | "BOUNCED" | "UNSUBSCRIBED" | "FAILED";
 
-export type EmailSendStatus = "QUEUED" | "SENDING" | "SENT" | "FAILED" | "BOUNCED";
+export type EmailSendStatus = "QUEUED" | "SENDING" | "SENT" | "FAILED" | "BOUNCED" | "REPLIED" | "OPENED" | "CLICKED" | "STOPPED";
 
 export type SequenceType = "EMAIL" | "WAIT" | "MANUAL_TASK";
 

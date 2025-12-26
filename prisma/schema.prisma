@@ -56,6 +56,10 @@ enum EmailSendStatus {
   SENT
   FAILED
   BOUNCED
+  OPENED
+  CLICKED
+  REPLIED
+  STOPPED
 }
 
 enum SequenceType {

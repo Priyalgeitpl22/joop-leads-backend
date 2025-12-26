@@ -26,22 +26,22 @@ new Worker(
 
     try {
       // Send the email using the emailSender service
-      const providerMsgId = await processAndSendEmail(emailSendId);
+      const result = await processAndSendEmail(emailSendId);
 
-      // Update status to SENT
+      // Update status to SENT with proper threadId
       await prisma.emailSend.update({
         where: { id: emailSendId },
         data: { 
           status: "SENT", 
-          providerMsgId: providerMsgId || undefined,
-          threadId: providerMsgId || undefined,
+          providerMsgId: result.messageId || undefined,
+          threadId: result.threadId || undefined,
           sentAt: new Date(),
           attempts: { increment: 1 },
           lastAttemptAt: new Date(),
         },
       });
 
-      console.log(`[Worker] ✅ Email sent successfully: ${emailSendId}`);
+      console.log(`[Worker] ✅ Email sent successfully: ${emailSendId}, threadId: ${result.threadId}`);
 
     } catch (err: any) {
       console.error(`[Worker] ❌ Email failed: ${emailSendId}`, err.message);

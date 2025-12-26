@@ -4,11 +4,11 @@ import { verify } from "../middlewares/authMiddleware";
 
 const router = Router();
 
-router.get("/", verify, getAuthUser);
-router.get("/all", verify, getAllUsers);
-router.get("/:id", verify, getUserById);
-router.post("/", verify, createUser);
-router.put("/:id", verify, updateUser);
-router.delete("/:id", verify, deleteUser);
+router.get("/all", getAllUsers);
+router.get("/", getAuthUser);
+router.get("/:id", getUserById);
+router.post("/", createUser);
+router.put("/:id", updateUser);
+router.delete("/:id", deleteUser);
 
 export default router;

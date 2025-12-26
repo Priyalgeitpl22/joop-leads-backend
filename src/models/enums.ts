@@ -39,6 +39,10 @@ export enum EmailSendStatus {
   FAILED = "FAILED",
   BOUNCED = "BOUNCED",
   SENDER_BOUNCED = "SENDER_BOUNCED",
+  REPLIED = "REPLIED",
+  OPENED = "OPENED",
+  CLICKED = "CLICKED",
+  STOPPED = "STOPPED",
 }
 
 export enum SequenceType {

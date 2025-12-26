@@ -3,12 +3,17 @@ import { sendEmail } from "../jobs/sendMail";
 
 const prisma = new PrismaClient();
 
+export interface SendResult {
+  messageId: string | null;
+  threadId: string | null;
+}
+
 /**
  * Process and send an email for a given EmailSend record
  * @param emailSendId - The EmailSend record ID
- * @returns The provider message ID or null
+ * @returns The provider message ID and thread ID
  */
-export async function processAndSendEmail(emailSendId: string): Promise<string | null> {
+export async function processAndSendEmail(emailSendId: string): Promise<SendResult> {
   // 1. Fetch EmailSend with all related data
   const emailSend = await prisma.emailSend.findUnique({
     where: { id: emailSendId },
@@ -54,8 +59,13 @@ export async function processAndSendEmail(emailSendId: string): Promise<string |
     campaign.trackOpens ?? true
   );
 
-  // Return the message ID from the provider
-  return result?.id || result?.messageId || null;
+  console.log(`[EmailSender] Email sent - messageId: ${result?.id}, threadId: ${result?.threadId}`);
+
+  // Return both message ID and thread ID from the provider
+  return {
+    messageId: result?.id || result?.messageId || null,
+    threadId: result?.threadId || null,
+  };
 }
 
 /**
