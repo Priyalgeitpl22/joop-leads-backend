@@ -8,7 +8,7 @@ const router = Router();
 router.get("/dashboard", verify, getDashboardData);
 
 // Leads
-router.post("/add-leads", verify, addLeadsToCampaign);
+router.post("/leads", verify, addLeadsToCampaign);
 
 // Sequences
 router.post("/sequences", verify, addSequenceToCampaign);
