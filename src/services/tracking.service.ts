@@ -2,15 +2,16 @@ import { PrismaClient } from "@prisma/client";
 import path from "path";
 import fs from "fs";
 import { StopSending } from "../interfaces";
+import { AnalyticsCountType } from "../enums";
 
 const prisma = new PrismaClient();
 
 async function incrementCampaignCount(campaignId: string, type: string) {
   const fieldMap: Record<string, string> = {
-    opened_count: "openedCount",
-    clicked_count: "clickedCount",
-    replied_count: "repliedCount",
-    bounced_count: "bouncedCount",
+    openedCount: "openedCount",
+    clickedCount: "clickedCount",
+    repliedCount: "repliedCount",
+    bouncedCount: "bouncedCount",
   };
 
   const field = fieldMap[type];
@@ -105,7 +106,7 @@ async function stopSendingToLead(campaignId: string, email: string, reason: Stop
 
 export class TrackingService {
   static async trackEvent(trackingId: string, type: string, redirect?: string) {
-    const validTypes = ["opened_count", "clicked_count", "replied_count", "positive_reply_count", "bounced_count"];
+    const validTypes = ["openedCount", "clickedCount", "repliedCount", "positiveReplyCount", "bouncedCount"];
 
     if (!validTypes.includes(type)) {
       return { code: 400, message: `Invalid tracking type: ${type}` };
@@ -113,7 +114,7 @@ export class TrackingService {
 
     const [campaignId, email] = trackingId.split("_");
 
-    if (type === "opened_count") {
+    if (type === "openedCount") {
       const lead = await prisma.lead.findFirst({ where: { email: email.toLowerCase() } });
 
       if (lead) {
@@ -129,7 +130,7 @@ export class TrackingService {
         }
       }
 
-      await incrementCampaignCount(campaignId, "opened_count");
+      await incrementCampaignCount(campaignId, AnalyticsCountType.OPENED_COUNT);
       await stopSendingToLead(campaignId, email, "OPEN");
 
       const imagePath = path.join(__dirname, "../controllers/transparent.png");
@@ -139,7 +140,7 @@ export class TrackingService {
       return { code: 404, message: "Tracking image not found" };
     }
 
-    if (type === "clicked_count" && redirect) {
+    if (type === "clickedCount" && redirect) {
       const lead = await prisma.lead.findFirst({ where: { email: email.toLowerCase() } });
 
       if (lead) {
@@ -155,13 +156,13 @@ export class TrackingService {
         }
       }
 
-      await incrementCampaignCount(campaignId, "clicked_count");
+      await incrementCampaignCount(campaignId, AnalyticsCountType.CLICKED_COUNT);
       await stopSendingToLead(campaignId, email, "CLICK");
 
       return { code: 302, type: "redirect", redirectUrl: redirect };
     }
 
-    if (type === "replied_count") {
+    if (type === "repliedCount") {
       const lead = await prisma.lead.findFirst({ where: { email: email.toLowerCase() } });
 
       if (lead) {
@@ -177,12 +178,12 @@ export class TrackingService {
         }
       }
 
-      await incrementCampaignCount(campaignId, "replied_count");
+      await incrementCampaignCount(campaignId, AnalyticsCountType.REPLIED_COUNT);
       await stopSendingToLead(campaignId, email, "REPLY");
     }
 
-    if (type === "bounced_count") {
-      await incrementCampaignCount(campaignId, "bounced_count");
+    if (type === "bouncedCount") {
+      await incrementCampaignCount(campaignId, AnalyticsCountType.BOUNCED_COUNT);
       await checkBounceRateProtection(campaignId);
     }
 

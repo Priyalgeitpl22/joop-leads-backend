@@ -193,7 +193,7 @@ const sendEmailFromGoogle = async (
     });
 
     // Update bounce count
-    incrementCampaignCount(campaignId, "bounced_count");
+    incrementCampaignCount(campaignId, AnalyticsCountType.BOUNCED_COUNT);
 
     throw new Error(`Failed to send email via Google: ${error.response?.data?.error?.message || error.message}`);
   }
@@ -254,7 +254,7 @@ const sendEmailFromMicrosoft = async (
       status: error.response?.status,
     });
 
-    incrementCampaignCount(campaignId, "bounced_count");
+    incrementCampaignCount(campaignId, AnalyticsCountType.BOUNCED_COUNT);
     throw new Error(`Failed to send email via Microsoft: ${error.response?.data?.error?.message || error.message}`);
   }
 };
@@ -307,7 +307,7 @@ const sendEmailWithSMTP = async (
       code: error.code,
     });
 
-    incrementCampaignCount(campaignId, "bounced_count");
+    incrementCampaignCount(campaignId, AnalyticsCountType.BOUNCED_COUNT);
     throw new Error(`Failed to send email via SMTP: ${error.message}`);
   }
 };

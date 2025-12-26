@@ -26,11 +26,11 @@ export interface OrgAnalytics {
 }
 
 const VALID_COUNT_TYPES = [
-  "opened_count",
-  "clicked_count",
-  "replied_count",
-  "positive_reply_count",
-  "bounced_count",
+  "openedCount",
+  "clickedCount",
+  "repliedCount",
+  "positiveReplyCount",
+  "bouncedCount",
 ];
 
 const isValidCountType = (countType: string): boolean => {
