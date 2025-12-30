@@ -24,6 +24,10 @@ export type StopSending = "CLICK" | "OPEN" | "REPLY";
 
 export type TriggerStatus = "SUCCESS" | "PARTIAL" | "SKIPPED" | "NO_PENDING" | "OUTSIDE_SCHEDULE" | "DAILY_LIMIT" | "ERROR";
 
+export type BatchStatus = "PENDING" | "UPLOADING" | "PROCESSING" | "COMPLETED" | "FAILED";
+
+export type EmailStatus = "SAFE" | "INVALID" | "DISABLED" | "DISPOSABLE" | "INBOX_FULL" | "CATCH_ALL" | "ROLE_ACCOUNT" | "SPAMTRAP" | "UNKNOWN";
+
 export interface Organization {
   id: string;
   name: string;
@@ -46,6 +50,7 @@ export interface Organization {
   leads?: Lead[];
   plans?: OrganizationPlan[];
   apiKeys?: ApiKey[];
+  emailVerificationBatches?: EmailVerificationBatch[];
 }
 
 export interface User {
@@ -72,6 +77,7 @@ export interface User {
   organization?: Organization;
   leadsUploaded?: Lead[];
   campaigns?: Campaign[];
+  emailVerificationBatches?: EmailVerificationBatch[];
 }
 
 export interface AccessToken {
@@ -407,6 +413,49 @@ export interface OrganizationPlan {
   updatedAt: Date;
   organization?: Organization;
   plan?: Plan;
+}
+
+export interface EmailVerificationBatch {
+  id: string;
+  name: string;
+  fileName: string;
+  totalEmails: number;
+  verifiedCount: number;
+  status: BatchStatus;
+  reoonTaskId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  orgId: string;
+  organization?: Organization;
+  uploadedById: string;
+  uploadedBy?: User;
+  emails?: VerifiedEmail[];
+}
+
+export interface VerifiedEmail {
+  id: string;
+  batchId: string;
+  email: string;
+  status: EmailStatus | null;
+  verificationResult: JsonValue | null;
+  username: string | null;
+  domain: string | null;
+  isSafeToSend: boolean | null;
+  isValidSyntax: boolean | null;
+  isDisposable: boolean | null;
+  isRoleAccount: boolean | null;
+  canConnectSmtp: boolean | null;
+  hasInboxFull: boolean | null;
+  isCatchAll: boolean | null;
+  isDeliverable: boolean | null;
+  isDisabled: boolean | null;
+  isSpamtrap: boolean | null;
+  mxAcceptsMail: boolean | null;
+  mxRecords: string[];
+  verificationMode: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  batch?: EmailVerificationBatch;
 }
 
 type JsonValue = string | number | boolean | { [key in string]?: JsonValue } | Array<JsonValue> | null;

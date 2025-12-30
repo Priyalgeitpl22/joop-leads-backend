@@ -144,7 +144,7 @@ model Organization {
   leads          Lead[]
   plans          OrganizationPlan[]
   apiKeys        ApiKey[]
-
+  emailVerificationBatches EmailVerificationBatch[]
   @@index([domain])
 }
 
@@ -178,7 +178,7 @@ model User {
 
   leadsUploaded Lead[]     @relation("UploadedByUser")
   campaigns     Campaign[] @relation("CreatedByUser")
-
+  emailVerificationBatches EmailVerificationBatch[]
   @@index([orgId])
   @@index([email])
 }
@@ -726,4 +726,79 @@ model OrganizationPlan {
 
   @@unique([orgId, isActive]) // Only one active plan per org
   @@index([orgId])
+}
+
+model EmailVerificationBatch {
+  id            String   @id @default(uuid())
+  name          String
+  fileName      String
+  totalEmails   Int
+  verifiedCount Int      @default(0)
+  status        BatchStatus @default(PENDING)
+  reoonTaskId   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  orgId         String
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  uploadedById  String
+  uploadedBy    User @relation(fields: [uploadedById], references: [id])
+  
+  emails        VerifiedEmail[]
+  
+  @@index([orgId])
+  @@index([uploadedById])
+  @@map("email_verification_batches")
+}
+
+model VerifiedEmail {
+  id                  String   @id @default(uuid())
+  batchId             String
+  email               String
+  status              EmailStatus?
+  verificationResult  Json?
+  username            String?
+  domain              String?
+  isSafeToSend        Boolean?
+  isValidSyntax       Boolean?
+  isDisposable        Boolean?
+  isRoleAccount       Boolean?
+  canConnectSmtp      Boolean?
+  hasInboxFull        Boolean?
+  isCatchAll          Boolean?
+  isDeliverable       Boolean?
+  isDisabled          Boolean?
+  isSpamtrap          Boolean?
+  mxAcceptsMail       Boolean?
+  mxRecords           String[]
+  verificationMode    String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  batch               EmailVerificationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  
+  @@index([batchId])
+  @@index([email])
+  @@index([status])
+  @@map("verified_emails")
+}
+
+enum BatchStatus {
+  PENDING
+  UPLOADING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum EmailStatus {
+  SAFE
+  INVALID
+  DISABLED
+  DISPOSABLE
+  INBOX_FULL
+  CATCH_ALL
+  ROLE_ACCOUNT
+  SPAMTRAP
+  UNKNOWN
 }
