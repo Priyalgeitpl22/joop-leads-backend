@@ -12,7 +12,9 @@ import senderAccountRoutes from "./sender.account.routes";
 import triggerLogRoutes from "./trigger.log.routes";
 import campaignAnalyticsRoutes from "./campaign.analytics.routes";
 import campaignSenderRoutes from "./campaign.sender.routes";
+import emailVerificationRoutes from './emailVerification.routes';
 
+// Add with your other protected routes (after verify middleware)
 const router = Router();
 
 // Public routes
@@ -30,5 +32,6 @@ router.use("/sender-account", verify, senderAccountRoutes);
 router.use("/trigger-log", verify, triggerLogRoutes);
 router.use("/campaign-analytics", verify, campaignAnalyticsRoutes);
 router.use("/campaign-sender", verify, campaignSenderRoutes);
+router.use("/email-verification", verify, emailVerificationRoutes);
 
 export default router;
