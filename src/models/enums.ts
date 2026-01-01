@@ -14,6 +14,7 @@ export enum CampaignStatus {
   SCHEDULED = "SCHEDULED",
   ACTIVE = "ACTIVE",
   PAUSED = "PAUSED",
+  STOPPED = "STOPPED",
   COMPLETED = "COMPLETED",
   ARCHIVED = "ARCHIVED",
 }

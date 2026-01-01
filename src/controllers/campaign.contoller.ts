@@ -166,3 +166,23 @@ export const getCampaignsByLeadId = async (req: Request, res: Response) => {
     res.status(500).json({ code: 500, message: "Internal server error", error: err.message });
   }
 };
+
+export const getCampaignInbox = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const response = await CampaignService.getCampaignInbox(id);
+    res.status(200).json({ code: 200, data: response, message: "success" });
+  } catch (err: any) {
+    res.status(500).json({ code: 500, message: "Internal server error", error: err.message });
+  }
+};
+
+export const changeCampaignStatus = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const response = await CampaignService.changeCampaignStatus(id, req.body.status);
+    res.status(200).json({ code: 200, data: response, message: "success" });
+  } catch (err: any) {
+    res.status(500).json({ code: 500, message: "Internal server error", error: err.message });
+  }
+};

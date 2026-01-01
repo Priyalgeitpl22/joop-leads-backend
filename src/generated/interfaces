@@ -2,7 +2,7 @@
 
 export type UserRole = "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
 
-export type CampaignStatus = "DRAFT" | "SCHEDULED" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
+export type CampaignStatus = "DRAFT" | "SCHEDULED" | "ACTIVE" | "PAUSED" | "STOPPED" | "COMPLETED" | "ARCHIVED";
 
 export type LeadStatus = "PENDING" | "QUEUED" | "SENT" | "OPENED" | "CLICKED" | "REPLIED" | "POSITIVE_REPLY" | "BOUNCED" | "SENDER_BOUNCED" | "UNSUBSCRIBED" | "FAILED";
 
@@ -333,6 +333,8 @@ export interface EmailSend {
   errorCode: string | null;
   attempts: number;
   lastAttemptAt: Date | null;
+  replyText: string | null;
+  repliedAt: Date | null;
   queuedAt: Date;
   sentAt: Date | null;
   createdAt: Date;

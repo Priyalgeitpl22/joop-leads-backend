@@ -12,6 +12,93 @@ const isTokenExpired = (expiryDate?: number): boolean => {
 };
 
 /**
+ * Decode HTML entities in a string
+ */
+const decodeHtmlEntities = (text: string): string => {
+  // First pass: decode &amp; encoded entities (like &amp;nbsp; -> &nbsp;)
+  let decoded = text.replace(/&amp;(#?\w+);/gi, "&$1;");
+  
+  // Common named entities
+  const entities: Record<string, string> = {
+    'nbsp': ' ',
+    'amp': '&',
+    'lt': '<',
+    'gt': '>',
+    'quot': '"',
+    'apos': "'",
+    '#39': "'",
+    'copy': '©',
+    'reg': '®',
+    'trade': '™',
+    'hellip': '…',
+    'mdash': '—',
+    'ndash': '–',
+    'lsquo': '\u2018',
+    'rsquo': '\u2019',
+    'ldquo': '\u201C',
+    'rdquo': '\u201D',
+    'bull': '•',
+  };
+  
+  // Replace named entities
+  for (const [entity, char] of Object.entries(entities)) {
+    decoded = decoded.replace(new RegExp(`&${entity};`, 'gi'), char);
+  }
+  
+  // Decode numeric entities (decimal)
+  decoded = decoded.replace(/&#(\d+);/gi, (_, code) => 
+    String.fromCharCode(parseInt(code, 10))
+  );
+  
+  // Decode numeric entities (hex)
+  decoded = decoded.replace(/&#x([0-9a-f]+);/gi, (_, code) => 
+    String.fromCharCode(parseInt(code, 16))
+  );
+  
+  // Handle non-breaking space character (char code 160)
+  decoded = decoded.replace(/\u00A0/g, ' ');
+  
+  return decoded;
+};
+
+/**
+ * Convert HTML to plain text
+ * - Decodes HTML entities (&nbsp;, &amp;, etc.)
+ * - Strips HTML tags
+ * - Converts <br> and block elements to newlines
+ * - Cleans up extra whitespace
+ */
+const htmlToPlainText = (html: string): string => {
+  let text = html;
+  
+  console.log("[htmlToPlainText] Input:", text.substring(0, 200));
+  
+  // Convert <br>, <p>, <div> to newlines
+  text = text.replace(/<br\s*\/?>/gi, "\n");
+  text = text.replace(/<\/p>/gi, "\n\n");
+  text = text.replace(/<\/div>/gi, "\n");
+  text = text.replace(/<\/li>/gi, "\n");
+  
+  // Remove all remaining HTML tags
+  text = text.replace(/<[^>]+>/g, "");
+  
+  // Decode HTML entities (run twice to handle double-encoding)
+  text = decodeHtmlEntities(text);
+  text = decodeHtmlEntities(text);
+  
+  // Clean up whitespace
+  text = text.replace(/[ \t]+/g, " ");  // Multiple spaces/tabs to single space
+  text = text.replace(/\n[ \t]+/g, "\n");  // Remove leading spaces on lines
+  text = text.replace(/[ \t]+\n/g, "\n");  // Remove trailing spaces on lines
+  text = text.replace(/\n{3,}/g, "\n\n");  // Max 2 consecutive newlines
+  text = text.trim();
+  
+  console.log("[htmlToPlainText] Output:", text.substring(0, 200));
+  
+  return text;
+};
+
+/**
  * Replace all links in HTML with click tracking URLs
  * Preserves mailto: and tel: links
  */
@@ -158,8 +245,11 @@ const sendEmailFromGoogle = async (
   let contentType: string;
 
   if (isPlainText) {
-    const stripHtmlTags = (html: string): string => html.replace(/<\/?[^>]+(>|$)/g, "");
-    emailContent = stripHtmlTags(body);
+    // Add unsubscribe text for plain text emails
+    const unsubscribeTextContent = includeUnsubscribeLink
+      ? `\n\n${unsubscribeText}: ${baseUrl}/track/unsubscribe/${trackingId}`
+      : "";
+    emailContent = htmlToPlainText(body) + unsubscribeTextContent;
     contentType = `text/plain; charset="UTF-8"`;
   } else {
     // Replace links with click tracking URLs if enabled
@@ -274,8 +364,11 @@ const sendEmailFromMicrosoft = async (
   let contentType: "Text" | "HTML";
 
   if (isPlainText) {
-    const stripHtmlTags = (html: string): string => html.replace(/<\/?[^>]+(>|$)/g, "");
-    emailContent = stripHtmlTags(body);
+    // Add unsubscribe text for plain text emails
+    const unsubscribeTextContent = includeUnsubscribeLink
+      ? `\n\n${unsubscribeText}: ${baseUrl}/track/unsubscribe/${trackingId}`
+      : "";
+    emailContent = htmlToPlainText(body) + unsubscribeTextContent;
     contentType = "Text";
   } else {
     // Replace links with click tracking URLs if enabled
@@ -389,8 +482,11 @@ const sendEmailWithSMTP = async (
   let emailContent: string;
 
   if (isPlainText) {
-    const stripHtmlTags = (html: string): string => html.replace(/<\/?[^>]+(>|$)/g, "");
-    emailContent = stripHtmlTags(body);
+    // Add unsubscribe text for plain text emails
+    const unsubscribeTextContent = includeUnsubscribeLink
+      ? `\n\n${unsubscribeText}: ${baseUrl}/track/unsubscribe/${trackingId}`
+      : "";
+    emailContent = htmlToPlainText(body) + unsubscribeTextContent;
   } else {
     // Replace links with click tracking URLs if enabled
     let processedBody = body;
@@ -441,6 +537,7 @@ const sendEmailWithSMTP = async (
     console.log("[sendMail] ✅ SMTP Email Sent to", toEmail, "MessageId:", info.messageId);
     incrementCampaignCount(campaignId, AnalyticsCountType.SENT_COUNT);
 
+    console.log("info===>>", info);
     return { id: info.messageId, messageId: info.messageId };
   } catch (error: any) {
     console.error("[sendMail] ❌ SMTP Email Error:", {
@@ -467,13 +564,16 @@ export const sendEmail = async (
   trackOpens: boolean,
   includeUnsubscribeLink: boolean = true,
   unsubscribeText: string = "Unsubscribe"
-): Promise<{ id: string; messageId?: string }> => {
+): Promise<{ id: string; messageId?: string; threadId?: string }> => {
   console.log("[sendMail] sendEmail called:", {
     campaignId,
     leadId,
     toEmail,
     provider: account.provider,
     subject: subject.substring(0, 50),
+    isPlainText,
+    trackClicks,
+    trackOpens,
     includeUnsubscribeLink,
   });
 

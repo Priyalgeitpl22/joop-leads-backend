@@ -39,7 +39,7 @@ export async function processAndSendEmail(emailSendId: string): Promise<SendResu
     throw new Error(`Missing required data for EmailSend: ${emailSendId}`);
   }
 
-  const { subject, body } = processEmailTemplate(sequence, lead);
+  const { subject, body } = processEmailTemplate(sequence, lead, campaign.sendAsPlainText);
 
   console.log(`[EmailSender] Sending email to ${lead.email} for campaign ${campaign.name}`);
   console.log(`[EmailSender] Subject: ${subject}`);
@@ -73,9 +73,9 @@ export async function processAndSendEmail(emailSendId: string): Promise<SendResu
 /**
  * Process email template with lead variable replacements
  */
-function processEmailTemplate(sequence: any, lead: any): { subject: string; body: string } {
+function processEmailTemplate(sequence: any, lead: any, sendAsPlainText: boolean): { subject: string; body: string } {
   let subject = sequence.subject || "No Subject";
-  let body = sequence.bodyHtml || sequence.bodyText || "";
+  let body = sendAsPlainText ? sequence.bodyText : sequence.bodyHtml || "";
 
   // Build replacements from lead data
   const replacements: Record<string, string> = {
@@ -117,6 +117,7 @@ export async function getEmailPreview(emailSendId: string): Promise<{
     include: {
       lead: true,
       sender: true,
+      campaign: true,
       sequence: true,
     },
   });
@@ -125,7 +126,7 @@ export async function getEmailPreview(emailSendId: string): Promise<{
     return null;
   }
 
-  const { subject, body } = processEmailTemplate(emailSend.sequence, emailSend.lead);
+  const { subject, body } = processEmailTemplate(emailSend.sequence, emailSend.lead, emailSend.campaign?.sendAsPlainText ?? false);
 
   return {
     to: emailSend.lead.email,

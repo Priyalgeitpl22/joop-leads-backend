@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import authRoutes from "./auth.routes";
 import userRoutes from "./user.routes";
 import organizationRoutes from "./organization.routes";
@@ -12,6 +12,7 @@ import senderAccountRoutes from "./sender.account.routes";
 import triggerLogRoutes from "./trigger.log.routes";
 import campaignAnalyticsRoutes from "./campaign.analytics.routes";
 import campaignSenderRoutes from "./campaign.sender.routes";
+import { pollForReplies } from "../jobs/replyPoller";
 
 const router = Router();
 
@@ -30,5 +31,19 @@ router.use("/sender-account", verify, senderAccountRoutes);
 router.use("/trigger-log", verify, triggerLogRoutes);
 router.use("/campaign-analytics", verify, campaignAnalyticsRoutes);
 router.use("/campaign-sender", verify, campaignSenderRoutes);
+
+// Manual trigger for reply poller
+router.post("/poll-replies", async (req: Request, res: Response) => {
+  try {
+    console.log("[API] Manual reply poll triggered");
+    // Run in background, don't wait for completion
+    pollForReplies().catch((err) => {
+      console.error("[API] Reply poll error:", err.message);
+    });
+    res.json({ success: true, message: "Reply polling started" });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 export default router;

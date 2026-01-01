@@ -10,7 +10,7 @@ app.use(express.static("public"));
 app.use("/api", routes);
 
 app.get("/", (req, res) => {
-  res.send("Welcome to Jooper leads!");
+  res.json({ message: "Welcome to Jooper AI Email Campaign Service" });
 });
 
 export default app;

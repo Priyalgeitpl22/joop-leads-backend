@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 
 export type UserRole = "OWNER" | "ADMIN" | "MEMBER" | "VIEWER";
 
-export type CampaignStatus = "DRAFT" | "SCHEDULED" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
+export type CampaignStatus = "DRAFT" | "SCHEDULED" | "ACTIVE" | "PAUSED" | "STOPPED" | "COMPLETED" | "ARCHIVED";
 
 export type LeadStatus = "PENDING" | "QUEUED" | "SENT" | "OPENED" | "CLICKED" | "REPLIED" | "BOUNCED" | "UNSUBSCRIBED" | "FAILED";
 

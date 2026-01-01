@@ -39,6 +39,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "googleapis": "^146.0.0",
+    "imapflow": "^1.2.3",
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",
     "luxon": "^3.5.0",

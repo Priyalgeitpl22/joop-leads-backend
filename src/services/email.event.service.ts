@@ -362,7 +362,6 @@ export class EmailEventService {
     });
     console.log(`[EmailEventService] Updated CampaignLead status to UNSUBSCRIBED and stopped sending`);
 
-    // Update EmailSend status to STOPPED
     if (emailSendId) {
       await prisma.emailSend.update({
         where: { id: emailSendId },

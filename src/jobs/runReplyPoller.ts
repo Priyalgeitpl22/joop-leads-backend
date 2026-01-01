@@ -14,8 +14,8 @@ dotenv.config({
 
 import { startReplyPolling } from "./replyPoller";
 
-// Default: poll every 5 minutes
-const intervalMinutes = parseInt(process.env.REPLY_POLL_INTERVAL || "5", 10);
+// Default: poll every 1 minute
+const intervalMinutes = parseInt(process.env.REPLY_POLL_INTERVAL || "1", 10);
 
 console.log(`[ReplyPoller] Starting standalone reply poller...`);
 console.log(`[ReplyPoller] Polling interval: ${intervalMinutes} minutes`);

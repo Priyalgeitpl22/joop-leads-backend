@@ -9,7 +9,7 @@ import { subDays, format } from "date-fns";
 import { SenderAccountService } from "./sender.account.service";
 import { dayKeyInTz } from "../emailScheduler/time";
 import { SequenceAnalytics } from "../emailScheduler/types";
-import { CampaignSenderWithStats } from "../interfaces";
+import { CampaignSenderWithStats, CampaignStatus } from "../interfaces";
 
 const dayjs = require("dayjs");
 const utc = require("dayjs/plugin/utc");
@@ -182,7 +182,7 @@ export class CampaignService {
       const scheduledAtUtc = scheduledAt
         ? zonedTimeToUtc(scheduledAt, timezone)
         : null;
-    
+
       const nextTriggerUtc = nextTrigger
         ? zonedTimeToUtc(nextTrigger, timezone)
         : null;
@@ -270,13 +270,25 @@ export class CampaignService {
       orderBy: { createdAt: "desc" },
     });
 
-    const data = campaigns.map((c) => ({
-      ...c,
-      sequence_count: c.sequences.length,
-      contact_count: c.leads.length,
-      analytics_count: c.analytics,
-      contacts: c.leads.map((cl) => cl.lead),
-    }));
+    const data = campaigns.map((c) => {
+      const totalEmailsNeeded = c.leads.length * c.sequences.length;
+      const totalSent = c.analytics?.sentCount || 0;
+      const completedPercentage = totalEmailsNeeded > 0
+        ? parseFloat(((totalSent / totalEmailsNeeded) * 100).toFixed(2))
+        : 0;
+
+      return {
+        total_leads: c.leads.length,
+        total_sequences: c.sequences.length,
+        total_emails_needed: c.leads.length * c.sequences.length,
+        completedPercentage: completedPercentage,
+        ...c,
+        sequence_count: c.sequences.length,
+        contact_count: c.leads.length,
+        analytics_count: c.analytics,
+        contacts: c.leads.map((cl) => cl.lead),
+      };
+    });
 
     return { code: 200, data, message: "success" };
   }
@@ -299,6 +311,15 @@ export class CampaignService {
 
     const campaignLeads = await this.getCampaignLeads(campaign.id);
     const campaignStats = await this.getCampaignStats(campaign.id);
+
+    const totalEmailsNeeded = campaign.leads.length * campaign.sequences.length;
+    const totalSent = campaign.analytics?.sentCount || 0;
+    const totalProcessed = totalSent + (campaign.analytics?.repliedCount || 0) + (campaign.analytics?.openedCount || 0) + (campaign.analytics?.clickedCount || 0) + (campaign.analytics?.unsubscribedCount || 0) + (campaign.analytics?.failedCount || 0);
+    const completedPercentage = totalEmailsNeeded > 0
+      ? parseFloat(((totalSent / totalEmailsNeeded) * 100).toFixed(2))
+      : 0;
+    const progressPercentage = totalEmailsNeeded > 0
+      ? parseFloat(((totalProcessed / totalEmailsNeeded) * 100).toFixed(2)) : 0;
 
     return {
       code: 200,
@@ -324,6 +345,7 @@ export class CampaignService {
         autoPauseSameDomain: campaign.autoPauseSameDomain,
         bounceRateThreshold: campaign.bounceRateThreshold,
         autoPauseOnHighBounce: campaign.autoPauseOnHighBounce,
+        completedPercentage: completedPercentage,
         completedAt: campaign.completedAt,
         sendingPriority: campaign.sendingPriority,
         createdAt: campaign.createdAt,
@@ -340,7 +362,6 @@ export class CampaignService {
 
   static async getSenderAccounts(campaignId: string) {
     const senders = await prisma.campaignSender.findMany({ where: { campaignId }, include: { sender: true } });
-    console.log(senders);
     return senders;
   }
 
@@ -553,7 +574,7 @@ export class CampaignService {
         .tz(campaign.scheduledAt, tz)
         .utc()
         .toDate();
-    
+
       if (scheduledTimeUtc > new Date()) {
         nextRunAt = scheduledTimeUtc;
       }
@@ -575,7 +596,7 @@ export class CampaignService {
   }
 
   static async deleteCampaign(req: Request) {
-    const campaignId = req.params.campaignId as string;
+    const campaignId = req.params.id as string;
 
     if (!campaignId) return { code: 400, message: "campaignId is required" };
 
@@ -622,15 +643,15 @@ export class CampaignService {
 
   static async renameCampaign(req: Request) {
     const { newName } = req.body;
-    const { campaignId } = req.params;
+    const { campaign_id } = req.params;
 
     if (!newName) return { code: 400, message: "Invalid input or missing" };
 
-    const existingCampaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
-    if (!existingCampaign) return { code: 404, message: `Campaign with the specified Id:${campaignId} does not exist` };
+    const existingCampaign = await prisma.campaign.findUnique({ where: { id: campaign_id } });
+    if (!existingCampaign) return { code: 404, message: `Campaign with the specified Id:${campaign_id} does not exist` };
 
     const updatedCampaign = await prisma.campaign.update({
-      where: { id: campaignId },
+      where: { id: campaign_id },
       data: { name: newName },
     });
 
@@ -733,22 +754,22 @@ export class CampaignService {
     const campaignLeadMap = new Map(
       campaignLeads.map((cl) => [cl.leadId, cl])
     );
-  
+
     const groupedLeadsMap = sends.reduce((acc, send) => {
       const leadId = send.lead.id;
       const campaignLead = campaignLeadMap.get(leadId);
-  
+
       if (!acc[leadId]) {
         acc[leadId] = {
           lead: send.lead,
           currentSequenceStep: campaignLead?.currentSequenceStep || 0,
           totalSequences,
-          campaignLeadStatus: campaignLead?.status || null,
+          leadStatus: campaignLead?.status || null,
           lastSentAt: campaignLead?.lastSentAt || null,
           senders: [],
         };
       }
-  
+
       // Only add sender if not already in the list (unique by email)
       const existingSender = acc[leadId].senders.find(
         (s: any) => s.senderEmail === send.sender.email
@@ -760,7 +781,7 @@ export class CampaignService {
           sentAt: send.sentAt,
         });
       }
-  
+
       return acc;
     }, {} as Record<string, any>);
 
@@ -769,7 +790,7 @@ export class CampaignService {
 
     return { groupedLeads, totalSequences };
   }
-  
+
 
   /**
    * Calculate campaign completion statistics
@@ -782,6 +803,7 @@ export class CampaignService {
       include: {
         leads: true,
         sequences: { where: { isActive: true } },
+        analytics: true,
       },
     });
 
@@ -804,15 +826,19 @@ export class CampaignService {
     emailCounts.forEach((item) => {
       statusMap[item.status] = item._count.status;
     });
+    const sentCount = Number(statusMap["SENT"] || 0);
+    const repliedCount = Number(statusMap["REPLIED"] || 0);
+    const openedCount = Number(statusMap["OPENED"] || 0);
+    const clickedCount = Number(statusMap["CLICKED"] || 0);
+    const unsubscribedCount = Number(statusMap["UNSUBSCRIBED"] || 0);
+    const queuedCount = Number(statusMap["QUEUED"] || 0);
+    const failedCount = Number(statusMap["FAILED"] || 0);
 
-    const sentCount = statusMap["SENT"] || 0;
-    const queuedCount = statusMap["QUEUED"] || 0;
-    const failedCount = statusMap["FAILED"] || 0;
-    const totalProcessed = sentCount + queuedCount + failedCount;
-
+    const totalProcessed = sentCount + repliedCount + openedCount + clickedCount + unsubscribedCount + failedCount;
+    const totalSent = sentCount + repliedCount + openedCount + clickedCount + unsubscribedCount;
     // Calculate percentages
     const completedPercentage = totalEmailsNeeded > 0
-      ? parseFloat(((sentCount / totalEmailsNeeded) * 100).toFixed(2))
+      ? parseFloat(((totalSent / totalEmailsNeeded) * 100).toFixed(2))
       : 0;
 
     const progressPercentage = totalEmailsNeeded > 0
@@ -834,11 +860,12 @@ export class CampaignService {
     return {
       campaignId,
       totalLeads,
+      totalSent,
       totalSequences,
       totalEmailsNeeded,
 
       // Email stats
-      emailsSent: sentCount,
+      // emailsSent: sentCount,
       emailsQueued: queuedCount,
       emailsFailed: failedCount,
 
@@ -873,7 +900,7 @@ export class CampaignService {
         },
       },
     });
-  
+
     return sequences.map(seq => {
       const stats: SequenceAnalytics = {
         emailType: seq.type,
@@ -890,7 +917,7 @@ export class CampaignService {
         failed: 0,
         unsubscribed: 0,
       };
-  
+
       for (const send of seq.emailSends) {
         // Send-level status
         switch (send.status) {
@@ -904,34 +931,146 @@ export class CampaignService {
             stats.failed++;
             break;
         }
-  
+
         // Event-level tracking
         for (const event of send.events) {
           switch (event.type) {
             case 'OPENED':
               stats.opened++;
               break;
-  
+
             case 'CLICKED':
               stats.clicked++;
               break;
-  
+
             case 'REPLIED':
               stats.replied++;
               break;
-  
+
             case 'POSITIVE_REPLY':
               stats.positiveReplies++;
               break;
-  
+
             case 'UNSUBSCRIBED':
               stats.unsubscribed++;
               break;
           }
         }
       }
-  
+
       return stats;
     });
   }
+
+  static async getCampaignInbox(campaignId: string) {
+    const inbox = await prisma.emailSend.findMany({
+      where: { campaignId },
+      include: {
+        lead: true,
+        sender: true,
+        sequence: true,
+      },
+      orderBy: {
+        sentAt: 'desc',
+      },
+    });
+
+    let inboxData = [];
+
+    // Variables object with values
+
+
+    for (const send of inbox) {
+      const variables = {
+        firstName: send.lead.firstName ?? null,
+        lastName: send.lead.lastName ?? null,
+        company: send.lead.company ?? null,
+        email: send.lead.email ?? null,
+      };
+
+      const emailBody = send.sequence?.bodyHtml ?? send.sequence?.bodyText ?? "";
+      const replacedEmailBody = emailBody ? replaceTemplateVariables(emailBody, variables) : null;
+      const plainTextBody = replacedEmailBody ? htmlToPlainText(replacedEmailBody) : null;
+
+      const sendData = {
+        id: send.id,
+        status: send.status,
+        sentAt: send.sentAt,
+        sequenceStep: send.sequenceStep,
+        lead: {
+          name: send.lead.firstName + " " + send.lead.lastName,
+          email: send.lead.email,
+        },
+        sender: {
+          email: send.sender.email,
+        },
+        messageSent: {
+          subject: send.sequence?.subject ?? null,
+          seqNumber: send.sequence?.seqNumber ?? null,
+          body: {
+            html: replacedEmailBody ?? null,
+            text: plainTextBody ?? null,
+          }
+        },
+        reply: {
+          text: send.replyText ?? null,
+          repliedAt: send.repliedAt ?? null,
+        }
+      };
+
+      inboxData.push(sendData);
+    }
+
+    return inboxData;
+  }
+
+  static async changeCampaignStatus(campaignId: string, status: CampaignStatus) {
+    const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
+    if (!campaign) return { code: 404, message: "Campaign not found" };
+    const updatedCampaign = await prisma.campaign.update({ where: { id: campaignId }, data: { status } });
+    return { code: 200, data: updatedCampaign, message: "success" };
+  }
 }
+
+const replaceTemplateVariables = (template: string, variables: any) => {
+  return template.replace(/{{(.*?)}}/g, (_, key) => variables[key.trim()] || "");
+};
+
+/**
+ * Convert HTML to plain text - decodes entities and strips tags
+ */
+const htmlToPlainText = (html: string): string => {
+  let text = html;
+  
+  // Convert block elements to newlines
+  text = text.replace(/<br\s*\/?>/gi, "\n");
+  text = text.replace(/<\/p>/gi, "\n\n");
+  text = text.replace(/<\/div>/gi, "\n");
+  
+  // Remove all HTML tags
+  text = text.replace(/<[^>]+>/g, "");
+  
+  // Decode HTML entities (run twice for double-encoded)
+  const decodeEntities = (str: string): string => {
+    str = str.replace(/&amp;(#?\w+);/gi, "&$1;");
+    str = str.replace(/&nbsp;/gi, " ");
+    str = str.replace(/&amp;/gi, "&");
+    str = str.replace(/&lt;/gi, "<");
+    str = str.replace(/&gt;/gi, ">");
+    str = str.replace(/&quot;/gi, '"');
+    str = str.replace(/&#39;/gi, "'");
+    str = str.replace(/&apos;/gi, "'");
+    str = str.replace(/&#(\d+);/gi, (_, code) => String.fromCharCode(parseInt(code, 10)));
+    str = str.replace(/\u00A0/g, " ");
+    return str;
+  };
+  
+  text = decodeEntities(decodeEntities(text));
+  
+  // Clean up whitespace
+  text = text.replace(/[ \t]+/g, " ");
+  text = text.replace(/\n{3,}/g, "\n\n");
+  text = text.trim();
+  
+  return text;
+};
