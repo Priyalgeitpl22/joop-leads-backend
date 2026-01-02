@@ -1,8 +1,6 @@
-// services/reoon.service.ts
-
 import axios from 'axios';
 type AxiosInstance = ReturnType<typeof axios.create>;
-import { IReoonVerificationResponse, IBulkVerificationTaskResponse } from '../models/emailVerificaition.model';
+import { IReoonVerificationResponse, IBulkVerificationTaskResponse } from '../models/email.verificaition.model';
 import FormData from 'form-data';
 import { Blob } from 'buffer';
 
@@ -25,46 +23,68 @@ export class ReoonService {
     });
   }
 
-  /**
-   * Submit bulk email verification task
-   */
+  // async submitBulkVerification( emails: string[], taskName: string): Promise<string> {
+  //   try {
+  //     const formData = new FormData();
+
+  //     const csvContent = emails.join('\n');
+  //     const buffer = Buffer.from(csvContent, 'utf-8');
+
+  //     formData.append('file', buffer, 'emails.csv');
+  //     formData.append('key', this.apiKey);
+  //     formData.append('name', taskName);
+
+  //     const response = await this.axiosInstance.post(
+  //       '/create-bulk-verification-task/',
+  //       formData,
+  //       {
+  //         headers: formData.getHeaders()
+  //       }
+  //     );
+
+  //     const data: any = response.data;
+
+  //     if (data.status === 'success' && data.task_id) {
+  //       return data.task_id;
+  //     }
+
+  //     throw new Error(data.reason || 'Failed to submit bulk verification task');
+  //   } catch (error: any) {
+  //     throw new Error(`Reoon API Error: ${error.message}`);
+  //   }
+  // }
+
   async submitBulkVerification(emails: string[], taskName: string): Promise<string> {
+    const url = 'https://emailverifier.reoon.com/api/v1/create-bulk-verification-task/';
+
+    const payload = {
+      name: taskName,
+      emails: emails,
+      key: process.env.REOON_API_KEY,
+    };  
     try {
-      const formData = new FormData();
-      
-      // Create a CSV string from emails
-      const csvContent = emails.join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      
-      formData.append('file', blob, 'emails.csv');
-      formData.append('key', this.apiKey);
-      formData.append('name', taskName);
-
-      const response = await this.axiosInstance.post<{ status: string; task_id?: string; reason?: string }>(
-        '/bulk-email-verification-task/',
-        formData,
-        {
+      const response : any= await this.axiosInstance.post<{
+        status: string;
+        task_id: number;
+      }>(url, payload, {
           headers: {
-            'Content-Type': 'multipart/form-data',
+            'Content-Type': 'application/json',
           },
-        }
-      );
+      });
 
-      const data = response.data;
-
-      if (data.status === 'success' && data.task_id) {
-        return data.task_id;
-      }
-
-      throw new Error(data.reason || 'Failed to submit bulk verification task');
+      console.log('Task created successfully');
+      console.log(response.data);
+      return String(response.data.task_id);
     } catch (error: any) {
-      throw new Error(`Reoon API Error: ${error.message}`);
+      if (error.response) {
+        console.error('Reoon error:', error.response.data);
+      } else {
+        console.error('Network error:', error.message);
+      }
+      throw error;
     }
   }
 
-  /**
-   * Get bulk verification task results
-   */
   async getBulkVerificationResults(taskId: string): Promise<IBulkVerificationTaskResponse> {
     try {
       const response = await this.axiosInstance.get<IBulkVerificationTaskResponse>(
@@ -83,9 +103,6 @@ export class ReoonService {
     }
   }
 
-  /**
-   * Verify single email
-   */
   async verifySingleEmail(
     email: string,
     mode: 'quick' | 'power' = 'power'
@@ -105,9 +122,6 @@ export class ReoonService {
     }
   }
 
-  /**
-   * Poll for bulk verification results until completed
-   */
   async waitForBulkVerificationCompletion(
     taskId: string,
     pollIntervalMs: number = 10000,

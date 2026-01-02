@@ -12,7 +12,7 @@ import senderAccountRoutes from "./sender.account.routes";
 import triggerLogRoutes from "./trigger.log.routes";
 import campaignAnalyticsRoutes from "./campaign.analytics.routes";
 import campaignSenderRoutes from "./campaign.sender.routes";
-import emailVerificationRoutes from './emailVerification.routes';
+import emailVerificationRoutes from './email.verification.routes';
 import { pollForReplies } from "../jobs/replyPoller";
 
 // Add with your other protected routes (after verify middleware)

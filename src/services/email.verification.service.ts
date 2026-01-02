@@ -1,8 +1,6 @@
-// services/emailVerification.service.ts
-
 import { Prisma, PrismaClient } from '@prisma/client';
 import { ReoonService } from './reoon.service';
-import { EmailStatus, BatchStatus, ICreateBatch } from '../models/emailVerificaition.model';
+import { EmailStatus, BatchStatus, ICreateBatch } from '../models/email.verificaition.model';
 
 const prisma = new PrismaClient();
 const reoonService = new ReoonService();
@@ -57,9 +55,7 @@ export type EmailResponse = Prisma.VerifiedEmailGetPayload<{
 
 /* -------------------- Service -------------------- */
 export class EmailVerificationService {
-  /**
-   * Create a new batch and save emails to database
-   */
+
   static async createBatch(data: ICreateBatch): Promise<BatchResponse> {
     const uniqueEmails = [...new Set(data.emails.filter(e => e && e.trim()))];
 
@@ -81,9 +77,6 @@ export class EmailVerificationService {
     });
   }
 
-  /**
-   * Get batch by ID
-   */
   static async getBatchById(batchId: string, orgId: string) {
     return prisma.emailVerificationBatch.findFirst({
       where: { id: batchId, orgId },
@@ -96,9 +89,6 @@ export class EmailVerificationService {
     });
   }
 
-  /**
-   * Get all batches for organization
-   */
   static async getBatchesByOrg(orgId: string): Promise<BatchResponse[]> {
     return prisma.emailVerificationBatch.findMany({
       where: { orgId },
@@ -107,9 +97,6 @@ export class EmailVerificationService {
     });
   }
 
-  /**
-   * Submit batch to Reoon for verification
-   */
   static async submitBatchForVerification(batchId: string, orgId: string) {
     const batch = await prisma.emailVerificationBatch.findFirst({
       where: { id: batchId, orgId },
@@ -122,17 +109,14 @@ export class EmailVerificationService {
 
     const emails = batch.emails.map(e => e.email);
 
-    // Update batch status
     await prisma.emailVerificationBatch.update({
       where: { id: batchId },
       data: { status: BatchStatus.UPLOADING },
     });
 
     try {
-      // Submit to Reoon
       const taskId = await reoonService.submitBulkVerification(emails, batch.name);
-
-      // Update batch with task ID
+      
       return prisma.emailVerificationBatch.update({
         where: { id: batchId },
         data: {
@@ -142,7 +126,6 @@ export class EmailVerificationService {
         select: batchSelect,
       });
     } catch (error) {
-      // Revert status on failure
       await prisma.emailVerificationBatch.update({
         where: { id: batchId },
         data: { status: BatchStatus.FAILED },
@@ -151,9 +134,6 @@ export class EmailVerificationService {
     }
   }
 
-  /**
-   * Process verification results and update database
-   */
   static async processVerificationResults(batchId: string, orgId: string) {
     const batch = await prisma.emailVerificationBatch.findFirst({
       where: { id: batchId, orgId },
@@ -163,20 +143,19 @@ export class EmailVerificationService {
       throw new Error('Batch or task ID not found');
     }
 
-    // Wait for completion and get results
     const results = await reoonService.waitForBulkVerificationCompletion(batch.reoonTaskId);
-
+    
     if (!results.results) {
       throw new Error('No results returned from Reoon');
     }
-
-    // Update each email with verification results
+    const verificationResults = Object.values(results.results);
     await Promise.all(
-      results.results.map(async (result) => {
+      verificationResults.map(async (result) => {
+        const email = result.email.toLowerCase();
         const emailRecord = await prisma.verifiedEmail.findFirst({
           where: {
             batchId,
-            email: result.email.toLowerCase(),
+            email: email,
           },
         });
 
@@ -207,7 +186,6 @@ export class EmailVerificationService {
       })
     );
 
-    // Update batch status
     return prisma.emailVerificationBatch.update({
       where: { id: batchId },
       data: {
@@ -218,11 +196,7 @@ export class EmailVerificationService {
     });
   }
 
-  /**
-   * Get verified emails (safe to send)
-   */
   static async getVerifiedEmails(batchId: string, orgId: string): Promise<EmailResponse[]> {
-    // First verify the batch belongs to the org
     const batch = await prisma.emailVerificationBatch.findFirst({
       where: { id: batchId, orgId },
     });
@@ -243,11 +217,7 @@ export class EmailVerificationService {
     });
   }
 
-  /**
-   * Get unverified/invalid emails
-   */
   static async getUnverifiedEmails(batchId: string, orgId: string): Promise<EmailResponse[]> {
-    // First verify the batch belongs to the org
     const batch = await prisma.emailVerificationBatch.findFirst({
       where: { id: batchId, orgId },
     });
@@ -267,9 +237,6 @@ export class EmailVerificationService {
     });
   }
 
-  /**
-   * Get statistics for a batch
-   */
   static async getBatchStatistics(batchId: string, orgId: string) {
     const batch = await prisma.emailVerificationBatch.findFirst({
       where: { id: batchId, orgId },
@@ -304,9 +271,6 @@ export class EmailVerificationService {
     };
   }
 
-  /**
-   * Delete batch
-   */
   static async deleteBatch(batchId: string, orgId: string) {
     const batch = await prisma.emailVerificationBatch.findFirst({
       where: { id: batchId, orgId },
@@ -321,9 +285,6 @@ export class EmailVerificationService {
     });
   }
 
-  /**
-   * Map Reoon status to Prisma enum
-   */
   private static mapReoonStatusToEnum(status: string): EmailStatus {
     const statusMap: Record<string, EmailStatus> = {
       safe: EmailStatus.SAFE,
