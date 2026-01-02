@@ -1,12 +1,7 @@
-// controllers/emailVerification.controller.ts
-
 import { Request, Response } from 'express';
-import { EmailVerificationService } from '../services/emailVerification.service';
+import { EmailVerificationService } from '../services/email.verification.service';
 import * as XLSX from 'xlsx';
 
-/**
- * Upload Excel file and create batch
- */
 export const uploadAndCreateBatch = async (req: Request, res: Response): Promise<void> => {
   try {
     if (!req.file) {
@@ -28,13 +23,11 @@ export const uploadAndCreateBatch = async (req: Request, res: Response): Promise
 
     const { batchName } = req.body;
 
-    // Parse Excel file
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as string[][];
 
-    // Extract emails (assuming first column or scanning all cells)
     const emails = data
       .flat()
       .filter(cell => {
@@ -52,7 +45,6 @@ export const uploadAndCreateBatch = async (req: Request, res: Response): Promise
       return;
     }
 
-    // Create batch
     const batch = await EmailVerificationService.createBatch({
       name: batchName || `Batch ${new Date().toISOString()}`,
       fileName: req.file.originalname,
@@ -82,9 +74,6 @@ export const uploadAndCreateBatch = async (req: Request, res: Response): Promise
   }
 };
 
-/**
- * Submit batch for verification
- */
 export const submitBatch = async (req: Request, res: Response): Promise<void> => {
   try {
     const { batchId } = req.params;
@@ -114,9 +103,6 @@ export const submitBatch = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-/**
- * Process verification results
- */
 export const processResults = async (req: Request, res: Response): Promise<void> => {
   try {
     const { batchId } = req.params;
@@ -146,9 +132,6 @@ export const processResults = async (req: Request, res: Response): Promise<void>
   }
 };
 
-/**
- * Get all batches for organization
- */
 export const getAllBatches = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user;
@@ -173,9 +156,6 @@ export const getAllBatches = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-/**
- * Get batch details
- */
 export const getBatchDetails = async (req: Request, res: Response): Promise<void> => {
   try {
     const { batchId } = req.params;
@@ -209,9 +189,6 @@ export const getBatchDetails = async (req: Request, res: Response): Promise<void
   }
 };
 
-/**
- * Get batch statistics
- */
 export const getBatchStatistics = async (req: Request, res: Response): Promise<void> => {
   try {
     const { batchId } = req.params;
@@ -237,9 +214,6 @@ export const getBatchStatistics = async (req: Request, res: Response): Promise<v
   }
 };
 
-/**
- * Get verified emails
- */
 export const getVerifiedEmails = async (req: Request, res: Response): Promise<void> => {
   try {
     const { batchId } = req.params;
@@ -268,9 +242,6 @@ export const getVerifiedEmails = async (req: Request, res: Response): Promise<vo
   }
 };
 
-/**
- * Get unverified emails
- */
 export const getUnverifiedEmails = async (req: Request, res: Response): Promise<void> => {
   try {
     const { batchId } = req.params;
@@ -299,9 +270,6 @@ export const getUnverifiedEmails = async (req: Request, res: Response): Promise<
   }
 };
 
-/**
- * Export verified emails to Excel
- */
 export const exportVerifiedEmails = async (req: Request, res: Response): Promise<void> => {
   try {
     const { batchId } = req.params;
@@ -350,9 +318,6 @@ export const exportVerifiedEmails = async (req: Request, res: Response): Promise
   }
 };
 
-/**
- * Export unverified emails to Excel
- */
 export const exportUnverifiedEmails = async (req: Request, res: Response): Promise<void> => {
   try {
     const { batchId } = req.params;
@@ -405,9 +370,6 @@ export const exportUnverifiedEmails = async (req: Request, res: Response): Promi
   }
 };
 
-/**
- * Delete batch
- */
 export const deleteBatch = async (req: Request, res: Response): Promise<void> => {
   try {
     const { batchId } = req.params;

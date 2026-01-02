@@ -1,5 +1,3 @@
-// routes/emailVerification.routes.ts
-
 import { Router } from 'express';
 import multer from 'multer';
 import {
@@ -14,11 +12,10 @@ import {
   exportVerifiedEmails,
   exportUnverifiedEmails,
   deleteBatch,
-} from '../controllers/emailVerification.controller';
+} from '../controllers/email.verification.controller';
 
 const router = Router();
 
-// Configure multer for file upload
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
