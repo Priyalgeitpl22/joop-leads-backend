@@ -25,22 +25,10 @@ const emailSelect = {
   batchId: true,
   email: true,
   status: true,
-  verificationResult: true,
   username: true,
   domain: true,
   isSafeToSend: true,
-  isValidSyntax: true,
-  isDisposable: true,
-  isRoleAccount: true,
-  canConnectSmtp: true,
-  hasInboxFull: true,
-  isCatchAll: true,
   isDeliverable: true,
-  isDisabled: true,
-  isSpamtrap: true,
-  mxAcceptsMail: true,
-  mxRecords: true,
-  verificationMode: true,
   createdAt: true,
   updatedAt: true,
 };
@@ -142,7 +130,12 @@ export class EmailVerificationService {
     if (!batch || !batch.reoonTaskId) {
       throw new Error('Batch or task ID not found');
     }
-
+    if (batch.status === BatchStatus.FAILED) {
+      throw new Error('failed, cannot process results');
+    }
+    if (batch.status === BatchStatus.COMPLETED) {
+      return batch;
+    }
     const results = await reoonService.waitForBulkVerificationCompletion(batch.reoonTaskId);
     
     if (!results.results) {
@@ -164,22 +157,10 @@ export class EmailVerificationService {
             where: { id: emailRecord.id },
             data: {
               status: this.mapReoonStatusToEnum(result.status),
-              verificationResult: result as any,
               username: result.username,
               domain: result.domain,
               isSafeToSend: result.is_safe_to_send,
-              isValidSyntax: result.is_valid_syntax,
-              isDisposable: result.is_disposable,
-              isRoleAccount: result.is_role_account,
-              canConnectSmtp: result.can_connect_smtp,
-              hasInboxFull: result.has_inbox_full,
-              isCatchAll: result.is_catch_all,
               isDeliverable: result.is_deliverable,
-              isDisabled: result.is_disabled,
-              isSpamtrap: result.is_spamtrap,
-              mxAcceptsMail: result.mx_accepts_mail,
-              mxRecords: result.mx_records,
-              verificationMode: result.verification_mode,
             },
           });
         }

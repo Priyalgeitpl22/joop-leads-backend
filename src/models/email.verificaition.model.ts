@@ -39,22 +39,10 @@ export interface IVerifiedEmail {
   batchId: string;
   email: string;
   status: EmailStatus | null;
-  verificationResult: any;
   username: string | null;
   domain: string | null;
   isSafeToSend: boolean | null;
-  isValidSyntax: boolean | null;
-  isDisposable: boolean | null;
-  isRoleAccount: boolean | null;
-  canConnectSmtp: boolean | null;
-  hasInboxFull: boolean | null;
-  isCatchAll: boolean | null;
   isDeliverable: boolean | null;
-  isDisabled: boolean | null;
-  isSpamtrap: boolean | null;
-  mxAcceptsMail: boolean | null;
-  mxRecords: string[];
-  verificationMode: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -73,18 +61,7 @@ export interface IReoonVerificationResponse {
   username: string;
   domain: string;
   is_safe_to_send: boolean;
-  is_valid_syntax: boolean;
-  is_disposable: boolean;
-  is_role_account: boolean;
-  can_connect_smtp: boolean;
-  has_inbox_full: boolean;
-  is_catch_all: boolean;
   is_deliverable: boolean;
-  is_disabled: boolean;
-  is_spamtrap: boolean | null;
-  mx_accepts_mail: boolean;
-  mx_records: string[];
-  verification_mode: string;
 }
 
 export interface IBulkVerificationTaskResponse {

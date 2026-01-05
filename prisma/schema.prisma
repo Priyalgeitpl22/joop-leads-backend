@@ -756,22 +756,10 @@ model VerifiedEmail {
   batchId             String
   email               String
   status              EmailStatus?
-  verificationResult  Json?
   username            String?
   domain              String?
   isSafeToSend        Boolean?
-  isValidSyntax       Boolean?
-  isDisposable        Boolean?
-  isRoleAccount       Boolean?
-  canConnectSmtp      Boolean?
-  hasInboxFull        Boolean?
-  isCatchAll          Boolean?
   isDeliverable       Boolean?
-  isDisabled          Boolean?
-  isSpamtrap          Boolean?
-  mxAcceptsMail       Boolean?
-  mxRecords           String[]
-  verificationMode    String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   

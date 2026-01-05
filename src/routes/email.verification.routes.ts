@@ -26,6 +26,7 @@ const upload = multer({
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
       'application/vnd.ms-excel', // .xls
       'text/csv',
+      'application/vnd.oasis.opendocument.spreadsheet'
     ];
 
     if (allowedMimes.includes(file.mimetype)) {

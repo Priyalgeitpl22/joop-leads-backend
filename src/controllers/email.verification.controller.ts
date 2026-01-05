@@ -29,13 +29,28 @@ export const uploadAndCreateBatch = async (req: Request, res: Response): Promise
     const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as string[][];
 
     const emails = data
-      .flat()
-      .filter(cell => {
-        if (typeof cell === 'string') {
-          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cell.trim());
-        }
-        return false;
-      });
+    .flat()
+    .filter(cell => {
+      if (typeof cell !== 'string') return false;
+
+      const email = cell.trim();
+      const basicEmailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const noDoubleDots = !email.includes('..');
+      
+      const noEdgeDots = !(
+        email.startsWith('.') ||
+        email.endsWith('.') ||
+        email.includes('@.') ||
+        email.includes('.@')
+      );
+
+      return (
+        basicEmailRegex.test(email) &&
+        noDoubleDots &&
+        noEdgeDots
+      );
+    });
+
 
     if (emails.length === 0) {
       res.status(400).json({

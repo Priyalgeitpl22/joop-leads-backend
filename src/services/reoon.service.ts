@@ -23,37 +23,6 @@ export class ReoonService {
     });
   }
 
-  // async submitBulkVerification( emails: string[], taskName: string): Promise<string> {
-  //   try {
-  //     const formData = new FormData();
-
-  //     const csvContent = emails.join('\n');
-  //     const buffer = Buffer.from(csvContent, 'utf-8');
-
-  //     formData.append('file', buffer, 'emails.csv');
-  //     formData.append('key', this.apiKey);
-  //     formData.append('name', taskName);
-
-  //     const response = await this.axiosInstance.post(
-  //       '/create-bulk-verification-task/',
-  //       formData,
-  //       {
-  //         headers: formData.getHeaders()
-  //       }
-  //     );
-
-  //     const data: any = response.data;
-
-  //     if (data.status === 'success' && data.task_id) {
-  //       return data.task_id;
-  //     }
-
-  //     throw new Error(data.reason || 'Failed to submit bulk verification task');
-  //   } catch (error: any) {
-  //     throw new Error(`Reoon API Error: ${error.message}`);
-  //   }
-  // }
-
   async submitBulkVerification(emails: string[], taskName: string): Promise<string> {
     const url = 'https://emailverifier.reoon.com/api/v1/create-bulk-verification-task/';
 
@@ -72,8 +41,6 @@ export class ReoonService {
           },
       });
 
-      console.log('Task created successfully');
-      console.log(response.data);
       return String(response.data.task_id);
     } catch (error: any) {
       if (error.response) {
