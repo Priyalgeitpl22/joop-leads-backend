@@ -460,6 +460,16 @@ export async function schedulerTick() {
 
         if (pendingLeads === 0) {
           triggerCtx.activityLog.push("No pending leads available - all leads have completed their sequences or are stopped");
+          
+          await prisma.campaign.update({
+            where: { id: c.id },
+            data: { 
+              status: CampaignStatus.COMPLETED,
+              completedAt: new Date(),
+            },
+          });
+          console.log(`[Scheduler] ✅ Campaign ${c.id} marked as COMPLETED - all leads finished`);
+          triggerCtx.activityLog.push("Campaign marked as COMPLETED");
         } else {
           triggerCtx.activityLog.push(`${pendingLeads} pending leads exist but could not be sent (check sender limits/gaps)`);
         }

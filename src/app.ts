@@ -1,7 +1,6 @@
 import express from "express";
 import routes from "./routes";
 import cors from "cors";
-import "./jobs/emailCron"; // Import the cron job
 
 const app = express();
 app.use(cors());

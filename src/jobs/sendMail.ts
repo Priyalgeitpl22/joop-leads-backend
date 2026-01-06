@@ -4,6 +4,8 @@ import { PrismaClient } from "@prisma/client";
 import { EmailAccount, SenderAccount } from "../interfaces";
 import { incrementCampaignCount } from "../controllers/analytics.controller";
 import { AnalyticsCountType } from "../enums";
+import { InboxEngineApiService } from "../services/inbox.engine.service";
+import { EmailAccountState } from "../models/email.account.model";
 
 const prisma = new PrismaClient();
 
@@ -162,14 +164,26 @@ const refreshGoogleOAuthToken = async (account: SenderAccount): Promise<string> 
     console.log("[sendMail] ✅ Google Access Token Refreshed!");
     return account.accessToken as string;
   } catch (error: any) {
-    if (error.response?.data?.error === 'invalid_grant') {
+    if (isReauthRequired(error)) {
       console.error("[sendMail] ❌ Google OAuth Refresh Token Expired or Revoked");
+      await InboxEngineApiService.updateAccountPartially(account.accountId as string, {
+        state: EmailAccountState.REAUTH_REQUIRED,
+      });
       throw new Error("REAUTH_REQUIRED: Google OAuth refresh token has expired. Please re-authenticate.");
     }
     console.error("[sendMail] ❌ Google OAuth Token Refresh Error:", error.response?.data || error.message);
     throw new Error(`Failed to refresh Google OAuth token: ${error.response?.data?.error_description || error.message}`);
   }
 };
+
+function isReauthRequired(error: any) {
+  const message = error?.response?.data?.error_description || error?.message || "";
+  return (
+    message.includes("invalid_grant") ||
+    message.includes("REAUTH_REQUIRED") ||
+    message.includes("Token has been expired or revoked")
+  );
+}
 
 const refreshMicrosoftOAuthToken = async (account: EmailAccount): Promise<{ access_token: string; expires_in: number }> => {
   console.log("[sendMail] refreshMicrosoftOAuthToken called for:", account.email);

@@ -14,4 +14,13 @@ export class InboxEngineApiService {
       throw error;
     }
   }
+
+  static async updateAccountPartially(accountId: string, accountData: Partial<Account>): Promise<void> {
+    try {
+      await httpClient.patch(`/accounts/${accountId}`, accountData);
+    } catch (error) {
+      console.error(`Error updating account: ${accountId}`, error);
+      throw error;
+    }
+  }
 }
