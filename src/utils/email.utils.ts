@@ -250,3 +250,32 @@ export const subscriptionActivationEmail = async (planCode: string, billingPerio
   const transporter = getTransporter();
   await transporter.sendMail(mailOptions);
 };
+
+export const calculateDelayMs = (totalEmails: number) => {
+  const base = Math.ceil(totalEmails / 10) * 1000;
+  const min = 5_000;
+  const max = 10 * 60 * 1000; // 10 min cap
+
+  return Math.min(Math.max(base, min), max);
+}
+
+export function getPollingConfig(totalEmails: number) {
+  if (totalEmails <= 500) {
+    return {
+      intervalMs: 10_000,   // every 10 sec
+      maxAttempts: 60,      // ~10 min
+    };
+  }
+
+  if (totalEmails <= 5_000) {
+    return {
+      intervalMs: 20_000,
+      maxAttempts: 90,      // ~30 min
+    };
+  }
+
+  return {
+    intervalMs: 30_000,
+    maxAttempts: 200,      // ~100 min
+  };
+}

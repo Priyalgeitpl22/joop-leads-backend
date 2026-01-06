@@ -304,8 +304,7 @@ export const exportVerifiedEmails = async (req: Request, res: Response): Promise
       Username: e.username,
       Domain: e.domain,
       'Safe to Send': e.isSafeToSend ? 'Yes' : 'No',
-      'Is Disposable': e.isDisposable ? 'Yes' : 'No',
-      'Is Role Account': e.isRoleAccount ? 'Yes' : 'No',
+      'Deliverable': e.isDeliverable ? 'Yes' : 'No',
       'Verified At': e.createdAt,
     }));
 
@@ -351,13 +350,7 @@ export const exportUnverifiedEmails = async (req: Request, res: Response): Promi
       Status: e.status,
       Username: e.username,
       Domain: e.domain,
-      Reason: e.isDisposable
-        ? 'Disposable'
-        : e.isDisabled
-        ? 'Disabled'
-        : e.hasInboxFull
-        ? 'Inbox Full'
-        : e.status || 'Other',
+      Reason: e.status || 'Other',
       'Verified At': e.createdAt,
     }));
 

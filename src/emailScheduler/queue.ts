@@ -1,4 +1,4 @@
-import { Queue } from "bullmq";
+import { FlowProducer, Queue } from "bullmq";
 import IORedis from "ioredis";
 
 const REDIS_URL = process.env.REDIS_URL!;
@@ -14,3 +14,11 @@ export const emailQueue = new Queue("email-send", {
     removeOnComplete: true,
   },
 });
+
+
+export const verificationQueue = new Queue(
+  'email-verification',
+  { connection: redis }
+);
+
+export const flowProducer = new FlowProducer({ connection: redis });
