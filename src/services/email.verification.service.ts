@@ -1,7 +1,8 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { ReoonService } from './reoon.service';
 import { EmailStatus, BatchStatus, ICreateBatch } from '../models/email.verificaition.model';
-
+import { flowProducer } from "../emailScheduler/queue";
+import { calculateDelayMs } from '../utils/email.utils';
 const prisma = new PrismaClient();
 const reoonService = new ReoonService();
 
@@ -128,53 +129,49 @@ export class EmailVerificationService {
     });
 
     if (!batch || !batch.reoonTaskId) {
-      throw new Error('Batch or task ID not found');
+      throw new Error("Batch or task ID not found");
     }
-    if (batch.status === BatchStatus.FAILED) {
-      throw new Error('failed, cannot process results');
-    }
+
     if (batch.status === BatchStatus.COMPLETED) {
       return batch;
     }
-    const results = await reoonService.waitForBulkVerificationCompletion(batch.reoonTaskId);
-    
-    if (!results.results) {
-      throw new Error('No results returned from Reoon');
-    }
-    const verificationResults = Object.values(results.results);
-    await Promise.all(
-      verificationResults.map(async (result) => {
-        const email = result.email.toLowerCase();
-        const emailRecord = await prisma.verifiedEmail.findFirst({
-          where: {
-            batchId,
-            email: email,
+
+    await flowProducer.add({
+      name: "submit-batch",
+      queueName: "email-verification",
+      data: { batchId, orgId },
+
+      children: [
+        {
+          name: "delayed-wait",
+          queueName: "email-verification",
+          data: { batchId, orgId },
+          opts: {
+            delay: calculateDelayMs(batch.totalEmails),
           },
-        });
-
-        if (emailRecord) {
-          await prisma.verifiedEmail.update({
-            where: { id: emailRecord.id },
-            data: {
-              status: this.mapReoonStatusToEnum(result.status),
-              username: result.username,
-              domain: result.domain,
-              isSafeToSend: result.is_safe_to_send,
-              isDeliverable: result.is_deliverable,
+          children: [
+            {
+              name: "poll-reoon",
+              queueName: "email-verification",
+              data: { batchId, orgId },
+              opts: {
+                attempts: 5,
+                backoff: { type: "exponential", delay: 30_000 },
+              },
+              children: [
+                {
+                  name: "persist-results",
+                  queueName: "email-verification",
+                  data: { batchId, orgId },
+                },
+              ],
             },
-          });
-        }
-      })
-    );
-
-    return prisma.emailVerificationBatch.update({
-      where: { id: batchId },
-      data: {
-        status: BatchStatus.COMPLETED,
-        verifiedCount: results.count_checked,
-      },
-      select: batchSelect,
+          ],
+        },
+      ],
     });
+
+    return batch;
   }
 
   static async getVerifiedEmails(batchId: string, orgId: string): Promise<EmailResponse[]> {
@@ -266,7 +263,7 @@ export class EmailVerificationService {
     });
   }
 
-  private static mapReoonStatusToEnum(status: string): EmailStatus {
+  static mapReoonStatusToEnum(status: string): EmailStatus {
     const statusMap: Record<string, EmailStatus> = {
       safe: EmailStatus.SAFE,
       invalid: EmailStatus.INVALID,
