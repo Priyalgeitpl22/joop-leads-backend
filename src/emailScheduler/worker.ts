@@ -1,6 +1,6 @@
 import { Worker } from "bullmq";
 import { PrismaClient } from "@prisma/client";
-import { redis } from "./queue";
+import { verificationQueue, redis } from "./queue";
 import { processAndSendEmail } from "./emailSender";
 import { ReoonService } from "../services/reoon.service";
 import { getPollingConfig } from "../utils/email.utils";
@@ -80,91 +80,114 @@ new Worker(
 );
 
 new Worker(
-  'email-verification',
-  async (job) => {
-    if (job.name !== 'submit-batch') return;
-
-    // batch already submitted earlier
-    return true;
-  },
-  { connection: redis }
-);
-
-
-
-new Worker(
   "email-verification",
   async (job) => {
-    if (job.name !== "poll-reoon") return;
-
     const { batchId } = job.data;
 
-    const batch = await prisma.emailVerificationBatch.findUnique({
-      where: { id: batchId },
-    });
+    switch (job.name) {
 
-    if (!batch?.reoonTaskId) {
-      throw new Error("Missing Reoon taskId");
-    }
+      case "submit-batch": {
+        const batch = await prisma.emailVerificationBatch.findUnique({
+          where: { id: batchId },
+        });
 
-    const { intervalMs, maxAttempts } = getPollingConfig(batch.totalEmails);
+        if (!batch || batch.status !== BatchStatus.PROCESSING) return;
+        const totalEmails = batch?.totalEmails || 0;
+        const { intervalMs, maxAttempts } = getPollingConfig(totalEmails);
+        await verificationQueue.add(
+          "poll-reoon",
+          { batchId },
+          {
+            jobId: `poll-${batchId}`,
+            attempts: maxAttempts,
+            backoff: { type: "fixed", delay: intervalMs },
+          }
+        );
+        return;
+      }
 
-    const results = await reoonService.waitForBulkVerificationCompletion(
-      batch.reoonTaskId,
-      intervalMs,
-      maxAttempts
-    );
+      case "poll-reoon": {
+        const batch = await prisma.emailVerificationBatch.findUnique({
+          where: { id: batchId },
+        });
+        if (!batch?.reoonTaskId) {
+          throw new Error("Missing Reoon taskId");
+        }
+        if (batch.status === BatchStatus.COMPLETED) return;
 
-    // 🔐 STORE RESULT IN REDIS
-    await redis.set(
-      `reoon:result:${batchId}`,
-      JSON.stringify(results),
-      "EX",
-      3600
-    );
+        const { completed, result } =
+          await reoonService.checkBulkStatusOnce(batch.reoonTaskId);
 
-    return true;
-  },
-  { connection: redis }
-);
+        if (!completed || !result) {
+          throw new Error("Still processing"); // retry
+        }
 
+        // 👇 pass results forward instead of storing
+        await verificationQueue.add(
+          "persist-results", 
+          { batchId, results: result },
+          { jobId: `persist-${batchId}` }
+        );
 
-new Worker(
-  "email-verification",
-  async (job) => {
-    if (job.name !== "persist-results") return;
+        return;
+      }
 
-    const { batchId } = job.data;
+      case "persist-results": {
+        const { batchId, results } = job.data;
 
-    const raw = await redis.get(`reoon:result:${batchId}`);
-    if (!raw) throw new Error("Missing Reoon results");
+        const batch = await prisma.emailVerificationBatch.findUnique({
+          where: { id: batchId },
+        });
 
-    const results = JSON.parse(raw);
+        if (!batch || batch.status === BatchStatus.COMPLETED) return;
 
-    await prisma.$transaction(
-      Object.values(results.results).map((r: any) =>
-        prisma.verifiedEmail.updateMany({
-          where: { batchId, email: r.email.toLowerCase() },
-          data: {
-            status: EmailVerificationService.mapReoonStatusToEnum(r.status),
-            username: r.username,
-            domain: r.domain,
-            isSafeToSend: r.is_safe_to_send,
-            isDeliverable: r.is_deliverable,
+        const updates = Object.values(results.results).map(r =>
+          prisma.verifiedEmail.updateMany({
+            where: {
+              batchId,
+              email: (r as any).email.toLowerCase(),
+            },
+            data: {
+              status: EmailVerificationService.mapReoonStatusToEnum((r as any).status),
+              username: (r as any).username,
+              domain: (r as any).domain,
+              isSafeToSend: (r as any).is_safe_to_send,
+              isDeliverable: (r as any).is_deliverable,
+            },
+          })
+        );
+
+        await prisma.$transaction(updates);
+
+        const verifiedEmailsCount = await prisma.verifiedEmail.count({
+          where: {
+            batchId,
+            OR: [
+              { status: EmailVerificationService.mapReoonStatusToEnum("safe") },
+              { status: EmailVerificationService.mapReoonStatusToEnum("role_account") },
+            ],
           },
-        })
-      )
-    );
+        });
 
-    await prisma.emailVerificationBatch.update({
-      where: { id: batchId },
-      data: {
-        status: BatchStatus.COMPLETED,
-        verifiedCount: results.count_checked,
-      },
-    });
+        await prisma.emailVerificationBatch.update({
+          where: { id: batchId },
+          data: {
+            status: BatchStatus.COMPLETED,
+            verifiedCount: verifiedEmailsCount,
+          },
+        });
+
+        return;
+      }
+
+
+      default:
+        throw new Error(`Unknown job: ${job.name}`);
+    }
   },
   { connection: redis }
 );
+
+console.log("🚀 Email verification worker running");
 
 console.log("[Worker] Email worker started and listening for jobs...");

@@ -3,7 +3,6 @@ import multer from 'multer';
 import {
   uploadAndCreateBatch,
   submitBatch,
-  processResults,
   getAllBatches,
   getBatchDetails,
   getBatchStatistics,
@@ -42,8 +41,6 @@ router.get('/batches', getAllBatches);
 router.post('/upload', upload.single('file'), uploadAndCreateBatch);
 
 router.post('/:batchId/submit', submitBatch);
-
-router.post('/:batchId/process', processResults);
 
 router.get('/:batchId', getBatchDetails);
 

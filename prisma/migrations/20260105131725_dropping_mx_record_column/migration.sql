@@ -5,4 +5,5 @@
 
 */
 -- AlterTable
-ALTER TABLE "verified_emails" DROP COLUMN "mxRecords";
+ALTER TABLE "verified_emails"
+DROP COLUMN IF EXISTS "mxRecords";

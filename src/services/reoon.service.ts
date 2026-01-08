@@ -1,9 +1,6 @@
 import axios from 'axios';
 type AxiosInstance = ReturnType<typeof axios.create>;
 import { IReoonVerificationResponse, IBulkVerificationTaskResponse } from '../models/email.verificaition.model';
-import FormData from 'form-data';
-import { Blob } from 'buffer';
-
 export class ReoonService {
   private apiKey: string;
   private baseUrl: string;
@@ -23,8 +20,22 @@ export class ReoonService {
     });
   }
 
+  async checkAccountBalance(): Promise<object> {
+    try {
+      const response = await this.axiosInstance.get<{ result: object }>('/check-account-balance/', {
+        params: {
+          key: this.apiKey,
+        },
+      });
+
+      return response.data;
+    } catch (error: any) {
+      throw new Error(`Reoon API Error: ${error.message}`);
+    }
+  }
+
   async submitBulkVerification(emails: string[], taskName: string): Promise<string> {
-    const url = 'https://emailverifier.reoon.com/api/v1/create-bulk-verification-task/';
+    const url = `${this.baseUrl}/create-bulk-verification-task/`;
 
     const payload = {
       name: taskName,
@@ -89,28 +100,23 @@ export class ReoonService {
     }
   }
 
-  async waitForBulkVerificationCompletion(
-    taskId: string,
-    pollIntervalMs: number = 10000,
-    maxAttempts: number = 60
-  ): Promise<IBulkVerificationTaskResponse> {
-    let attempts = 0;
+  async checkBulkStatusOnce(taskId: string): Promise<{
+    completed: boolean;
+    result?: IBulkVerificationTaskResponse;
+  }> {
+    const result = await this.getBulkVerificationResults(taskId);
 
-    while (attempts < maxAttempts) {
-      const result = await this.getBulkVerificationResults(taskId);
-
-      if (result.status === 'completed') {
-        return result;
-      }
-
-      if (result.status === 'file_not_found' || result.status === 'file_loading_error') {
-        throw new Error(`Verification failed: ${result.status}`);
-      }
-
-      await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
-      attempts++;
+    if (result.status === 'completed') {
+      return { completed: true, result };
     }
 
-    throw new Error('Bulk verification timeout: Maximum polling attempts reached');
+    if (
+      result.status === 'file_not_found' ||
+      result.status === 'file_loading_error'
+    ) {
+      throw new Error(`Verification failed: ${result.status}`);
+    }
+
+    return { completed: false };
   }
 }
