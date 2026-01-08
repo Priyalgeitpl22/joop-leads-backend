@@ -59,7 +59,15 @@ export const uploadAndCreateBatch = async (req: Request, res: Response): Promise
       });
       return;
     }
-
+    const reoonCredits = await EmailVerificationService.checkReoonCredits();
+    console.log('Reoon credits:', reoonCredits);
+    if (reoonCredits.remaining_instant_credits < emails.length) {
+      res.status(400).json({
+        code: 400,
+        message: `Insufficient Reoon credits. Available: ${reoonCredits.remaining_instant_credits}, Required: ${emails.length}`,
+      });
+      return;
+    }
     const batch = await EmailVerificationService.createBatch({
       name: batchName || `Batch ${new Date().toISOString()}`,
       fileName: req.file.originalname,
@@ -114,35 +122,6 @@ export const submitBatch = async (req: Request, res: Response): Promise<void> =>
     res.status(500).json({
       code: 500,
       message: error.message || 'Failed to submit batch',
-    });
-  }
-};
-
-export const processResults = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { batchId } = req.params;
-    const user = req.user;
-
-    if (!user?.orgId) {
-      res.status(400).json({ code: 400, message: 'Organization ID is required' });
-      return;
-    }
-
-    const batch = await EmailVerificationService.processVerificationResults(
-      batchId,
-      user.orgId
-    );
-
-    res.status(200).json({
-      code: 200,
-      message: 'Verification results processed successfully',
-      data: batch,
-    });
-  } catch (error: any) {
-    console.error('Process error:', error);
-    res.status(500).json({
-      code: 500,
-      message: error.message || 'Failed to process results',
     });
   }
 };

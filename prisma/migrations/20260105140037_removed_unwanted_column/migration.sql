@@ -15,14 +15,15 @@
 
 */
 -- AlterTable
-ALTER TABLE "verified_emails" DROP COLUMN "canConnectSmtp",
-DROP COLUMN "hasInboxFull",
-DROP COLUMN "isCatchAll",
-DROP COLUMN "isDisabled",
-DROP COLUMN "isDisposable",
-DROP COLUMN "isRoleAccount",
-DROP COLUMN "isSpamtrap",
-DROP COLUMN "isValidSyntax",
-DROP COLUMN "mxAcceptsMail",
-DROP COLUMN "verificationMode",
-DROP COLUMN "verificationResult";
+ALTER TABLE "verified_emails"
+  DROP COLUMN IF EXISTS "canConnectSmtp",
+  DROP COLUMN IF EXISTS "hasInboxFull",
+  DROP COLUMN IF EXISTS "isCatchAll",
+  DROP COLUMN IF EXISTS "isDisabled",
+  DROP COLUMN IF EXISTS "isDisposable",
+  DROP COLUMN IF EXISTS "isRoleAccount",
+  DROP COLUMN IF EXISTS "isSpamtrap",
+  DROP COLUMN IF EXISTS "isValidSyntax",
+  DROP COLUMN IF EXISTS "mxAcceptsMail",
+  DROP COLUMN IF EXISTS "verificationMode",
+  DROP COLUMN IF EXISTS "verificationResult";
