@@ -281,28 +281,14 @@ export async function schedulerTick() {
               // New lead - hasn't received any email yet
               newLeadCandidates.push(cl);
             } else {
-              // Follow-up candidate - check if delay has passed
-              if (cl.lastSentAt && nextSeq.delayDays > 0) {
-                const timeSinceLastSent = Date.now() - cl.lastSentAt.getTime();
-                
-                let timePassed: number;
-                let requiredDelay: number;
-                
-                if (isDev) {
-                  timePassed = timeSinceLastSent / (1000 * 60 * 60); // hours
-                  requiredDelay = nextSeq.delayDays;
-                } else {
-                  timePassed = timeSinceLastSent / (1000 * 60 * 60 * 24); // days
-                  requiredDelay = nextSeq.delayDays;
-                }
-                
-                if (timePassed >= requiredDelay) {
-                  followUpCandidates.push(cl);
-                }
-                // If delay hasn't passed, skip this lead for now
-              } else if (!nextSeq.delayDays || nextSeq.delayDays === 0) {
-                // No delay required
+              // Follow-up candidate - check if delay has passed ......
+              if (cl.nextSendAt && cl.nextSendAt < new Date()) {
                 followUpCandidates.push(cl);
+              } else {
+                console.log(`[Scheduler] Lead ${cl.lead.email} nextSendAt ${cl.nextSendAt?.toISOString()} is not yet due - skipping`);
+                triggerCtx.senderDetails[sender.email].skipped = true;
+                triggerCtx.senderDetails[sender.email].skipReason = `Next send not due yet (${cl.nextSendAt?.toISOString()})`;
+                continue;
               }
             }
           }
@@ -431,13 +417,23 @@ export async function schedulerTick() {
             },
           });
 
+          const isTestMode = process.env.NODE_ENV !== 'production';
+
+          const delayMs = isTestMode
+            ? sequence.delayDays * 60 * 60 * 1000 
+            : sequence.delayDays * 24 * 60 * 60 * 1000;
+
+          const nextSendAt = nextSequence
+            ? new Date(Date.now() + delayMs)
+            : null; 
+
           // Update campaign lead with new sequence step
           await prisma.campaignLead.update({
             where: { id: campaignLead.id },
             data: {
               currentSequenceStep: nextStep,
               lastSentAt: new Date(),
-              // Keep PENDING if more sequences exist, otherwise mark as SENT
+              nextSendAt: nextSendAt,
               status: nextSequence ? "PENDING" : "SENT",
             },
           });

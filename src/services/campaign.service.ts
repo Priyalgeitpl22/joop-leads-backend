@@ -273,9 +273,7 @@ export class CampaignService {
     const data = campaigns.map((c) => {
       const totalEmailsNeeded = c.leads.length * c.sequences.length;
       const totalSent = c.analytics?.sentCount || 0;
-      const completedPercentage = totalEmailsNeeded > 0
-        ? parseFloat(((totalSent / totalEmailsNeeded) * 100).toFixed(2))
-        : 0;
+      const completedPercentage = calculateCampaignCompletionPercentage(c);
 
       return {
         total_leads: c.leads.length,
@@ -1030,6 +1028,24 @@ export class CampaignService {
     const updatedCampaign = await prisma.campaign.update({ where: { id: campaignId }, data: { status } });
     return { code: 200, data: updatedCampaign, message: "success" };
   }
+}
+
+const calculateCampaignCompletionPercentage = (campaign: any) => {
+  const totalExpected = campaign.leads.reduce((sum: number, lead: any) => {
+    if (lead.stoppedAt) {
+      return sum + lead.currentSequenceStep;
+    }
+    return sum + campaign.sequences.length;
+  }, 0);
+
+  const totalSent = campaign.analytics?.sentCount || 0;
+
+  const completion =
+  totalExpected === 0
+    ? 0
+    : Math.round((totalSent / totalExpected) * 100);
+
+  return completion;
 }
 
 const replaceTemplateVariables = (template: string, variables: any) => {

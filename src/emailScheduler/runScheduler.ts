@@ -8,13 +8,39 @@ dotenv.config({
 import { schedulerTick } from "./scheduler";
 import { pollForReplies } from "../jobs/replyPoller";
 
-setInterval(async () => {
+const INTERVAL_MINUTES = 1;
+const INTERVAL_MS = INTERVAL_MINUTES * 60 * 1000;
+
+const startAlignedScheduler = () => {
+  const now = new Date();
+
+  const nextRun = new Date(now);
+  nextRun.setSeconds(0, 0);
+
+  const minutes = nextRun.getMinutes();
+  const remainder = minutes % INTERVAL_MINUTES;
+
+  if (remainder !== 0) {
+    nextRun.setMinutes(minutes + (INTERVAL_MINUTES - remainder));
+  }
+
+  const delay = nextRun.getTime() - now.getTime();
+
+  setTimeout(() => {
+    runScheduler();
+    setInterval(runScheduler, INTERVAL_MS);
+  }, delay);
+};
+
+const runScheduler = async () => {
   try {
     await schedulerTick();
   } catch (e) {
     console.error("schedulerTick error", e);
   }
-}, 60_000);
+};
+
+startAlignedScheduler();
 
 // Run reply polling every 5 minutes
 const REPLY_POLL_INTERVAL = 5 * 60 * 1000; // 5 minutes
