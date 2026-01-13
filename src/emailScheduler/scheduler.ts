@@ -282,13 +282,8 @@ export async function schedulerTick() {
               newLeadCandidates.push(cl);
             } else {
               // Follow-up candidate - check if delay has passed ......
-              if (cl.nextSendAt && cl.nextSendAt < new Date()) {
+              if (cl.nextSendAt && cl.nextSendAt <= new Date()) {
                 followUpCandidates.push(cl);
-              } else {
-                console.log(`[Scheduler] Lead ${cl.lead.email} nextSendAt ${cl.nextSendAt?.toISOString()} is not yet due - skipping`);
-                triggerCtx.senderDetails[sender.email].skipped = true;
-                triggerCtx.senderDetails[sender.email].skipReason = `Next send not due yet (${cl.nextSendAt?.toISOString()})`;
-                continue;
               }
             }
           }
