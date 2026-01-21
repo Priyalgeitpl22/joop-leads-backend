@@ -36,7 +36,7 @@ async function saveTriggerLog(ctx: TriggerContext) {
 
 export async function schedulerTick() {
   console.log("[Scheduler] ========== TICK START ==========", new Date().toISOString());
-
+  console.log(`[Scheduler] process.env.NODE_ENV: ${process.env.NODE_ENV}`);
   const due = await prisma.campaignRuntime.findMany({
     where: { nextRunAt: { lte: new Date() } },
     include: { campaign: true },
