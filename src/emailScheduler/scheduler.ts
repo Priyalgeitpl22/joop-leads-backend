@@ -413,6 +413,8 @@ export async function schedulerTick() {
           });
 
           const isTestMode = process.env.NODE_ENV !== 'production';
+          console.log(`[Scheduler] process.env.NODE_ENV: ${process.env.NODE_ENV}`);
+          console.log(`[Scheduler] isTestMode: ${isTestMode}`);
 
           const delayMs = isTestMode
             ? sequence.delayDays * 60 * 60 * 1000 
