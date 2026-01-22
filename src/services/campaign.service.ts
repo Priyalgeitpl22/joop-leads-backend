@@ -996,7 +996,7 @@ export class CampaignService {
         sentAt: send.sentAt,
         sequenceStep: send.sequenceStep,
         lead: {
-          name: send.lead.firstName + " " + send.lead.lastName,
+          name: send.lead.lastName ? `${send.lead.firstName} ${send.lead.lastName}` : send.lead.firstName,
           email: send.lead.email,
         },
         sender: {
