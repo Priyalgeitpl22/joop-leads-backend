@@ -244,43 +244,6 @@ export class CampaignService {
           }
         }
 
-        const campaignSender = await tx.campaignSender.findFirst({
-          where: { campaignId: campaign_id },
-          select: { senderId: true },
-        });
-
-        if (campaignSender) {
-          const senderAccount = await tx.senderAccount.findUnique({
-            where: { id: campaignSender.senderId },
-            select: { signature: true },
-          });
-
-          if (senderAccount?.signature) {
-            const sequences = await tx.sequence.findMany({
-              where: {
-                campaignId: campaign_id,
-                bodyHtml: { contains: "%signature%" },
-              },
-            });
-
-            for (const seq of sequences) {
-              await tx.sequence.update({
-                where: { id: seq.id },
-                data: {
-                  bodyHtml: seq.bodyHtml?.replace(
-                    /%signature%/g,
-                    senderAccount.signature
-                  ),
-                  bodyText: seq.bodyText?.replace(
-                    /%signature%/g,
-                    senderAccount.signature
-                  ),
-                },
-              });
-            }
-          }
-        }
-
       });
 
       return { code: 200, message: "Campaign settings saved successfully" };
