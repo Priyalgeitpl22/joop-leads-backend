@@ -69,7 +69,7 @@ export class SenderAccountService {
                 warmupStatus: WarmupStatus.NOT_STARTED,
                 warmupStartedAt: null,
                 warmupDailyIncrement: 2,
-                signature: null,
+                signature: data?.signature ? data.signature : existingSenderAccount.signature,
             } as UpdateSenderAccount;
 
             const senderAccount = await prisma.senderAccount.update({ where: { accountId: accountId }, data: updatedAccount as Prisma.SenderAccountUpdateInput });
@@ -160,7 +160,12 @@ export class SenderAccountService {
                 accessToken: data?.oauth2?.tokens?.access_token ? data?.oauth2?.tokens?.access_token : null,
                 refreshToken: data?.oauth2?.tokens?.refresh_token ? data?.oauth2?.tokens?.refresh_token : null,
                 tokenExpiry: data?.oauth2?.tokens?.expiry_date ? new Date(data?.oauth2?.tokens?.expiry_date) : null,
-                signature: data.signature ? data.signature : null,
+                signature: data.signature ? data.signature : `
+                    <div style="color: #034f84;">
+                    <h6 style="margin: 0;">Best regards,</h6>
+                    <p style="margin: 4px 0 0 0;">${data.name}</p>
+                    </div>
+                    `,
                 dailyLimit: data?.limit ? data.limit : 0,
                 warmupStatus: data?.warmup?.enabled ? WarmupStatus.IN_PROGRESS : WarmupStatus.NOT_STARTED,
                 warmupStartedAt: data?.warmup?.startDate ?? null,
