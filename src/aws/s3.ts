@@ -13,6 +13,6 @@ const s3Conifg = new AWS.S3({
   region: process.env.AWS_REGION,
 });
 
-const bucket_name = process.env.AWS_BUCKET_NAME || 'ai-chatbot-images';
+const bucket_name = process.env.AWS_BUCKET_NAME || 'stg-jooper-leads';
 
 export { s3Conifg, bucket_name };
