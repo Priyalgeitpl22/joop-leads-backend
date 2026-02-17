@@ -243,6 +243,7 @@ export class CampaignService {
             }
           }
         }
+
       });
 
       return { code: 200, message: "Campaign settings saved successfully" };
