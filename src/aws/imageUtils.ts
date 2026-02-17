@@ -60,6 +60,7 @@ export const uploadCSVToS3 = async (
   file: Express.Multer.File
 ): Promise<string> => {
   try {
+    console.log("Environment variables:", process.env);
     if (!file || !file.buffer) {
       throw new Error("No file buffer provided");
     }
@@ -102,6 +103,7 @@ export const uploadCSVToS3 = async (
 
     return uploadResult.Key;
   } catch (error) {
+    console.log("Environment variables:", process.env);
     console.error("S3 Upload Error:", error);
     throw new Error("File upload failed");
   }
