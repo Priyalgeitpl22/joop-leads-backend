@@ -51,6 +51,11 @@ export class CampaignService {
 
           if (!csvUploded) {
             resolve({ code: 500, message: "Failed to upload csv file." });
+          } else {
+            await prisma.campaign.update({
+              where: { id: campaign!.id },
+              data: { csvFile: csvUploded },
+            });
           }
 
           const csvSettings = typeof req.body.CSVsettings === "string" ? JSON.parse(req.body.CSVsettings) : req.body.CSVsettings || {};
@@ -317,8 +322,11 @@ export class CampaignService {
     const completedPercentage = totalEmailsNeeded > 0
       ? parseFloat(((totalSent / totalEmailsNeeded) * 100).toFixed(2))
       : 0;
-    const progressPercentage = totalEmailsNeeded > 0
-      ? parseFloat(((totalProcessed / totalEmailsNeeded) * 100).toFixed(2)) : 0;
+
+    if (campaign.csvFile) { 
+      const csvFile = await getPresignedUrl(campaign.csvFile);
+      campaign.csvFile = csvFile;
+    }
 
     return {
       code: 200,
@@ -354,6 +362,7 @@ export class CampaignService {
         sender_accounts: campaign.senders.map((s) => s.sender),
         analytics: campaign.analytics,
         campaignStats,
+        csvFile: campaign.csvFile,
       },
       message: "success",
     };

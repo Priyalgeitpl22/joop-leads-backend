@@ -159,6 +159,7 @@ export interface Campaign {
   name: string;
   description: string | null;
   status: CampaignStatus;
+  csvFile: string | null;
   timezone: string;
   sendDays: string[];
   windowStart: string;

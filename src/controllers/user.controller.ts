@@ -96,7 +96,7 @@ export const createUser = async (req: Request, res: Response): Promise<any> => {
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res
-        .status(400).json({ code: 400, message: "Email already exists" });
+        .status(400).json({ code: 400, message: "User with this email already exists!" });
     }
 
     let profilePictureUrl: string | null = null;
@@ -156,10 +156,17 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
         updateData.profilePicture = profilePictureKey;
       }
 
+      if (updateData.removeProfilePicture === 'true') {
+        updateData.profilePicture = null;
+        delete updateData.removeProfilePicture;
+      }
+
       const user = await UserService.update(req.params.id, updateData);
 
       if (user.profilePicture) {
-        updateData.profilePicture = await getPresignedUrl(user.profilePicture);
+        const profilePictureUrl = await getPresignedUrl(user.profilePicture);
+        console.log(profilePictureUrl);
+        user.profilePicture = profilePictureUrl;
       }
       res.json({ code: 200, data: user });
     } catch (error: any) {
