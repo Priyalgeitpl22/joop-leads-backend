@@ -184,12 +184,12 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const softDeleteUser = async (req: Request, res: Response): Promise<void> => {
+export const deleteUserById = async (req: Request, res: Response): Promise<void> => {
   try {
-    await UserService.softDelete(req.params.id);
-    res.json({ code: 200, message: "User soft deleted" });
+    await UserService.deleteById(req.params.id);
+    res.json({ code: 200, message: "User deleted" });
   } catch (error) {
-    res.status(400).json({ code: 400, message: "Soft delete failed" });
+    res.status(400).json({ code: 400, message: "Delete failed" });
   }
 };
 

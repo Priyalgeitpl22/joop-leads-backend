@@ -24,7 +24,7 @@ export const verify = async (req: Request, res: Response, next: NextFunction): P
     }
 
     if (user.isDeleted) {
-      return res.status(403).json({ code: 403, message: "User is deleted" });
+      return res.status(401).json({ code: 401, message: "Your account has been deleted and is no longer accessible." });
     }
 
     (req as any).user = user;
