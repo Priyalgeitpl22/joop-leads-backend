@@ -70,6 +70,13 @@ export class UserService {
     return prisma.user.delete({ where: { id } });
   }
 
+  static softDelete(id: string) {
+    return prisma.user.update({
+      where: { id },
+      data: { isDeleted: true },
+    });
+  }
+
   static search(orgId: string, q: string): Promise<UserResponse[]> {
     return prisma.user.findMany({
       where: {
