@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { generateOtp, generateRandomToken } from "../utils/otp.utils";
-import { sendOtpEmail, sendResetPasswordEmail } from "../utils/email.utils";
+import { sendOtpEmail, sendResetPasswordEmail ,resendActivationEmail} from "../utils/email.utils";
 import { uploadImageToS3 } from "../aws/imageUtils";
 import { assignFreePlanToOrg } from "./organization.plan.service";
 
@@ -211,10 +211,15 @@ export class AuthService {
     const agent = await prisma.user.findUnique({ where: { email } });
     if (!agent) return { code: 404, message: "Agent not found" };
 
-    if (agent.activationToken !== token) {
-      return { code: 400, message: "Invalid or expired token" };
+    if (!agent.activationToken || agent.activationToken !== token) {
+      return { code: 400, message: "Invalid activation token" };
     }
-
+    if (
+      !agent.activationTokenExpiresAt ||
+      new Date() > agent.activationTokenExpiresAt
+    ) {
+      return { code: 400, message: "Activation link has expired" };
+    }
     const hashedPassword = await bcrypt.hash(password, 10);
     await prisma.user.update({
       where: { email },
@@ -223,5 +228,40 @@ export class AuthService {
 
     return { code: 200, message: "Account activated successfully" };
   }
+
+  static async resendActivation(email: string) {
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      return { code: 404, message: "User not found" };
+    }
+
+    if (user.isVerified) {
+      return {
+        code: 400,
+        message: "Account is already activated. Please login.",
+      };
+    }
+
+    const tokenData = generateRandomToken(32, 18000);
+
+    const activationLink = `${process.env.FRONTEND_URL}/activate-account?token=${tokenData.token}&email=${email}`;
+
+    await prisma.user.update({
+      where: { email },
+      data: {
+        activationToken: tokenData.token,
+        activationTokenExpiresAt: tokenData.expiresAt,
+      },
+    });
+
+    await resendActivationEmail(email, user.fullName, activationLink);
+
+    return {
+      code: 200,
+      message: "A new activation link has been sent to your email.",
+    };
+  }
+
 }
 
