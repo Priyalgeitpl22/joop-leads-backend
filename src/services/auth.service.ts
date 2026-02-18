@@ -21,7 +21,7 @@ export class AuthService {
   }) {
     const { email, fullName, password, orgName, domain, country, phone, profilePicture } = data;
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const existingUser = await prisma.user.findUnique({ where: { email, isDeleted: false } });
 
     if (existingUser && !existingUser.isVerified) {
       const otp = generateOtp();
@@ -69,7 +69,7 @@ export class AuthService {
   }
 
   static async verifyOtp(email: string, otp: string) {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email, isDeleted: false } });
     if (!user) return { code: 404, message: "User not found" };
 
     if (!user.otpCode || user.otpCode !== otp) {
@@ -89,7 +89,7 @@ export class AuthService {
   }
 
   static async resendOtp(email: string) {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email, isDeleted: false } });
     if (!user) return { code: 404, message: "User not found" };
 
     if (user.otpExpiresAt && user.otpExpiresAt > new Date()) {
@@ -109,7 +109,7 @@ export class AuthService {
   static async forgetPassword(email: string) {
     if (!email) return { code: 400, message: "Email is required" };
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const existingUser = await prisma.user.findUnique({ where: { email, isDeleted: false } });
     if (!existingUser) return { code: 404, message: "User not found" };
 
     const tokenData = generateRandomToken(32, 3600);
@@ -129,7 +129,7 @@ export class AuthService {
       return { code: 400, message: "Token, password and email are required" };
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email, isDeleted: false } });
     if (!user) return { code: 404, message: "User not found" };
 
     if (!user.resetToken || user.resetToken !== token) {
@@ -146,7 +146,7 @@ export class AuthService {
   }
 
   static async changePassword(email: string, existingPassword: string, newPassword: string) {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email, isDeleted: false } });
     if (!user) return { code: 404, message: "User not found" };
 
     const isPasswordValid = await bcrypt.compare(existingPassword, user.password);
@@ -163,7 +163,7 @@ export class AuthService {
   }
 
   static async login(email: string, password: string) {
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({ where: { email, isDeleted: false } });
     if (!user) return { code: 400, message: "User not found" };
 
     if (!user.isVerified) {
@@ -208,7 +208,7 @@ export class AuthService {
       return { code: 400, message: "Missing required fields: token, password, and email" };
     }
 
-    const agent = await prisma.user.findUnique({ where: { email } });
+    const agent = await prisma.user.findUnique({ where: { email, isDeleted: false } });
     if (!agent) return { code: 404, message: "Agent not found" };
 
     if (agent.activationToken !== token) {
