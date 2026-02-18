@@ -67,10 +67,6 @@ export class UserService {
   }
 
   static delete(id: string) {
-    return prisma.user.delete({ where: { id } });
-  }
-
-  static deleteById(id: string) {
     return prisma.user.update({
       where: { id },
       data: { isDeleted: true , deletedAt: new Date() },

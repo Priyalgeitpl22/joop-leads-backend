@@ -179,15 +179,6 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
   try {
     await UserService.delete(req.params.id);
     res.json({ code: 200, message: "User deleted" });
-  } catch {
-    res.status(400).json({ code: 400, message: "Delete failed" });
-  }
-};
-
-export const deleteUserById = async (req: Request, res: Response): Promise<void> => {
-  try {
-    await UserService.deleteById(req.params.id);
-    res.json({ code: 200, message: "User deleted" });
   } catch (error) {
     res.status(400).json({ code: 400, message: "Delete failed" });
   }
