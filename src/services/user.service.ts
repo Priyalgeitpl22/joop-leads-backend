@@ -73,7 +73,7 @@ export class UserService {
   static softDelete(id: string) {
     return prisma.user.update({
       where: { id },
-      data: { isDeleted: true },
+      data: { isDeleted: true , deletedAt: new Date() },
     });
   }
 
