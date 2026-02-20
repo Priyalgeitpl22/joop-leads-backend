@@ -72,3 +72,21 @@ export interface IBulkVerificationTaskResponse {
   count_checked: number;
   results?: IReoonVerificationResponse[];
 }
+export interface ISingleEmailVerification {
+  id: string;
+  email: string;
+  status: EmailStatus | null;
+  username: string | null;
+  domain: string | null;
+  isSafeToSend: boolean | null;
+  isDeliverable: boolean | null;
+  createdAt: Date;
+  updatedAt: Date;
+  orgId: string;
+  verifiedById: string;
+}
+
+export interface IVerifySingleEmailRequest {
+  emails: string;
+  mode?: 'quick' | 'power';
+}

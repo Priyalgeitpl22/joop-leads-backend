@@ -34,6 +34,20 @@ const emailSelect = {
   updatedAt: true,
 };
 
+const singleEmailSelect = {
+  id: true,
+  email: true,
+  status: true,
+  username: true,
+  domain: true,
+  isSafeToSend: true,
+  isDeliverable: true,
+  createdAt: true,
+  updatedAt: true,
+  orgId: true,
+  verifiedById: true,
+};
+
 export type BatchResponse = Prisma.EmailVerificationBatchGetPayload<{
   select: typeof batchSelect;
 }>;
@@ -42,6 +56,9 @@ export type EmailResponse = Prisma.VerifiedEmailGetPayload<{
   select: typeof emailSelect;
 }>;
 
+export type SingleEmailResponse = Prisma.SingleEmailVerificationGetPayload<{
+  select: typeof singleEmailSelect;
+}>;
 /* -------------------- Service -------------------- */
 export class EmailVerificationService {
 
@@ -86,7 +103,7 @@ export class EmailVerificationService {
     });
   }
 
-  static async submitBatchForVerification(batchId: string, orgId: string) {
+  static async submitBatchForVerification(batchId: string, orgId: string, csvUploaded: any) {
     const batch = await prisma.emailVerificationBatch.findFirst({
       where: { id: batchId, orgId },
       include: { emails: true },
@@ -108,6 +125,7 @@ export class EmailVerificationService {
       data: {
         reoonTaskId: taskId,
         status: BatchStatus.PROCESSING,
+        csvFile: csvUploaded,
       },
     });
 
@@ -228,5 +246,100 @@ export class EmailVerificationService {
     };
 
     return statusMap[status.toLowerCase()] || EmailStatus.UNKNOWN;
+  }
+
+  static async verifyEmails(
+    emailsString: string,
+    orgId: string,
+    userId: string,
+    mode: 'quick' | 'power' = 'power'
+  ): Promise<{
+    verified: SingleEmailResponse[];
+    failed: Array<{ email: string; error: string }>;
+  }> {
+    // Parse comma-separated emails
+    const emailList = emailsString
+      .split(',')
+      .map(e => e.trim().toLowerCase())
+      .filter(e => e && this.isValidEmail(e));
+
+    if (emailList.length === 0) {
+      throw new Error('No valid emails provided');
+    }
+
+    // Remove duplicates
+    const uniqueEmails = [...new Set(emailList)];
+
+    const verified: SingleEmailResponse[] = [];
+    const failed: Array<{ email: string; error: string }> = [];
+
+    // Verify each email
+    for (const email of uniqueEmails) {
+      try {
+        // Check if already verified recently (within 24 hours)
+        const existingVerification = await prisma.singleEmailVerification.findFirst({
+          where: {
+            email,
+            orgId,
+            createdAt: {
+              gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
+            },
+          },
+          select: singleEmailSelect,
+        });
+
+        if (existingVerification) {
+          // Return cached result
+          verified.push(existingVerification);
+          continue;
+        }
+
+        // Call Reoon API
+        const result = await reoonService.verifySingleEmail(email, mode);
+
+        // Save to database
+        const savedVerification = await prisma.singleEmailVerification.create({
+          data: {
+            email,
+            status: this.mapReoonStatusToEnum(result.status),
+            username: result.username,
+            domain: result.domain,
+            isSafeToSend: result.is_safe_to_send,
+            isDeliverable: result.is_deliverable,
+            orgId,
+            verifiedById: userId,
+          },
+          select: singleEmailSelect,
+        });
+
+        verified.push(savedVerification);
+      } catch (error: any) {
+        failed.push({
+          email,
+          error: error.message || 'Verification failed',
+        });
+      }
+    }
+
+    return { verified, failed };
+  }
+
+  static async getVerificationHistory(
+    orgId: string,
+    limit: number = 50,
+    offset: number = 0
+  ): Promise<SingleEmailResponse[]> {
+    return prisma.singleEmailVerification.findMany({
+      where: { orgId },
+      select: singleEmailSelect,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: offset,
+    });
+  }
+
+  private static isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   }
 }

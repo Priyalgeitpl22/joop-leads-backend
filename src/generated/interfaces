@@ -51,6 +51,7 @@ export interface Organization {
   plans?: OrganizationPlan[];
   apiKeys?: ApiKey[];
   emailVerificationBatches?: EmailVerificationBatch[];
+  singleEmailVerifications?: SingleEmailVerification[];
 }
 
 export interface User {
@@ -80,6 +81,7 @@ export interface User {
   leadsUploaded?: Lead[];
   campaigns?: Campaign[];
   emailVerificationBatches?: EmailVerificationBatch[];
+  singleEmailVerifications?: SingleEmailVerification[];
 }
 
 export interface AccessToken {
@@ -428,6 +430,7 @@ export interface EmailVerificationBatch {
   reoonTaskId: string | null;
   createdAt: Date;
   updatedAt: Date;
+  csvFile: string | null;
   orgId: string;
   organization?: Organization;
   uploadedById: string;
@@ -447,6 +450,22 @@ export interface VerifiedEmail {
   createdAt: Date;
   updatedAt: Date;
   batch?: EmailVerificationBatch;
+}
+
+export interface SingleEmailVerification {
+  id: string;
+  email: string;
+  status: EmailStatus | null;
+  username: string | null;
+  domain: string | null;
+  isSafeToSend: boolean | null;
+  isDeliverable: boolean | null;
+  createdAt: Date;
+  updatedAt: Date;
+  orgId: string;
+  organization?: Organization;
+  verifiedById: string;
+  verifiedBy?: User;
 }
 
 type JsonValue = string | number | boolean | { [key in string]?: JsonValue } | Array<JsonValue> | null;

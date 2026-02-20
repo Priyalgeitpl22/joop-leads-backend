@@ -145,6 +145,7 @@ model Organization {
   plans          OrganizationPlan[]
   apiKeys        ApiKey[]
   emailVerificationBatches EmailVerificationBatch[]
+  singleEmailVerifications SingleEmailVerification[]
   @@index([domain])
 }
 
@@ -181,6 +182,7 @@ model User {
   leadsUploaded Lead[]     @relation("UploadedByUser")
   campaigns     Campaign[] @relation("CreatedByUser")
   emailVerificationBatches EmailVerificationBatch[]
+  singleEmailVerifications SingleEmailVerification[]
   @@index([orgId])
   @@index([email])
 }
@@ -740,7 +742,7 @@ model EmailVerificationBatch {
   reoonTaskId   String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  
+  csvFile     String?
   orgId         String
   organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   uploadedById  String
@@ -750,7 +752,7 @@ model EmailVerificationBatch {
   
   @@index([orgId])
   @@index([uploadedById])
-  @@map("email_verification_batches")
+  @@map("EmailVerificationBatch")
 }
 
 model VerifiedEmail {
@@ -770,7 +772,7 @@ model VerifiedEmail {
   @@index([batchId])
   @@index([email])
   @@index([status])
-  @@map("verified_emails")
+  @@map("VerifiedEmail")
 }
 
 enum BatchStatus {
@@ -792,3 +794,25 @@ enum EmailStatus {
   SPAMTRAP
   UNKNOWN
 }
+
+model SingleEmailVerification {
+  id                  String   @id @default(uuid())
+  email               String
+  status              EmailStatus?
+  username            String?
+  domain              String?
+  isSafeToSend        Boolean?
+  isDeliverable       Boolean?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  orgId               String
+  organization        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  verifiedById        String
+  verifiedBy          User @relation(fields: [verifiedById], references: [id])
+  
+  @@index([orgId])
+  @@index([verifiedById])
+  @@index([email])
+  @@index([status])
+  @@map("SingleEmailVerification")
+} 

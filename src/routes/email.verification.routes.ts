@@ -2,7 +2,6 @@ import { Router } from 'express';
 import multer from 'multer';
 import {
   uploadAndCreateBatch,
-  submitBatch,
   getAllBatches,
   getBatchDetails,
   getBatchStatistics,
@@ -11,6 +10,8 @@ import {
   exportVerifiedEmails,
   exportUnverifiedEmails,
   deleteBatch,
+  verifyEmails,
+  getEmails
 } from '../controllers/email.verification.controller';
 
 const router = Router();
@@ -40,7 +41,9 @@ router.get('/batches', getAllBatches);
 
 router.post('/upload', upload.single('file'), uploadAndCreateBatch);
 
-router.post('/:batchId/submit', submitBatch);
+router.post('/verify', verifyEmails);
+
+router.get('/status', getEmails)
 
 router.get('/:batchId', getBatchDetails);
 

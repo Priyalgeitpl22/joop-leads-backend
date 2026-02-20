@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { EmailVerificationService } from '../services/email.verification.service';
 import * as XLSX from 'xlsx';
+import { uploadCSVToS3 } from '../aws/imageUtils';
 
 export const uploadAndCreateBatch = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -64,7 +65,7 @@ export const uploadAndCreateBatch = async (req: Request, res: Response): Promise
     if (reoonCredits.remaining_instant_credits < emails.length) {
       res.status(400).json({
         code: 400,
-        message: `Insufficient Reoon credits. Available: ${reoonCredits.remaining_instant_credits}, Required: ${emails.length}`,
+        message: `Insufficient credits.`,
       });
       return;
     }
@@ -76,9 +77,17 @@ export const uploadAndCreateBatch = async (req: Request, res: Response): Promise
       uploadedById: user.id,
     });
 
+    const csvUploaded = await uploadCSVToS3(`email_batches/${batch.id}`, req.file)
+    console.log('CSV uploaded to S3:', csvUploaded);
+    await EmailVerificationService.submitBatchForVerification(
+      batch.id,
+      user.orgId,
+      csvUploaded
+    );
+
     res.status(201).json({
       code: 201,
-      message: 'Batch created successfully',
+      message: 'Batch submitted for verification',
       data: {
         batchId: batch.id,
         name: batch.name,
@@ -93,35 +102,6 @@ export const uploadAndCreateBatch = async (req: Request, res: Response): Promise
       code: 500,
       message: 'Failed to upload and create batch',
       error: error.message,
-    });
-  }
-};
-
-export const submitBatch = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { batchId } = req.params;
-    const user = req.user;
-
-    if (!user?.orgId) {
-      res.status(400).json({ code: 400, message: 'Organization ID is required' });
-      return;
-    }
-
-    const batch = await EmailVerificationService.submitBatchForVerification(
-      batchId,
-      user.orgId
-    );
-
-    res.status(200).json({
-      code: 200,
-      message: 'Batch submitted for verification',
-      data: batch,
-    });
-  } catch (error: any) {
-    console.error('Submit error:', error);
-    res.status(500).json({
-      code: 500,
-      message: error.message || 'Failed to submit batch',
     });
   }
 };
@@ -378,6 +358,97 @@ export const deleteBatch = async (req: Request, res: Response): Promise<void> =>
     res.status(500).json({
       code: 500,
       message: error.message || 'Failed to delete batch',
+    });
+  }
+};
+
+export const verifyEmails = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = req.user;
+
+    if (!user?.orgId) {
+      res.status(400).json({ code: 400, message: 'Organization ID is required' });
+      return;
+    }
+
+    const { emails, mode = 'power' } = req.body;
+
+    if (!emails || typeof emails !== 'string') {
+      res.status(400).json({
+        code: 400,
+        message: 'Emails are required (comma-separated string)',
+      });
+      return;
+    }
+
+    if (mode !== 'quick' && mode !== 'power') {
+      res.status(400).json({
+        code: 400,
+        message: 'Mode must be either "quick" or "power"',
+      });
+      return;
+    }
+    
+    const result = await EmailVerificationService.verifyEmails(
+      emails,
+      user.orgId,
+      user.id,
+      mode
+    );
+
+    const response: any = {
+      code: 200,
+      message: 'Email verification completed',
+      data: {
+        verified: result.verified,
+        verifiedCount: result.verified.length,
+      },
+    };
+
+    // Include failed emails if any
+    if (result.failed.length > 0) {
+      response.data.failed = result.failed;
+      response.data.failedCount = result.failed.length;
+      response.message = `Verified ${result.verified.length} email(s), ${result.failed.length} failed`;
+    }
+
+    res.status(200).json(response);
+  } catch (error: any) {
+    console.error('Verify emails error:', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || 'Failed to verify emails',
+    });
+  }
+};
+
+export const getEmails = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = req.user;
+
+    if (!user?.orgId) {
+      res.status(400).json({ code: 400, message: 'Organization ID is required' });
+      return;
+    }
+
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+
+    const verifications = await EmailVerificationService.getVerificationHistory(
+      user.orgId,
+      limit,
+      offset
+    );
+
+    res.status(200).json({
+      code: 200,
+      data: verifications,
+    });
+  } catch (error: any) {
+    console.error('Get history error:', error);
+    res.status(500).json({
+      code: 500,
+      message: 'Failed to fetch verification history',
     });
   }
 };
