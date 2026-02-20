@@ -13,6 +13,17 @@ const isTokenExpired = (expiryDate?: number): boolean => {
   return expiryDate ? Date.now() >= expiryDate : true;
 };
 
+const resolveReplyTo = (account: SenderAccount): string => {
+  const replyTo = account.replyTo?.trim().toLowerCase();
+
+  // If replyTo exists → use it
+  if (replyTo) {
+    return replyTo;
+  }
+
+  // Fallback to actual sender email (SMTP user)
+  return account.smtpUser ?? "";
+};
 /**
  * Decode HTML entities in a string
  */
@@ -533,11 +544,13 @@ const sendEmailWithSMTP = async (
 
   try {
     console.log("[sendMail] 📧 Sending email via SMTP...");
+    const replyToEmail = resolveReplyTo(account);
 
     const mailOptions: any = {
       from: `${fromName} <${account.smtpUser}>`,
       to: toEmail,
       subject,
+      replyTo: replyToEmail,
     };
 
     if (isPlainText) {

@@ -106,6 +106,7 @@ export interface SenderAccount {
   email: string;
   name: string | null;
   provider: EmailProvider;
+  replyTo?: string;
 
   smtpHost: string | null;
   smtpPort: number | null;
