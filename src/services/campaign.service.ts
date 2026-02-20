@@ -513,9 +513,9 @@ export class CampaignService {
 
   static async searchEmailCampaigns(req: Request) {
     const user = req.user!;
-    const query = typeof req.query.query === "string" ? req.query.query : "";
+    const query = req.query.q as string;
 
-    if (!query) return { code: 400, message: "Campaign name is required" };
+    if (!query) return { code: 400, message: "Query is required" };
 
     const campaigns = await prisma.campaign.findMany({
       where: { name: { contains: query, mode: "insensitive" }, orgId: user.orgId },

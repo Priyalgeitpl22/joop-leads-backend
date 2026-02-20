@@ -18,10 +18,13 @@ export const verify = async (req: Request, res: Response, next: NextFunction): P
     if (!access_token) throw new Error;
   
     const user = await prisma.user.findUnique({ where: { id: access_token.userId as string },
-    select: { id: true, email: true, fullName: true, role: true, orgId: true, profilePicture: true} });
-
+    select: { id: true, email: true, fullName: true, role: true, orgId: true, profilePicture: true, isDeleted: true } });
     if (!user) {
       return res.status(404).json({ code: 404, message: "User not found" });
+    }
+
+    if (user.isDeleted) {
+      return res.status(401).json({ code: 401, message: "Your account has been deleted and is no longer accessible." });
     }
 
     (req as any).user = user;
