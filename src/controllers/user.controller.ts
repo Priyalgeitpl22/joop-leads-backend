@@ -93,7 +93,7 @@ export const createUser = async (req: Request, res: Response): Promise<any> => {
         .json({ code: 400, message: "All fields are required." });
     }
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const existingUser = await prisma.user.findUnique({ where: { email, isDeleted: false } });
     if (existingUser) {
       return res
         .status(400).json({ code: 400, message: "User with this email already exists!" });
@@ -179,7 +179,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
   try {
     await UserService.delete(req.params.id);
     res.json({ code: 200, message: "User deleted" });
-  } catch {
+  } catch (error) {
     res.status(400).json({ code: 400, message: "Delete failed" });
   }
 };
