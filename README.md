@@ -1,4 +1,4 @@
-# ai-chatbot-backend
+# jooper-leads-backend
 # how to create migrations
 #npx prisma migrate dev --name Add-Contacts-table
 # how to run migrations

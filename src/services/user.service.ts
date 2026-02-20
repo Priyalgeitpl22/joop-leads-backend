@@ -27,18 +27,18 @@ export type UserResponse = Prisma.UserGetPayload<{
 /* -------------------- Service -------------------- */
 export class UserService {
   static getByOrg(orgId: string): Promise<UserResponse[]> {
-    return prisma.user.findMany({ where: { orgId }, select: userSelect });
+    return prisma.user.findMany({ where: { orgId, isDeleted: false }, select: userSelect });
   }
 
   static getById(id: string, orgId: string): Promise<UserResponse | null> {
     return prisma.user.findFirst({
-      where: { id, orgId },
+      where: { id, orgId, isDeleted: false },
       select: userSelect,
     });
   }
 
   static getByEmail(email: string): Promise<UserResponse | null> {
-    return prisma.user.findFirst({ where: { email }, select: userSelect });
+    return prisma.user.findFirst({ where: { email, isDeleted: false }, select: userSelect });
   }
 
   static create(data: IAddUser): Promise<UserResponse> {
@@ -67,7 +67,10 @@ export class UserService {
   }
 
   static delete(id: string) {
-    return prisma.user.delete({ where: { id } });
+    return prisma.user.update({
+      where: { id },
+      data: { isDeleted: true , deletedAt: new Date() },
+    });
   }
 
   static search(orgId: string, q: string): Promise<UserResponse[]> {
@@ -78,6 +81,7 @@ export class UserService {
           { email: { contains: q, mode: "insensitive" } },
           { fullName: { contains: q, mode: "insensitive" } },
         ],
+        isDeleted: false,
       },
       select: userSelect,
     });
