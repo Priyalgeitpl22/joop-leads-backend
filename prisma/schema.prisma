@@ -144,7 +144,8 @@ model Organization {
   leads          Lead[]
   plans          OrganizationPlan[]
   apiKeys        ApiKey[]
-
+  emailVerificationBatches EmailVerificationBatch[]
+  singleEmailVerifications SingleEmailVerification[]
   @@index([domain])
 }
 
@@ -180,7 +181,8 @@ model User {
 
   leadsUploaded Lead[]     @relation("UploadedByUser")
   campaigns     Campaign[] @relation("CreatedByUser")
-
+  emailVerificationBatches EmailVerificationBatch[]
+  singleEmailVerifications SingleEmailVerification[]
   @@index([orgId])
   @@index([email])
 }
@@ -729,3 +731,88 @@ model OrganizationPlan {
   @@unique([orgId, isActive]) // Only one active plan per org
   @@index([orgId])
 }
+
+model EmailVerificationBatch {
+  id            String   @id @default(uuid())
+  name          String
+  fileName      String
+  totalEmails   Int
+  verifiedCount Int      @default(0)
+  status        BatchStatus @default(PENDING)
+  reoonTaskId   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  csvFile     String?
+  orgId         String
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  uploadedById  String
+  uploadedBy    User @relation(fields: [uploadedById], references: [id])
+  
+  emails        VerifiedEmail[]
+  
+  @@index([orgId])
+  @@index([uploadedById])
+  @@map("EmailVerificationBatch")
+}
+
+model VerifiedEmail {
+  id                  String   @id @default(uuid())
+  batchId             String
+  email               String
+  status              EmailStatus?
+  username            String?
+  domain              String?
+  isSafeToSend        Boolean?
+  isDeliverable       Boolean?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  batch               EmailVerificationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  
+  @@index([batchId])
+  @@index([email])
+  @@index([status])
+  @@map("VerifiedEmail")
+}
+
+enum BatchStatus {
+  PENDING
+  UPLOADING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum EmailStatus {
+  SAFE
+  INVALID
+  DISABLED
+  DISPOSABLE
+  INBOX_FULL
+  CATCH_ALL
+  ROLE_ACCOUNT
+  SPAMTRAP
+  UNKNOWN
+}
+
+model SingleEmailVerification {
+  id                  String   @id @default(uuid())
+  email               String
+  status              EmailStatus?
+  username            String?
+  domain              String?
+  isSafeToSend        Boolean?
+  isDeliverable       Boolean?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  orgId               String
+  organization        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  verifiedById        String
+  verifiedBy          User @relation(fields: [verifiedById], references: [id])
+  
+  @@index([orgId])
+  @@index([verifiedById])
+  @@index([email])
+  @@index([status])
+  @@map("SingleEmailVerification")
+} 

@@ -12,8 +12,10 @@ import senderAccountRoutes from "./sender.account.routes";
 import triggerLogRoutes from "./trigger.log.routes";
 import campaignAnalyticsRoutes from "./campaign.analytics.routes";
 import campaignSenderRoutes from "./campaign.sender.routes";
+import emailVerificationRoutes from './email.verification.routes';
 import { pollForReplies } from "../jobs/replyPoller";
 
+// Add with your other protected routes (after verify middleware)
 const router = Router();
 
 // Public routes
@@ -45,5 +47,6 @@ router.post("/poll-replies", async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+router.use("/email-verification", verify, emailVerificationRoutes);
 
 export default router;
