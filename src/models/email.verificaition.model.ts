@@ -62,6 +62,7 @@ export interface IReoonVerificationResponse {
   domain: string;
   is_safe_to_send: boolean;
   is_deliverable: boolean;
+  overall_score: number;
 }
 
 export interface IBulkVerificationTaskResponse {

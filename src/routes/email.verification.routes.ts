@@ -38,25 +38,15 @@ const upload = multer({
 });
 
 router.get('/batches', getAllBatches);
-
 router.post('/upload', upload.single('file'), uploadAndCreateBatch);
-
 router.post('/verify', verifyEmails);
-
 router.get('/status', getEmails)
-
 router.get('/:batchId', getBatchDetails);
-
 router.get('/:batchId/statistics', getBatchStatistics);
-
 router.get('/:batchId/verified', getVerifiedEmails);
-
 router.get('/:batchId/unverified', getUnverifiedEmails);
-
 router.get('/:batchId/export/verified', exportVerifiedEmails);
-
 router.get('/:batchId/export/unverified', exportUnverifiedEmails);
-
 router.delete('/:batchId', deleteBatch);
 
 export default router;

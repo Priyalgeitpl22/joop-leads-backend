@@ -804,6 +804,7 @@ model SingleEmailVerification {
   domain              String?
   isSafeToSend        Boolean?
   isDeliverable       Boolean?
+  overallScore        Int      @default(0) 
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
   orgId               String

@@ -33,6 +33,7 @@ router.use("/sender-account", verify, senderAccountRoutes);
 router.use("/trigger-log", verify, triggerLogRoutes);
 router.use("/campaign-analytics", verify, campaignAnalyticsRoutes);
 router.use("/campaign-sender", verify, campaignSenderRoutes);
+router.use("/email-verification", verify, emailVerificationRoutes);
 
 // Manual trigger for reply poller
 router.post("/poll-replies", async (req: Request, res: Response) => {
@@ -47,6 +48,5 @@ router.post("/poll-replies", async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-router.use("/email-verification", verify, emailVerificationRoutes);
 
 export default router;

@@ -203,6 +203,7 @@ export class EmailVerificationService {
 
     return {
       batchId: batch.id,
+      reoonTaskId: batch.reoonTaskId,
       batchName: batch.name,
       totalEmails: batch.totalEmails,
       verifiedCount: batch.verifiedCount,
@@ -304,6 +305,7 @@ export class EmailVerificationService {
             status: this.mapReoonStatusToEnum(result.status),
             username: result.username,
             domain: result.domain,
+            overallScore: result.overall_score,
             isSafeToSend: result.is_safe_to_send,
             isDeliverable: result.is_deliverable,
             orgId,

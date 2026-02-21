@@ -461,6 +461,7 @@ export interface SingleEmailVerification {
   domain: string | null;
   isSafeToSend: boolean | null;
   isDeliverable: boolean | null;
+  overallScore: number;
   createdAt: Date;
   updatedAt: Date;
   orgId: string;
