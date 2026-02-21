@@ -112,6 +112,7 @@ export interface SenderAccount {
   email: string;
   name: string | null;
   provider: EmailProvider;
+  replyTo: string | null;
   smtpHost: string | null;
   smtpPort: number | null;
   smtpUser: string | null;

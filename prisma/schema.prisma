@@ -228,6 +228,7 @@ model SenderAccount {
   email    String
   name     String?       // Display name
   provider EmailProvider 
+  replyTo   String ?
 
   // SMTP Config
   smtpHost String?
