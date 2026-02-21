@@ -193,6 +193,40 @@ export const sendActivationEmail = async (email: string, fullName: string, activ
   }
 };
 
+export const resendActivationEmail = async (email: string, fullName: string, activationLink: string) => {
+  try {
+    const emailUser = process.env.EMAIL_USER;
+
+    if (!emailUser) {
+      throw new Error("EMAIL_USER environment variable is required");
+    }
+
+    const mailOptions = {
+      from: emailUser,
+      to: email,
+      subject: "Resend: Activate Your Account",
+      html: `
+        <p>Hello ${fullName},</p>
+        <p>We noticed that your account is not activated yet.</p>
+        <p>Please activate your account by setting up your password using the link below:</p>
+        <p>
+          <a href="${activationLink}" style="color: #034f84; font-weight: 600;">
+            Click here to activate your account
+          </a>
+        </p>
+        <p>This activation link will expire in 1 hour.</p>
+        <p>If you did not request this email, you can safely ignore it.</p>
+      `,
+    };
+
+    const transporter = getTransporter();
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error("Error resending activation email:", error);
+    throw error;
+  }
+};
+
 export const sendResetPasswordEmail = async (email: string, fullName: string, resetPasswordLink: string) => {
   const emailUser = process.env.EMAIL_USER;
 

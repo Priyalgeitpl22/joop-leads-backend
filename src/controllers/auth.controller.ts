@@ -116,3 +116,25 @@ export const activateAccount = async (req: Request, res: Response): Promise<void
     res.status(500).json({ code: 500, message: "Error activating account" });
   }
 };
+
+export const resendActivationLink = async (req: Request,res: Response): Promise<any> => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        code: 400,
+        message: "Email is required",
+      });
+    }
+
+    const response = await AuthService.resendActivation(email);
+    return res.status(response.code).json(response);
+  } catch (error: any) {
+    console.error("Resend activation error:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+};
