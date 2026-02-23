@@ -90,6 +90,10 @@ enum PlanCode {
   ENTERPRISE
 }
 
+enum AddOnCode {
+  EMAIL_VERIFICATION
+}
+
 enum BillingPeriod {
   MONTHLY
   YEARLY
@@ -703,6 +707,34 @@ model Plan {
   updatedAt DateTime @updatedAt
 
   subscriptions OrganizationPlan[]
+  addOns     PlanAddOn[]
+}
+
+model AddOn {
+  id                    Int      @id @default(autoincrement())
+  code                  AddOnCode @unique
+  name                  String
+  description           String?
+  priceMonthly          Decimal?
+  priceYearly           Decimal?
+  emailVerificationLimit Int?     // e.g. 1000 verifications per purchase/period
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  plans PlanAddOn[]
+}
+
+model PlanAddOn {
+  planId  Int
+  addOnId Int
+
+  plan  Plan  @relation(fields: [planId], references: [id], onDelete: Cascade)
+  addOn AddOn @relation(fields: [addOnId], references: [id], onDelete: Cascade)
+
+  @@id([planId, addOnId])
+  @@index([planId])
+  @@index([addOnId])
 }
 
 model OrganizationPlan {
@@ -718,6 +750,7 @@ model OrganizationPlan {
   // Current period usage
   emailsSentThisPeriod Int @default(0)
   leadsAddedThisPeriod Int @default(0)
+  senderAccountsCount  Int @default(0)  
 
   // Stripe/Payment info
   stripeCustomerId     String?

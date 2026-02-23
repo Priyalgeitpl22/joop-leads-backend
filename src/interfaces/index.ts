@@ -106,7 +106,7 @@ export interface SenderAccount {
   email: string;
   name: string | null;
   provider: EmailProvider;
-  replyTo?: string;
+  replyTo?: string | null;
 
   smtpHost: string | null;
   smtpPort: number | null;
@@ -465,6 +465,7 @@ export interface OrganizationPlan {
   endsAt: Date | null;
   emailsSentThisPeriod: number;
   leadsAddedThisPeriod: number;
+  senderAccountsCount: number;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
   createdAt: Date;

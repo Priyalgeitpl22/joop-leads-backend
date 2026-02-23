@@ -29,7 +29,7 @@ export class TriggerLogService {
      * @param limit - Number of logs to return (default 50)
      * @param offset - Offset for pagination (default 0)
      */
-    static async getTriggerLogs(campaignId: string, limit = 50, offset = 0) {
+    static async getTriggerLogs(campaignId: string, limit = 100, offset = 0) {
         try {
             // @ts-ignore - campaignTriggerLog will be available after prisma generate & migrate
             const logs = await prisma.campaignTriggerLog.findMany({
