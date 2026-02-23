@@ -77,6 +77,7 @@ export class UserService {
     }
 
     return {
+      id: user.id,
       createdAt: user.createdAt,
       email: user.email,
       fullName: user.fullName,
