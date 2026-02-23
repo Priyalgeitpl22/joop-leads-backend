@@ -25,6 +25,7 @@ enum UserRole {
   ADMIN
   MEMBER
   VIEWER
+  SUPER_ADMIN
 }
 
 enum CampaignStatus {
