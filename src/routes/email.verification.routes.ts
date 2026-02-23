@@ -11,7 +11,8 @@ import {
   exportUnverifiedEmails,
   deleteBatch,
   verifyEmails,
-  getEmails
+  getEmails,
+  getBatchResultDownloadUrl
 } from '../controllers/email.verification.controller';
 
 const router = Router();
@@ -47,6 +48,7 @@ router.get('/:batchId/verified', getVerifiedEmails);
 router.get('/:batchId/unverified', getUnverifiedEmails);
 router.get('/:batchId/export/verified', exportVerifiedEmails);
 router.get('/:batchId/export/unverified', exportUnverifiedEmails);
+router.get('/export/:batchId', getBatchResultDownloadUrl);
 router.delete('/:batchId', deleteBatch);
 
 export default router;
