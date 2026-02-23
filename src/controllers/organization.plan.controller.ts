@@ -29,7 +29,7 @@ export const getCurrentPlan = async (req: Request, res: Response): Promise<void>
 export const contactSales = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user;
-    const { planCode, billingPeriod } = req.body;
+    const { planCode, billingPeriod, addOns, totalCost } = req.body;
 
     if (!user) {
       res.status(401).json({ code: 401, message: "Unauthorized" });
@@ -39,7 +39,9 @@ export const contactSales = async (req: Request, res: Response): Promise<void> =
     const response = await OrganizationPlanService.contactSales(
       { orgId: user.orgId, email: user.email, role: user.role },
       planCode,
-      billingPeriod
+      addOns,
+      billingPeriod,
+      totalCost
     );
     res.status(response.code).json(response);
   } catch (err) {

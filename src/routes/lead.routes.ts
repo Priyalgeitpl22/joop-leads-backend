@@ -10,6 +10,7 @@ import {
   unsubscribeLead,
 } from "../controllers/lead.controller";
 import { verify } from "../middlewares/authMiddleware";
+import { enforcePlanLimits } from "../middlewares/enforcePlanLimits";
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.post("/unsubscribe", unsubscribeLead);
 
 // CRUD routes
 router.get("/", verify, getAllLeads);
-router.post("/", verify, createLead);
+router.post("/", verify, enforcePlanLimits, createLead);
 router.delete("/", verify, deleteLeads);
 
 // Parameterized routes last

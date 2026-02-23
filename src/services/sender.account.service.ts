@@ -30,6 +30,10 @@ export class SenderAccountService {
         const accountData = await this.buildSenderCreateAccountData(data);
         try {
             const senderAccount = await prisma.senderAccount.create({ data: accountData as Prisma.SenderAccountCreateInput });
+            prisma.organizationPlan.update({
+                where: { orgId_isActive: { orgId: data.orgId, isActive: true } },
+                data: { senderAccountsCount: { increment: 1 } },
+            });
             return senderAccount;
         } catch (error) {
             console.error(error);

@@ -16,6 +16,8 @@ export type WarmupStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" | "PAUSED
 
 export type PlanCode = "FREE" | "STARTER" | "PROFESSIONAL" | "ENTERPRISE";
 
+export type AddOnCode = "EMAIL_VERIFICATION";
+
 export type BillingPeriod = "MONTHLY" | "YEARLY";
 
 export type EventType = "PENDING" | "QUEUED" | "SENT" | "OPENED" | "CLICKED" | "REPLIED" | "POSITIVE_REPLY" | "BOUNCED" | "SENDER_BOUNCED" | "UNSUBSCRIBED" | "FAILED";
@@ -401,6 +403,27 @@ export interface Plan {
   createdAt: Date;
   updatedAt: Date;
   subscriptions?: OrganizationPlan[];
+  addOns?: PlanAddOn[];
+}
+
+export interface AddOn {
+  id: number;
+  code: AddOnCode;
+  name: string;
+  description: string | null;
+  priceMonthly: Decimal | null;
+  priceYearly: Decimal | null;
+  emailVerificationLimit: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+  plans?: PlanAddOn[];
+}
+
+export interface PlanAddOn {
+  planId: number;
+  addOnId: number;
+  plan?: Plan;
+  addOn?: AddOn;
 }
 
 export interface OrganizationPlan {
@@ -413,6 +436,7 @@ export interface OrganizationPlan {
   endsAt: Date | null;
   emailsSentThisPeriod: number;
   leadsAddedThisPeriod: number;
+  senderAccountsCount: number;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
   createdAt: Date;

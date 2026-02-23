@@ -1,8 +1,8 @@
-import { PlanCode, PrismaClient, Plan } from "@prisma/client";
+import { PlanCode, PrismaClient, Plan, OrganizationPlan } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const formatPlanResponse = (plan: Plan) => ({
+const formatPlanResponse = (plan: Plan, orgPlan?: OrganizationPlan) => ({
   id: plan.id,
   name: plan.name,
   code: plan.code,
@@ -14,6 +14,9 @@ const formatPlanResponse = (plan: Plan) => ({
   maxSenderAccounts: plan.maxSenderAccounts,
   maxLeadsPerMonth: plan.maxLeadsPerMonth,
   maxEmailsPerMonth: plan.maxEmailsPerMonth,
+  leadsAddedThisPeriod: orgPlan?.leadsAddedThisPeriod || 0,
+  emailsSentThisPeriod: orgPlan?.emailsSentThisPeriod || 0,
+  senderAccountsCount: orgPlan?.senderAccountsCount || 0,
   maxCampaigns: plan.maxCampaigns,
   hasEmailVerification: plan.hasEmailVerification,
   hasEmailWarmup: plan.hasEmailWarmup,
@@ -34,7 +37,7 @@ export class PlanService {
       return { code: 404, message: "No plans found" };
     }
 
-    return { code: 200, message: "Plans fetched successfully", data: plans.map(formatPlanResponse) };
+    return { code: 200, message: "Plans fetched successfully", data: plans.map((plan) => formatPlanResponse(plan)) };
   }
 
   static async getByCode(code: string) {
@@ -44,7 +47,19 @@ export class PlanService {
       return { code: 404, message: "Plan not found" };
     }
 
-    return { code: 200, message: "Plan fetched successfully", data: formatPlanResponse(plan) };
+    return { code: 200, message: "Plan fetched successfully", data: formatPlanResponse(plan, undefined) };
+  }
+
+  static async getPlanByOrgId(orgId: string) {
+    try {
+      const subscription = await prisma.organizationPlan.findFirst({ where: { orgId, isActive: true }, include: { plan: true } });
+      if (!subscription || !subscription.plan) {
+        return null;
+      }
+      return formatPlanResponse(subscription.plan, subscription);
+    } catch (err: any) {
+      console.error(err);
+      return null;
+    }
   }
 }
-

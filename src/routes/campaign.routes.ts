@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { addLeadsToCampaign, getLeadsGroupedBySender, addSequenceToCampaign, addEmailCampaignSettings, getAllEmailCampaigns, getCampaignById, getAllSequences, getAllContacts, searchEmailCampaigns, scheduleEmailCampaign, updateCampaignStatus, deleteCampaign, filterEmailCampaigns, renameCampaign, getDashboardData, getSequenceAnalytics, getCampaignSenders, getCampaignsByLeadId, getCampaignInbox, changeCampaignStatus } from "../controllers/campaign.contoller";
 import { verify } from "../middlewares/authMiddleware";
+import { enforcePlanLimits } from "../middlewares/enforcePlanLimits";
 
 const router = Router();
 

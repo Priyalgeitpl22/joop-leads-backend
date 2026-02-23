@@ -10,6 +10,8 @@ import { SenderAccountService } from "./sender.account.service";
 import { dayKeyInTz } from "../emailScheduler/time";
 import { SequenceAnalytics } from "../emailScheduler/types";
 import { CampaignSenderWithStats, CampaignStatus } from "../interfaces";
+import { getUsageAndLimits, incrementLeadsAdded } from "./organization.usage.service";
+import { checkForLeadsAddedThisPeriod } from "../middlewares/enforcePlanLimits";
 
 const dayjs = require("dayjs");
 const utc = require("dayjs/plugin/utc");
@@ -112,9 +114,23 @@ export class CampaignService {
                 newLeads.push({ ...lead, email, orgId: user.orgId, uploadedById: user.id, source: "csv_upload", fileName: csvFileName });
               }
 
+              if (newLeads.length > 0) {
+                  const checkResult = await checkForLeadsAddedThisPeriod(newLeads.length, user.orgId);
+                  if (checkResult && checkResult.code !== 200) {
+                    resolve(checkResult);
+                    return;
+                  }
+              } 
+
               if (newLeads.length > 0) await prisma.lead.createMany({ data: newLeads, skipDuplicates: true });
               const insertedLeads = await prisma.lead.findMany({ where: { email: { in: newLeads.map((l) => l.email) }, orgId: user.orgId } });
               insertedLeads.forEach((l) => campaignLeadRecords.push({ leadId: l.id, campaignId: campaign!.id }));
+
+              if (insertedLeads.length > 0) {
+                incrementLeadsAdded(user.orgId, insertedLeads.length).catch((err) =>
+                  console.error("[CampaignService] Failed to increment leads usage:", err)
+                );
+              }
 
               if (campaignLeadRecords.length > 0) await prisma.campaignLead.createMany({ data: campaignLeadRecords, skipDuplicates: true });
               const newCampaign = await prisma.campaign.findUnique({ where: { id: campaign!.id }, include: { sequences: true, analytics: true, leads: { include: { lead: true } }, senders: { include: { sender: true } } } });

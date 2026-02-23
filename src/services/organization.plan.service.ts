@@ -24,6 +24,7 @@ export const assignFreePlanToOrg = async (orgId: string): Promise<void> => {
       endsAt: null,
       emailsSentThisPeriod: 0,
       leadsAddedThisPeriod: 0,
+      senderAccountsCount: 0,
     },
   });
 };
@@ -59,6 +60,7 @@ export class OrganizationPlanService {
           endsAt,
           emailsSentThisPeriod: 0,
           leadsAddedThisPeriod: 0,
+          senderAccountsCount: 0,
         },
       });
     } else {
@@ -72,6 +74,7 @@ export class OrganizationPlanService {
           endsAt,
           emailsSentThisPeriod: 0,
           leadsAddedThisPeriod: 0,
+          senderAccountsCount: 0,
         },
       });
     }
@@ -96,12 +99,12 @@ export class OrganizationPlanService {
     };
   }
 
-  static async contactSales(user: { orgId: string; email: string; role: string }, planCode: string, billingPeriod: string) {
+  static async contactSales(user: { orgId: string; email: string; role: string }, planCode: string, addOns: string[], billingPeriod: string, totalCost: number) {
     if (user.role !== "ADMIN") {
       return { code: 401, message: "Only admin can change the subscription plan" };
     }
 
-    if (!planCode || !billingPeriod) {
+    if (!planCode || !billingPeriod || !addOns || !totalCost) {
       return { code: 400, message: "All fields (planCode, billingPeriod) are required" };
     }
 
@@ -111,7 +114,7 @@ export class OrganizationPlanService {
     if (!organization) return { code: 400, message: "Organization not found" };
     if (!plan) return { code: 400, message: "Plan not found" };
 
-    await subscriptionActivationEmail(planCode, billingPeriod, organization.name || "", user.email || "");
+    await subscriptionActivationEmail(planCode, billingPeriod, addOns, organization.name || "", user.email || "", totalCost);
 
     const existingPlan = await prisma.organizationPlan.findFirst({ where: { orgId: user.orgId } });
 

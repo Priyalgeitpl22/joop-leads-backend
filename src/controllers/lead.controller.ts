@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { LeadService } from "../services/lead.service";
+import { getUsageAndLimits, incrementLeadsAdded } from "../services/organization.usage.service";
+import { checkForLeadsAddedThisPeriod } from "../middlewares/enforcePlanLimits";
 
 export const getLeadById = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -25,7 +27,16 @@ export const getAllLeads = async (req: Request, res: Response): Promise<void> =>
 
 export const createLead = async (req: Request, res: Response): Promise<void> => {
   try {
-    const lead = await LeadService.create({ ...req.body, orgId: req.user.orgId });
+    const orgId = req.user.orgId;
+    
+    const checkResult = await checkForLeadsAddedThisPeriod(1, orgId);
+    if (checkResult && checkResult.code !== 200) {
+      res.status(403).json(checkResult);
+      return;
+    }
+
+    const lead = await LeadService.create({ ...req.body, orgId });
+    await incrementLeadsAdded(orgId, 1);
     res.status(201).json({ code: 201, data: lead });
   } catch (e: any) {
     res.status(400).json({ code: 400, message: e.message });
