@@ -39,6 +39,7 @@ export interface IVerifiedEmail {
   batchId: string;
   email: string;
   status: EmailStatus | null;
+  verificationResult: any;
   username: string | null;
   domain: string | null;
   isSafeToSend: boolean | null;
@@ -79,6 +80,7 @@ export interface ISingleEmailVerification {
   status: EmailStatus | null;
   username: string | null;
   domain: string | null;
+  verificationResult: any;
   isSafeToSend: boolean | null;
   isDeliverable: boolean | null;
   createdAt: Date;

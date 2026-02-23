@@ -777,7 +777,8 @@ model EmailVerificationBatch {
   reoonTaskId   String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  csvFile     String?
+  csvFile       String?
+  csvResultFile     String?
   orgId         String
   organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   uploadedById  String
@@ -795,6 +796,7 @@ model VerifiedEmail {
   batchId             String
   email               String
   status              EmailStatus?
+  verificationResult  Json?
   username            String?
   domain              String?
   isSafeToSend        Boolean?
@@ -836,6 +838,7 @@ model SingleEmailVerification {
   status              EmailStatus?
   username            String?
   domain              String?
+  verificationResult  Json?
   isSafeToSend        Boolean?
   isDeliverable       Boolean?
   overallScore        Int      @default(0) 

@@ -3,6 +3,9 @@ import { ReoonService } from './reoon.service';
 import { EmailStatus, BatchStatus, ICreateBatch } from '../models/email.verificaition.model';
 import { flowProducer, verificationQueue } from "../emailScheduler/queue";
 import { calculateDelayMs } from '../utils/email.utils';
+import { bucket_name, s3Conifg } from '../aws/s3';
+import * as XLSX from 'xlsx';
+
 const prisma = new PrismaClient();
 const reoonService = new ReoonService();
 
@@ -28,6 +31,7 @@ const emailSelect = {
   status: true,
   username: true,
   domain: true,
+  verificationResult: true,
   isSafeToSend: true,
   isDeliverable: true,
   createdAt: true,
@@ -40,6 +44,7 @@ const singleEmailSelect = {
   status: true,
   username: true,
   domain: true,
+  verificationResult: true,
   isSafeToSend: true,
   isDeliverable: true,
   createdAt: true,
@@ -157,6 +162,18 @@ export class EmailVerificationService {
       },
       select: emailSelect,
     });
+  }
+
+  static async getBatchVerificationResultKey(batchId: string, orgId: string): Promise<any> {
+    const batch = await prisma.emailVerificationBatch.findUnique({
+      where: { id: batchId, orgId },
+      select: { csvResultFile: true },
+    });
+    
+    if (!batch || !batch.csvResultFile) {
+    throw new Error("Result file not found");
+    }
+    return batch;
   }
 
   static async getUnverifiedEmails(batchId: string, orgId: string): Promise<EmailResponse[]> {
@@ -305,6 +322,7 @@ export class EmailVerificationService {
             status: this.mapReoonStatusToEnum(result.status),
             username: result.username,
             domain: result.domain,
+            verificationResult: result,
             overallScore: result.overall_score,
             isSafeToSend: result.is_safe_to_send,
             isDeliverable: result.is_deliverable,
@@ -343,5 +361,61 @@ export class EmailVerificationService {
   private static isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
+  }
+
+  static async generateAndUploadExcel(
+    batchId: string,
+    results: any[],
+  ): Promise<string> {
+
+    const workbook = XLSX.utils.book_new();
+
+    const worksheetData = results.map((r: any, index: number) => ({
+      "S.No": index + 1,
+      Email: r.email ?? "",
+      Domain: r.domain ?? "",
+      Status: r.status ?? "",
+      Username: r.username ?? "",
+      "MX Records": Array.isArray(r.mx_records)
+        ? r.mx_records.join(", ")
+        : "",
+      "Is Disabled": r.is_disabled ? "Yes" : "No",
+      "Is Spamtrap": r.is_spamtrap ? "Yes" : "No",
+      "Is Catch All": r.is_catch_all ? "Yes" : "No",
+      "Is Disposable": r.is_disposable ? "Yes" : "No",
+      "Is Free Email": r.is_free_email ? "Yes" : "No",
+      "Overall Score": r.overall_score ?? "",
+      "Inbox Full": r.has_inbox_full ? "Yes" : "No",
+      "Is Deliverable": r.is_deliverable ? "Yes" : "No",
+      "Is Role Account": r.is_role_account ? "Yes" : "No",
+      "Safe To Send": r.is_safe_to_send ? "Yes" : "No",
+      "Valid Syntax": r.is_valid_syntax ? "Yes" : "No",
+      "MX Accepts Mail": r.mx_accepts_mail ? "Yes" : "No",
+      "Can Connect SMTP": r.can_connect_smtp ? "Yes" : "No",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+    worksheet["!cols"] = Object.keys(worksheetData[0] ?? {}).map(() => ({
+      wch: 22,
+    }));
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Verified Emails");
+
+    const buffer = XLSX.write(workbook, {
+      type: "buffer",
+      bookType: "xlsx",
+    });
+
+    const s3Key = `csvFiles/verification-results/${batchId}.xlsx`;
+
+    await s3Conifg.upload({
+      Bucket: bucket_name,
+      Key: s3Key,
+      Body: buffer,
+      ContentType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }).promise();
+
+    return s3Key;
   }
 }

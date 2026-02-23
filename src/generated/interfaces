@@ -456,6 +456,7 @@ export interface EmailVerificationBatch {
   createdAt: Date;
   updatedAt: Date;
   csvFile: string | null;
+  csvResultFile: string | null;
   orgId: string;
   organization?: Organization;
   uploadedById: string;
@@ -468,6 +469,7 @@ export interface VerifiedEmail {
   batchId: string;
   email: string;
   status: EmailStatus | null;
+  verificationResult: JsonValue | null;
   username: string | null;
   domain: string | null;
   isSafeToSend: boolean | null;
@@ -483,6 +485,7 @@ export interface SingleEmailVerification {
   status: EmailStatus | null;
   username: string | null;
   domain: string | null;
+  verificationResult: JsonValue | null;
   isSafeToSend: boolean | null;
   isDeliverable: boolean | null;
   overallScore: number;

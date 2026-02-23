@@ -163,11 +163,17 @@ new Worker(
               domain: (r as any).domain,
               isSafeToSend: (r as any).is_safe_to_send,
               isDeliverable: (r as any).is_deliverable,
+              verificationResult: r,
             },
           })
         );
 
         await prisma.$transaction(updates);
+
+        const s3Key = await EmailVerificationService.generateAndUploadExcel(
+          batchId,
+          Object.values(results.results)
+        );
 
         const verifiedEmailsCount = await prisma.verifiedEmail.count({
           where: {
@@ -184,6 +190,7 @@ new Worker(
           data: {
             status: BatchStatus.COMPLETED,
             verifiedCount: verifiedEmailsCount,
+            csvResultFile: s3Key,
           },
         });
 

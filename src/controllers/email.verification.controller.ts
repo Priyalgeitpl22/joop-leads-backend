@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { EmailVerificationService } from '../services/email.verification.service';
 import * as XLSX from 'xlsx';
-import { uploadCSVToS3 } from '../aws/imageUtils';
+import { getPresignedUrl, uploadCSVToS3 } from '../aws/imageUtils';
 
 export const uploadAndCreateBatch = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -287,6 +287,45 @@ export const exportVerifiedEmails = async (req: Request, res: Response): Promise
     res.status(500).json({
       code: 500,
       message: 'Failed to export verified emails',
+    });
+  }
+};
+
+export const getBatchResultDownloadUrl = async ( req: Request, res: Response ): Promise<void> => {
+  try {
+    const { batchId } = req.params;
+    const user = req.user;
+
+    if (!batchId) {
+      res.status(400).json({ message: "Batch ID required" });
+      return;
+    }
+
+    if (!user?.orgId) {
+      res.status(400).json({ message: "Organization ID required" });
+      return;
+    }
+
+    const batch =await EmailVerificationService.getBatchVerificationResultKey(
+        batchId,
+        user.orgId
+      );
+
+    if (!batch?.csvResultFile) {
+      res.status(404).json({ message: "Result file not found" });
+      return;
+    }
+
+    const url = await getPresignedUrl(batch.csvResultFile);
+
+    res.status(200).json({
+      success: true,
+      downloadUrl: url,
+    });
+  } catch (error) {
+    console.error("Download URL error:", error);
+    res.status(500).json({
+      message: "Failed to generate download URL",
     });
   }
 };
