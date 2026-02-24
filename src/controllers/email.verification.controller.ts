@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { EmailVerificationService } from '../services/email.verification.service';
 import * as XLSX from 'xlsx';
 import { getPresignedUrl, uploadCSVToS3 } from '../aws/imageUtils';
+import * as OrganizationAddOnService from '../services/organization.addon.service';
 
 export const uploadAndCreateBatch = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -62,10 +63,20 @@ export const uploadAndCreateBatch = async (req: Request, res: Response): Promise
     }
     const reoonCredits = await EmailVerificationService.checkReoonCredits();
     console.log('Reoon credits:', reoonCredits);
-    if (reoonCredits.remaining_instant_credits < emails.length) {
+    if (reoonCredits?.remaining_instant_credits < emails.length) {
       res.status(400).json({
         code: 400,
-        message: `Insufficient credits.`,
+        message: `Insufficient reoon credits.`,
+      });
+      return;
+    }
+
+    const emailVerificationCredits = await OrganizationAddOnService.getEmailVerificationCredits(user.orgId);
+
+    if (emailVerificationCredits <= emails.length) {
+      res.status(400).json({
+        code: 400,
+        message: "Insufficient email verification credits",
       });
       return;
     }
@@ -79,6 +90,7 @@ export const uploadAndCreateBatch = async (req: Request, res: Response): Promise
 
     const csvUploaded = await uploadCSVToS3(`email_batches/${batch.id}`, req.file)
     console.log('CSV uploaded to S3:', csvUploaded);
+
     await EmailVerificationService.submitBatchForVerification(
       batch.id,
       user.orgId,

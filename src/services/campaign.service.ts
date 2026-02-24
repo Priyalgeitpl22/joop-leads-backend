@@ -1,5 +1,5 @@
 import { Request } from "express";
-import { PrismaClient } from "@prisma/client";
+import { CampaignStatus, PrismaClient } from "@prisma/client";
 import { Readable } from "stream";
 import csv from "csv-parser";
 import multer from "multer";
@@ -9,7 +9,7 @@ import { subDays, format } from "date-fns";
 import { SenderAccountService } from "./sender.account.service";
 import { dayKeyInTz } from "../emailScheduler/time";
 import { SequenceAnalytics } from "../emailScheduler/types";
-import { CampaignSenderWithStats, CampaignStatus } from "../interfaces";
+import { CampaignSenderWithStats } from "../interfaces";
 import { getUsageAndLimits, incrementLeadsAdded } from "./organization.usage.service";
 import { checkForLeadsAddedThisPeriod } from "../middlewares/enforcePlanLimits";
 
@@ -753,6 +753,28 @@ export class CampaignService {
   }
 
   static async getLeadsGroupedBySender(campaignId: string) {
+    const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
+    if (!campaign) return { code: 404, message: "Campaign not found" };
+
+    if (campaign.status === CampaignStatus.DRAFT) {
+      const campaignLeads = await prisma.campaignLead.findMany({
+        where: { campaignId },
+        include: { lead: true },
+      });
+      const totalSequences = await prisma.sequence.count({
+        where: { campaignId, isActive: true },
+      });
+      const groupedLeads = campaignLeads.map((cl) => ({
+        lead: cl.lead,
+        currentSequenceStep: null,
+        lastSentAt: null,
+        leadStatus: cl.status,
+        senders: [],
+        totalSequences,
+      }));
+      return { groupedLeads, totalSequences };
+    }
+
     const sends = await prisma.emailSend.findMany({
       where: { campaignId },
       include: {

@@ -51,6 +51,7 @@ export interface Organization {
   campaigns?: Campaign[];
   leads?: Lead[];
   plans?: OrganizationPlan[];
+  addOns?: OrganizationAddOn[];
   apiKeys?: ApiKey[];
   emailVerificationBatches?: EmailVerificationBatch[];
   singleEmailVerifications?: SingleEmailVerification[];
@@ -417,12 +418,27 @@ export interface AddOn {
   createdAt: Date;
   updatedAt: Date;
   plans?: PlanAddOn[];
+  organizations?: OrganizationAddOn[];
 }
 
 export interface PlanAddOn {
   planId: number;
   addOnId: number;
   plan?: Plan;
+  addOn?: AddOn;
+}
+
+export interface OrganizationAddOn {
+  orgId: string;
+  addOnId: number;
+  isActive: boolean;
+  limitOverride: number | null;
+  usedThisPeriod: number;
+  periodStartsAt: Date | null;
+  periodEndsAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  organization?: Organization;
   addOn?: AddOn;
 }
 

@@ -148,6 +148,7 @@ model Organization {
   campaigns      Campaign[]
   leads          Lead[]
   plans          OrganizationPlan[]
+  addOns         OrganizationAddOn[]
   apiKeys        ApiKey[]
   emailVerificationBatches EmailVerificationBatch[]
   singleEmailVerifications SingleEmailVerification[]
@@ -723,7 +724,8 @@ model AddOn {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  plans PlanAddOn[]
+  plans         PlanAddOn[]
+  organizations OrganizationAddOn[]
 }
 
 model PlanAddOn {
@@ -738,13 +740,36 @@ model PlanAddOn {
   @@index([addOnId])
 }
 
+model OrganizationAddOn {
+  orgId   String
+  addOnId Int
+  isActive Boolean   @default(false)
+
+  // Optional limit override (e.g. purchased 5000 verifications instead of add-on default)
+  limitOverride Int?
+  // Usage this billing period (e.g. email verifications used)
+  usedThisPeriod Int       @default(0)
+  periodStartsAt DateTime?
+  periodEndsAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  addOn        AddOn        @relation(fields: [addOnId], references: [id], onDelete: Cascade)
+
+  @@id([orgId, addOnId])
+  @@index([orgId])
+  @@index([addOnId])
+}
+
 model OrganizationPlan {
   id            Int           @id @default(autoincrement())
   orgId         String
   planId        Int
   billingPeriod BillingPeriod @default(MONTHLY)
 
-  isActive Boolean   @default(true)
+  isActive Boolean   @default(false)
   startsAt DateTime  @default(now())
   endsAt   DateTime?
 

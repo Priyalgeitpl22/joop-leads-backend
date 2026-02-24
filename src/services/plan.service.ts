@@ -31,7 +31,7 @@ const formatPlanResponse = (plan: Plan, orgPlan?: OrganizationPlan) => ({
 
 export class PlanService {
   static async getAll() {
-    const plans = await prisma.plan.findMany();
+    const plans = await prisma.plan.findMany({ orderBy: { id: "asc" } });
 
     if (!plans || plans.length === 0) {
       return { code: 404, message: "No plans found" };

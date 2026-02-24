@@ -1,10 +1,10 @@
-import { PrismaClient } from "@prisma/client";
+import { PlanCode, PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { generateOtp, generateRandomToken } from "../utils/otp.utils";
 import { sendOtpEmail, sendResetPasswordEmail ,resendActivationEmail} from "../utils/email.utils";
 import { uploadImageToS3 } from "../aws/imageUtils";
-import { assignFreePlanToOrg } from "./organization.plan.service";
+import { OrganizationPlanService } from "./organization.plan.service";
 
 const prisma = new PrismaClient();
 
@@ -41,7 +41,11 @@ export class AuthService {
       data: { name: orgName || "My Organization", domain, country, phone },
     });
 
-    await assignFreePlanToOrg(organization.id);
+    if (!organization) {
+      return { code: 400, message: "Failed to create organization" };
+    }
+
+    OrganizationPlanService.assignPlan(organization.id, PlanCode.FREE, "MONTHLY");
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const otp = generateOtp();

@@ -258,7 +258,7 @@ export const sendResetPasswordEmail = async (email: string, fullName: string, re
   }
 };
 
-  export const subscriptionActivationEmail = async (planCode: string, billingPeriod: string, addOns: string[], organizationName: string = '', contactEmail: string = '', totalCost: number) => {
+  export const subscriptionActivationEmail = async (planCode: string, billingPeriod: string, addOns: { name: string; code: string }[], organizationName: string = '', contactEmail: string = '', totalCost: number) => {
   const adminEmail = process.env.ADMIN_EMAIL || 'priyal@goldeneagle.ai';
   const emailUser = process.env.EMAIL_USER;
 
@@ -275,7 +275,7 @@ export const sendResetPasswordEmail = async (email: string, fullName: string, re
       <p>We have received a request to activate a subscription for ${organizationName} organization.</p>
       <p>Plan Code: ${planCode}</p>
       <p>Billing Period: ${billingPeriod}</p>
-      ${addOns.length > 0 ? `<p>Add-Ons: ${addOns.join(', ')}</p>` : 'None'}
+      ${addOns.length > 0 ? `<p>Add-Ons: ${addOns.map((addOn) => addOn.name).join(', ')}</p>` : 'None'}
       <p>Total billing amount: ${totalCost}$</p>
       <p>Contact Email: ${contactEmail}</p>
       <p>Best regards,</p>

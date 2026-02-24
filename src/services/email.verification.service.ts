@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { AddOnCode, Prisma, PrismaClient } from '@prisma/client';
 import { ReoonService } from './reoon.service';
 import { EmailStatus, BatchStatus, ICreateBatch } from '../models/email.verificaition.model';
 import { flowProducer, verificationQueue } from "../emailScheduler/queue";
@@ -322,7 +322,7 @@ export class EmailVerificationService {
             status: this.mapReoonStatusToEnum(result.status),
             username: result.username,
             domain: result.domain,
-            verificationResult: result,
+            verificationResult: result as any,
             overallScore: result.overall_score,
             isSafeToSend: result.is_safe_to_send,
             isDeliverable: result.is_deliverable,
