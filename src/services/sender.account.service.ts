@@ -142,6 +142,7 @@ export class SenderAccountService {
                 accountId: data._id || data.account,
                 email: data.email,
                 name: data.name,
+                replyTo: data.replyTo ? data.replyTo : "",
                 provider: data.type as EmailProvider,
                 organization: {
                     connect: {

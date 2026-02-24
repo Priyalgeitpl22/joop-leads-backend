@@ -2,6 +2,7 @@ export interface Account {
     _id?: string;
     account?: string;
     name: string;
+    replyTo?:string;
     email: string;
     orgId: string;
     type: EmailAccountType;

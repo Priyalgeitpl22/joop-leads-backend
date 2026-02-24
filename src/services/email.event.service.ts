@@ -32,29 +32,29 @@ export interface TrackEventOptions {
 /**
  * Check if the user agent is from a known bot/proxy that pre-fetches images
  */
-function isBotUserAgent(userAgent?: string): boolean {
-  if (!userAgent) return false;
+// function isBotUserAgent(userAgent?: string): boolean {
+//   if (!userAgent) return false;
   
-  const lowerUA = userAgent.toLowerCase();
+//   const lowerUA = userAgent.toLowerCase();
   
-  // Check for known bot patterns
-  for (const bot of BOT_USER_AGENTS) {
-    if (lowerUA.includes(bot.toLowerCase())) {
-      return true;
-    }
-  }
+//   // Check for known bot patterns
+//   for (const bot of BOT_USER_AGENTS) {
+//     if (lowerUA.includes(bot.toLowerCase())) {
+//       return true;
+//     }
+//   }
   
-  // Additional checks for common patterns
-  if (lowerUA.includes("bot") || 
-      lowerUA.includes("spider") || 
-      lowerUA.includes("crawler") ||
-      lowerUA.includes("proxy") ||
-      lowerUA.includes("imageproxy")) {
-    return true;
-  }
+//   // Additional checks for common patterns
+//   if (lowerUA.includes("bot") || 
+//       lowerUA.includes("spider") || 
+//       lowerUA.includes("crawler") ||
+//       lowerUA.includes("proxy") ||
+//       lowerUA.includes("imageproxy")) {
+//     return true;
+//   }
   
-  return false;
-}
+//   return false;
+// }
 
 export class EmailEventService {
   /**

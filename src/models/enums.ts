@@ -7,6 +7,7 @@ export enum UserRole {
   ADMIN = "ADMIN",
   MEMBER = "MEMBER",
   VIEWER = "VIEWER",
+  SUPER_ADMIN = "SUPER_ADMIN",
 }
 
 export enum CampaignStatus {
