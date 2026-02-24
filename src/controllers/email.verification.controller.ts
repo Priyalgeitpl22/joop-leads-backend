@@ -115,11 +115,14 @@ export const getAllBatches = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const batches = await EmailVerificationService.getBatchesByOrg(user.orgId);
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+
+    const result = await EmailVerificationService.getBatchesByOrg(user.orgId, page, limit);
 
     res.status(200).json({
       code: 200,
-      data: batches,
+      data: result,
     });
   } catch (error: any) {
     console.error('Fetch batches error:', error);

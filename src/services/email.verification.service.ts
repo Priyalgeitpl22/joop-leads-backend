@@ -5,6 +5,7 @@ import { flowProducer, verificationQueue } from "../emailScheduler/queue";
 import { calculateDelayMs } from '../utils/email.utils';
 import { bucket_name, s3Conifg } from '../aws/s3';
 import * as XLSX from 'xlsx';
+import { getPresignedUrl } from '../aws/imageUtils';
 
 const prisma = new PrismaClient();
 const reoonService = new ReoonService();
@@ -18,6 +19,7 @@ const batchSelect = {
   verifiedCount: true,
   status: true,
   reoonTaskId: true,
+  csvResultFile: true,
   createdAt: true,
   updatedAt: true,
   orgId: true,
@@ -100,12 +102,35 @@ export class EmailVerificationService {
     });
   }
 
-  static async getBatchesByOrg(orgId: string): Promise<BatchResponse[]> {
-    return prisma.emailVerificationBatch.findMany({
+  static async getBatchesByOrg(orgId: string, page: number, limit: number): Promise<any> {
+
+    const offset = (page - 1) * limit;
+    const totalBatches = await prisma.emailVerificationBatch.count({
+      where: { orgId },
+    });
+    const result = await prisma.emailVerificationBatch.findMany({
       where: { orgId },
       select: batchSelect,
       orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: limit,
     });
+    for(const batch of result) {
+      if(batch. status === BatchStatus.COMPLETED && batch.csvResultFile) {
+          batch.csvResultFile = await getPresignedUrl(batch.csvResultFile!);
+        }else{
+          batch.csvResultFile = null;
+        }
+    }
+    return {
+          batches: result as BatchResponse[],
+          page,
+          limit,
+          totalBatches,
+          totalPages: Math.ceil(totalBatches / limit),
+          hasNextPage: page < Math.ceil(totalBatches / limit),
+          hasPreviousPage: page > 1
+        };
   }
 
   static async submitBatchForVerification(batchId: string, orgId: string, csvUploaded: any) {
