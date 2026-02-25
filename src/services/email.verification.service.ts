@@ -91,7 +91,7 @@ export class EmailVerificationService {
   }
 
   static async getBatchById(batchId: string, orgId: string) {
-    return prisma.emailVerificationBatch.findFirst({
+    const result = await prisma.emailVerificationBatch.findFirst({
       where: { id: batchId, orgId },
       select: {
         ...batchSelect,
@@ -100,6 +100,15 @@ export class EmailVerificationService {
         },
       },
     });
+    if (!result) {
+      return null;
+    }
+    if (result.status === BatchStatus.COMPLETED && result.csvResultFile) {
+      result.csvResultFile = await getPresignedUrl(result.csvResultFile!);
+    } else {
+      result.csvResultFile = null;
+    }
+    return result;
   }
 
   static async getBatchesByOrg(orgId: string, page: number, limit: number): Promise<any> {
@@ -382,7 +391,14 @@ export class EmailVerificationService {
       skip: offset,
     });
   }
-
+  static async getEmailResult(
+    id: string
+  ): Promise<any | null> {
+    return prisma.singleEmailVerification.findUnique({
+      where: { id },
+      select: {verificationResult: true},
+    });
+  }
   private static isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
