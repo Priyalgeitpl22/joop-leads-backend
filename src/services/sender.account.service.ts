@@ -52,6 +52,7 @@ export class SenderAccountService {
                 email: data?.email ? data.email : existingSenderAccount.email,
                 name: data?.name ? data.name : existingSenderAccount.name,
                 provider: data.type as EmailProvider,
+                replyTo: data.replyTo || "",
                 dailyLimit: data?.limit ? data.limit : existingSenderAccount.dailyLimit,
                 minDelaySeconds: data.time_gap ? data.time_gap * 60 : existingSenderAccount.minDelaySeconds,
                 smtpHost: data?.smtp?.host ? data.smtp?.host : existingSenderAccount.smtpHost,

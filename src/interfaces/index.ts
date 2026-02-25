@@ -189,6 +189,7 @@ export type CreateSenderAccount = {
 export interface UpdateSenderAccount {
   email?: string
   name?: string | null
+  replyTo?: string | ""
   provider?: EmailProvider
   smtpHost?: string | null
   smtpPort?: number | null
