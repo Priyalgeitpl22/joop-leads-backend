@@ -4,6 +4,8 @@ import { ImapFlow } from "imapflow";
 import { EmailEventService } from "../services/email.event.service";
 import { EmailSendStatus } from "../models/enums";
 import { parseBounceEmail } from "../utils/emailFormat";
+import { InboxEngineApiService } from "../services/inbox.engine.service";
+import { EmailAccountState } from "../models/email.account.model";
 
 const prisma = new PrismaClient();
 
@@ -109,7 +111,10 @@ const refreshGoogleToken = async (senderId: string, refreshToken: string): Promi
   } catch (error: any) {
     if (error.response?.data?.error === 'invalid_grant') {
       console.error(`[ReplyPoller] ❌ Refresh token expired or revoked for sender ${senderId}. User needs to re-authenticate.`);
-      throw new Error(`REAUTH_REQUIRED: Refresh token expired or revoked`);
+      await InboxEngineApiService.updateAccountPartially(senderId as string, {
+        state: EmailAccountState.REAUTH_REQUIRED,
+      });
+      throw new Error("REAUTH_REQUIRED: Refresh token expired or revoked. Please re-authenticate.");
     }
     console.error(`[ReplyPoller] ❌ Failed to refresh token:`, error.response?.data || error.message);
     throw new Error(`Failed to refresh token: ${error.message}`);
