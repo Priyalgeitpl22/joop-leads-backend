@@ -12,6 +12,7 @@ import {
   deleteBatch,
   verifyEmails,
   getEmails,
+  getEmail,
   getBatchResultDownloadUrl
 } from '../controllers/email.verification.controller';
 
@@ -42,6 +43,7 @@ router.get('/batches', getAllBatches);
 router.post('/upload', upload.single('file'), uploadAndCreateBatch);
 router.post('/verify', verifyEmails);
 router.get('/status', getEmails)
+router.get('/status/:id', getEmail)
 router.get('/:batchId', getBatchDetails);
 router.get('/:batchId/statistics', getBatchStatistics);
 router.get('/:batchId/verified', getVerifiedEmails);

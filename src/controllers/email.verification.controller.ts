@@ -506,3 +506,30 @@ export const getEmails = async (req: Request, res: Response): Promise<void> => {
     });
   }
 };
+
+export const getEmail = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = req.user;
+
+    if (!user?.orgId) {
+      res.status(400).json({ code: 400, message: 'Organization ID is required' });
+      return;
+    }
+    const { id } = req.params;
+
+    const verification = await EmailVerificationService.getEmailResult(
+      id
+    );
+
+    res.status(200).json({
+      code: 200,
+      data: verification.verificationResult,
+    });
+  } catch (error: any) {
+    console.error('Get email result error:', error);
+    res.status(500).json({
+      code: 500,
+      message:'Failed to fetch email verification result',
+    });
+  }
+};
