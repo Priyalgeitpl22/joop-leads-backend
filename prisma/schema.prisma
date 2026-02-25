@@ -315,6 +315,7 @@ model Campaign {
   description String?
   status      CampaignStatus @default(DRAFT)
   csvFile     String?
+  csvFileName String?
   // Schedule Settings
   timezone        String   @default("UTC")
   sendDays        String[] @default(["Mon", "Tue", "Wed", "Thu", "Fri"])

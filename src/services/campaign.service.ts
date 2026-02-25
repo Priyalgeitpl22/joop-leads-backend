@@ -35,10 +35,12 @@ export class CampaignService {
           if (!req.file) return resolve({ code: 400, message: "No file uploaded" });
           if (!req.body.emailFieldsToBeAdded) return resolve({ code: 400, message: "emailFieldsToBeAdded is required" });
 
+          const csvFileName = req.file.originalname;
+
           const campaignId = req.body.campaignId ? String(req.body.campaignId) : null;
           let campaign = campaignId
             ? await prisma.campaign.findUnique({ where: { id: campaignId } })
-            : await prisma.campaign.create({ data: { orgId: user.orgId, name: "Untitled Campaign", status: "DRAFT" } });
+            : await prisma.campaign.create({ data: { orgId: user.orgId, name: "Untitled Campaign", status: "DRAFT", csvFileName: csvFileName } });
 
           if (campaignId && !campaign) return resolve({ code: 404, message: "Campaign not found" });
 
@@ -48,7 +50,6 @@ export class CampaignService {
             create: { campaignId: campaign!.id },
           });
 
-          const csvFileName = req.file.originalname;
           const csvUploded = await uploadCSVToS3(campaign!.id, req.file);
 
           if (!csvUploded) {
@@ -379,6 +380,7 @@ export class CampaignService {
         analytics: campaign.analytics,
         campaignStats,
         csvFile: campaign.csvFile,
+        csvFileName: campaign.csvFileName,
       },
       message: "success",
     };

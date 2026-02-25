@@ -1,5 +1,5 @@
 import { Worker } from "bullmq";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { verificationQueue, redis } from "./queue";
 import { processAndSendEmail } from "./emailSender";
 import { ReoonService } from "../services/reoon.service";
@@ -163,7 +163,7 @@ new Worker(
               domain: (r as any).domain,
               isSafeToSend: (r as any).is_safe_to_send,
               isDeliverable: (r as any).is_deliverable,
-              verificationResult: r,
+              verificationResult: r as Prisma.InputJsonValue,
             },
           })
         );
