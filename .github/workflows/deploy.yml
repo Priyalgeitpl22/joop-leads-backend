@@ -40,4 +40,4 @@ jobs:
            npm i
            npx prisma migrate dev
            npx tsc
-           pm2 start ecosystem.config.js
+           pm2 startOrReload ecosystem.config.production.js
