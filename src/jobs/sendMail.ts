@@ -6,32 +6,27 @@ import { incrementCampaignCount } from "../controllers/analytics.controller";
 import { AnalyticsCountType } from "../enums";
 import { InboxEngineApiService } from "../services/inbox.engine.service";
 import { EmailAccountState } from "../models/email.account.model";
+import { SenderAccountState } from "../models/enums";
 
 const prisma = new PrismaClient();
 
-const isTokenExpired = (expiryDate?: number): boolean => {
-  return expiryDate ? Date.now() >= expiryDate : true;
+const isTokenExpired = (expiryDate?: Date): boolean => {
+  return expiryDate ? Date.now() >= expiryDate.getTime() : true;
 };
 
 const resolveReplyTo = (account: SenderAccount): string => {
   const replyTo = account.replyTo?.trim().toLowerCase();
 
-  // If replyTo exists → use it
   if (replyTo) {
     return replyTo;
   }
 
-  // Fallback to actual sender email (SMTP user)
   return account.smtpUser ?? "";
 };
-/**
- * Decode HTML entities in a string
- */
+
 const decodeHtmlEntities = (text: string): string => {
-  // First pass: decode &amp; encoded entities (like &amp;nbsp; -> &nbsp;)
   let decoded = text.replace(/&amp;(#?\w+);/gi, "&$1;");
-  
-  // Common named entities
+
   const entities: Record<string, string> = {
     'nbsp': ' ',
     'amp': '&',
@@ -52,79 +47,58 @@ const decodeHtmlEntities = (text: string): string => {
     'rdquo': '\u201D',
     'bull': '•',
   };
-  
-  // Replace named entities
+
   for (const [entity, char] of Object.entries(entities)) {
     decoded = decoded.replace(new RegExp(`&${entity};`, 'gi'), char);
   }
-  
-  // Decode numeric entities (decimal)
-  decoded = decoded.replace(/&#(\d+);/gi, (_, code) => 
+
+  decoded = decoded.replace(/&#(\d+);/gi, (_, code) =>
     String.fromCharCode(parseInt(code, 10))
   );
-  
-  // Decode numeric entities (hex)
-  decoded = decoded.replace(/&#x([0-9a-f]+);/gi, (_, code) => 
+
+  decoded = decoded.replace(/&#x([0-9a-f]+);/gi, (_, code) =>
     String.fromCharCode(parseInt(code, 16))
   );
-  
-  // Handle non-breaking space character (char code 160)
+
   decoded = decoded.replace(/\u00A0/g, ' ');
-  
+
   return decoded;
 };
 
-/**
- * Convert HTML to plain text
- * - Decodes HTML entities (&nbsp;, &amp;, etc.)
- * - Strips HTML tags
- * - Converts <br> and block elements to newlines
- * - Cleans up extra whitespace
- */
 const htmlToPlainText = (html: string): string => {
   let text = html;
-  
+
   console.log("[htmlToPlainText] Input:", text.substring(0, 200));
-  
-  // Convert <br>, <p>, <div> to newlines
+
   text = text.replace(/<br\s*\/?>/gi, "\n");
   text = text.replace(/<\/p>/gi, "\n\n");
   text = text.replace(/<\/div>/gi, "\n");
   text = text.replace(/<\/li>/gi, "\n");
-  
-  // Remove all remaining HTML tags
+
   text = text.replace(/<[^>]+>/g, "");
-  
-  // Decode HTML entities (run twice to handle double-encoding)
+
   text = decodeHtmlEntities(text);
   text = decodeHtmlEntities(text);
-  
-  // Clean up whitespace
+
   text = text.replace(/[ \t]+/g, " ");  // Multiple spaces/tabs to single space
   text = text.replace(/\n[ \t]+/g, "\n");  // Remove leading spaces on lines
   text = text.replace(/[ \t]+\n/g, "\n");  // Remove trailing spaces on lines
   text = text.replace(/\n{3,}/g, "\n\n");  // Max 2 consecutive newlines
   text = text.trim();
-  
+
   console.log("[htmlToPlainText] Output:", text.substring(0, 200));
-  
+
   return text;
 };
 
-/**
- * Replace all links in HTML with click tracking URLs
- * Preserves mailto: and tel: links
- */
 const replaceLinksWithTracking = (
   html: string,
   baseUrl: string,
   trackingId: string
 ): string => {
-  // Regex to match href attributes with http/https URLs
   const linkRegex = /href=["'](https?:\/\/[^"']+)["']/gi;
 
   return html.replace(linkRegex, (match, url) => {
-    // Skip if it's already a tracking URL
     if (url.includes("/track/click/") || url.includes("/track/unsubscribe/")) {
       return match;
     }
@@ -175,15 +149,15 @@ const refreshGoogleOAuthToken = async (account: SenderAccount): Promise<string> 
     console.log("[sendMail] ✅ Google Access Token Refreshed!");
     return account.accessToken as string;
   } catch (error: any) {
-    if (isReauthRequired(error)) {
-      console.error("[sendMail] ❌ Google OAuth Refresh Token Expired or Revoked");
-      await InboxEngineApiService.updateAccountPartially(account.accountId as string, {
-        state: EmailAccountState.REAUTH_REQUIRED,
-      });
-      throw new Error("REAUTH_REQUIRED: Google OAuth refresh token has expired. Please re-authenticate.");
-    }
-    console.error("[sendMail] ❌ Google OAuth Token Refresh Error:", error.response?.data || error.message);
-    throw new Error(`Failed to refresh Google OAuth token: ${error.response?.data?.error_description || error.message}`);
+    const errorReason = error.response?.data?.error || "error_unknown";
+    console.error("[sendMail] ❌ Google OAuth Refresh Token Expired or Revoked");
+    await InboxEngineApiService.updateSenderAccountState(
+      account.accountId as string,
+      SenderAccountState.REAUTH_REQUIRED,
+      errorReason,
+      { message: error?.message ?? "Refresh token expired or revoked", provider: "google" }
+    );
+    throw new Error("REAUTH_REQUIRED: Google OAuth refresh token has expired. Please re-authenticate.");
   }
 };
 
@@ -257,7 +231,7 @@ const sendEmailFromGoogle = async (
 
   let access_token = account.accessToken || "";
 
-  if (!access_token || isTokenExpired(account.tokenExpiry?.getTime())) {
+  if (!access_token || isTokenExpired(account.tokenExpiry as Date)) {
     console.log("[sendMail] 🔄 Google token expired, refreshing...");
     access_token = await refreshGoogleOAuthToken(account);
   }
@@ -341,16 +315,24 @@ const sendEmailFromGoogle = async (
 
     return result;
   } catch (error: any) {
+    incrementCampaignCount(campaignId, AnalyticsCountType.BOUNCED_COUNT);
     console.error("[sendMail] ❌ Google Email Error:", {
       toEmail,
       error: error.response?.data || error.message,
       status: error.response?.status,
     });
-
-    // Update bounce count
-    incrementCampaignCount(campaignId, AnalyticsCountType.BOUNCED_COUNT);
-
-    throw new Error(`Failed to send email via Google: ${error.response?.data?.error?.message || error.message}`);
+    await InboxEngineApiService.updateSenderAccountState(
+      account.accountId as string,
+      SenderAccountState.REAUTH_REQUIRED,
+      "REAUTH_REQUIRED",
+      {
+        message: error?.message ?? "Send failed",
+        status: error.response?.status,
+        toEmail,
+        provider: "google",
+      }
+    );
+    throw new Error("REAUTH_REQUIRED: Google OAuth refresh token has expired. Please re-authenticate.");
   }
 };
 
@@ -375,10 +357,20 @@ const sendEmailFromMicrosoft = async (
   }
 
   let access_token = account.accessToken || "";
-  if (!access_token || isTokenExpired(account.tokenExpiry?.getTime())) {
+  if (!access_token || isTokenExpired(account.tokenExpiry as Date)) {
     console.log("[sendMail] 🔄 Microsoft token expired, refreshing...");
-    const response = await refreshMicrosoftOAuthToken(account as unknown as EmailAccount);
-    access_token = response.access_token;
+    try {
+      const response = await refreshMicrosoftOAuthToken(account as unknown as EmailAccount);
+      access_token = response.access_token;
+    } catch (error: any) {
+      await InboxEngineApiService.updateSenderAccountState(
+        account.accountId as string,
+        SenderAccountState.REAUTH_REQUIRED,
+        "TOKEN_REFRESH_FAILED",
+        { message: error?.message ?? "Microsoft token refresh failed", provider: "microsoft" }
+      );
+      throw error;
+    }
   }
 
   // Build email content with tracking
@@ -459,8 +451,18 @@ const sendEmailFromMicrosoft = async (
       error: error.response?.data || error.message,
       status: error.response?.status,
     });
-
     incrementCampaignCount(campaignId, AnalyticsCountType.BOUNCED_COUNT);
+    await InboxEngineApiService.updateSenderAccountState(
+      account.accountId as string,
+      SenderAccountState.REAUTH_REQUIRED,
+      "SEND_FAILED",
+      {
+        message: error?.message ?? "Send failed",
+        status: error.response?.status,
+        toEmail,
+        provider: "microsoft",
+      }
+    );
     throw new Error(`Failed to send email via Microsoft: ${error.response?.data?.error?.message || error.message}`);
   }
 };
@@ -564,9 +566,20 @@ const sendEmailWithSMTP = async (
     console.log("[sendMail] ✅ SMTP Email Sent to", toEmail, "MessageId:", info.messageId);
     incrementCampaignCount(campaignId, AnalyticsCountType.SENT_COUNT);
 
-    console.log("info===>>", info);
     return { id: info.messageId, messageId: info.messageId };
   } catch (error: any) {
+    await InboxEngineApiService.updateSenderAccountState(
+      account.accountId as string,
+      SenderAccountState.REAUTH_REQUIRED,
+      "SEND_FAILED",
+      {
+        message: error?.message ?? "Send failed",
+        status: error.response?.status,
+        toEmail,
+        provider: "smtp",
+      }
+    );
+
     console.error("[sendMail] ❌ SMTP Email Error:", {
       toEmail,
       error: error.message,
@@ -592,17 +605,6 @@ export const sendEmail = async (
   includeUnsubscribeLink: boolean = true,
   unsubscribeText: string = "Unsubscribe"
 ): Promise<{ id: string; messageId?: string; threadId?: string }> => {
-  console.log("[sendMail] sendEmail called:", {
-    campaignId,
-    leadId,
-    toEmail,
-    provider: account.provider,
-    subject: subject.substring(0, 50),
-    isPlainText,
-    trackClicks,
-    trackOpens,
-    includeUnsubscribeLink,
-  });
 
   try {
     const org = await prisma.organization.findUnique({ where: { id: orgId } });

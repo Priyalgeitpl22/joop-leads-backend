@@ -1,5 +1,16 @@
 import { SequenceType } from "../interfaces";
 
+/** Canonical skip reasons for sender ineligibility (stored in trigger log + campaign.stoppedDetails) */
+export const SenderSkipReason = {
+  SENDER_NOT_ACTIVE: "sender_not_active",
+  COULD_NOT_ACQUIRE_LOCK: "could_not_acquire_lock",
+  SENDER_DAILY_LIMIT_REACHED: "sender_daily_limit_reached",
+  SEND_GAP_TOO_SHORT: "send_gap_too_short",
+  NO_PENDING_LEADS: "no_pending_leads",
+} as const;
+
+export type SenderSkipReasonType = (typeof SenderSkipReason)[keyof typeof SenderSkipReason];
+
 export const TriggerStatus = {
     SUCCESS: "SUCCESS",
     PARTIAL: "PARTIAL",

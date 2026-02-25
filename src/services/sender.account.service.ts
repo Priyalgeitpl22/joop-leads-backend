@@ -7,12 +7,12 @@ const prisma = new PrismaClient();
 export class SenderAccountService {
     static async getSenderAccount(id: string, email: string): Promise<SenderAccount | null> {
         const senderAccount = await prisma.senderAccount.findFirst({ where: { accountId: id, email } });
-        return senderAccount;
+        return senderAccount as SenderAccount;
     }
 
     static async getSenderAccounts(orgId: string): Promise<SenderAccount[]> {
         const senderAccounts = await prisma.senderAccount.findMany({ where: { orgId } });
-        return senderAccounts;
+        return senderAccounts as SenderAccount[];
     }
 
     static async createSenderAccount(data: Account): Promise<SenderAccount | null> {
@@ -24,7 +24,7 @@ export class SenderAccountService {
 
         if (existingSenderAccount) {
             const updatedSenderAccount = await this.updateSenderAccount(existingSenderAccount.accountId, data);
-            return updatedSenderAccount;
+            return updatedSenderAccount as SenderAccount;
         }
 
         const accountData = await this.buildSenderCreateAccountData(data);
@@ -34,7 +34,7 @@ export class SenderAccountService {
                 where: { orgId_isActive: { orgId: data.orgId, isActive: true } },
                 data: { senderAccountsCount: { increment: 1 } },
             });
-            return senderAccount;
+            return senderAccount as SenderAccount;
         } catch (error) {
             console.error(error);
             return null;
@@ -68,6 +68,10 @@ export class SenderAccountService {
                 accessToken: data?.oauth2?.tokens?.access_token ? data.oauth2?.tokens?.access_token : existingSenderAccount.accessToken,
                 refreshToken: data?.oauth2?.tokens?.refresh_token ? data.oauth2?.tokens?.refresh_token : existingSenderAccount.refreshToken,
                 tokenExpiry: data?.oauth2?.tokens?.expiry_date ? new Date(data?.oauth2?.tokens?.expiry_date) : existingSenderAccount.tokenExpiry,
+                state: data?.state ? data.state : existingSenderAccount.state,
+                errorReason: data?.errorReason ? data.errorReason : null    ,
+                errorDetails: data?.errorDetails ? data.errorDetails : null,
+                erroredAt: data?.erroredAt ? new Date(data?.erroredAt) : null,
                 hourlyLimit: 10,
                 isEnabled: true,
                 isVerified: false,

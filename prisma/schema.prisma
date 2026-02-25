@@ -84,6 +84,17 @@ enum WarmupStatus {
   PAUSED
 }
 
+enum SenderAccountState {
+  active
+  inactive
+  verified
+  unverified
+  pending
+  disabled
+  deleted
+  reauth_required
+}
+
 enum PlanCode {
   FREE
   STARTER
@@ -229,8 +240,9 @@ model ApiKey {
 // ============================================================================
 
 model SenderAccount {
-  id       String        @id @default(uuid())
-  accountId String       @unique
+  id       String          @id @default(uuid())
+  accountId String          @unique
+  state    SenderAccountState   @default(active)
   email    String
   name     String?       // Display name
   provider EmailProvider 
@@ -258,7 +270,7 @@ model SenderAccount {
   // Limits & Settings
   dailyLimit      Int     @default(50)
   hourlyLimit     Int     @default(10)
-  minDelaySeconds Int     @default(60) // Min gap between emails
+  minDelaySeconds Int     @default(300) // Min gap between emails
   isEnabled       Boolean @default(true)
   isVerified      Boolean @default(false)
 
@@ -269,6 +281,11 @@ model SenderAccount {
 
   // Signature
   signature String?
+
+  // Error state (when sender is in error, e.g. reauth_required)
+  erroredAt    DateTime?
+  errorReason  String?   // e.g. "REAUTH_REQUIRED", "SEND_FAILED"
+  errorDetails Json?     // optional structured details (message, provider response, etc.)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -324,6 +341,9 @@ model Campaign {
   intervalMinutes Int      @default(5)       // Gap between emails
   maxEmailsPerDay Int      @default(100)     // Campaign daily limit
 
+  stoppedAt       DateTime? // When campaign was stopped (e.g. no eligible senders)
+  stoppedReason   String?  // e.g. "NO_ELIGIBLE_SENDERS"
+  stoppedDetails  Json?    // { at, senderReasons: [{ senderId, email, reason }] }
   sendAsPlainText Boolean @default(false) // Send emails without HTML formatting
 
   trackOpens  Boolean @default(true)  // Set to false to NOT track email opens

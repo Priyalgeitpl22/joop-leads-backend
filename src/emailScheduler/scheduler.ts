@@ -2,9 +2,41 @@ import { CampaignStatus, PrismaClient, CampaignLead, Lead } from "@prisma/client
 import { emailQueue } from "./queue";
 import { dayKeyInTz, isWithinSchedule } from "./time";
 import { lockCampaign, unlockCampaign, lockSender, unlockSender } from "./locks";
-import { TriggerContext, TriggerStatus } from "./types";
+import { TriggerContext, TriggerStatus, SenderSkipReason } from "./types";
 
 const prisma = new PrismaClient();
+
+const NO_ELIGIBLE_SENDERS = "NO_ELIGIBLE_SENDERS";
+
+type SenderWithState = { id: string; email: string; state: string };
+type StoppedDetailsPayload = { at: string; senderReasons: { senderId: string; email: string; reason: string }[] };
+
+async function markCampaignStoppedNoEligibleSenders(
+  campaignId: string,
+  triggerCtx: TriggerContext,
+  senders: SenderWithState[],
+  triggerStatus: string
+) {
+  const at = new Date().toISOString();
+  const senderReasons = senders.map((s) => ({
+    senderId: s.id,
+    email: s.email,
+    reason: triggerCtx.senderDetails[s.email]?.skipReason ?? (s.state !== "active" ? s.state : SenderSkipReason.SENDER_NOT_ACTIVE),
+  }));
+  const stoppedDetails: StoppedDetailsPayload = { at, senderReasons };
+  await prisma.campaign.update({
+    where: { id: campaignId },
+    data: {
+      status: CampaignStatus.STOPPED,
+      stoppedAt: new Date(),
+      stoppedReason: NO_ELIGIBLE_SENDERS,
+      stoppedDetails: stoppedDetails as object,
+    },
+  });
+  triggerCtx.status = triggerStatus as TriggerContext["status"];
+  triggerCtx.activityLog.push(`No eligible senders - campaign stopped. Reasons: ${senderReasons.map((r) => `${r.email}: ${r.reason}`).join("; ")}`);
+  await saveTriggerLog(triggerCtx);
+}
 
 type CampaignLeadWithLead = CampaignLead & { lead: Lead | null };
 
@@ -37,6 +69,7 @@ async function saveTriggerLog(ctx: TriggerContext) {
 export async function schedulerTick() {
   console.log("[Scheduler] ========== TICK START ==========", new Date().toISOString());
   console.log(`[Scheduler] process.env.NODE_ENV: ${process.env.NODE_ENV}`);
+
   const due = await prisma.campaignRuntime.findMany({
     where: { nextRunAt: { lte: new Date() }, campaign: { status: { in: [CampaignStatus.ACTIVE, CampaignStatus.SCHEDULED] } } },
     include: { campaign: true },
@@ -69,11 +102,18 @@ export async function schedulerTick() {
       console.log(`[Scheduler] Auto-activating SCHEDULED campaign ${c.id}`);
       c = await prisma.campaign.update({
         where: { id: c.id },
-        data: { status: CampaignStatus.ACTIVE, startedAt: new Date() },
+        data: {
+          status: CampaignStatus.ACTIVE,
+          startedAt: new Date(),
+          stoppedAt: null,
+          stoppedReason: null,
+          stoppedDetails: undefined,
+        },
       });
       triggerCtx.activityLog.push("Campaign auto-activated from SCHEDULED to ACTIVE");
     }
 
+    // Check if campaign is active
     const isActive = c?.status === CampaignStatus.ACTIVE;
     if (!isActive) {
       console.log(`[Scheduler] Skipping campaign ${c?.id} - not ACTIVE or SCHEDULED`);
@@ -83,6 +123,7 @@ export async function schedulerTick() {
       continue;
     }
 
+    // Acquire lock for campaign
     const gotLock = await lockCampaign(c.id);
     if (!gotLock) {
       console.log(`[Scheduler] Could not acquire lock for campaign ${c.id} - skipping`);
@@ -94,6 +135,7 @@ export async function schedulerTick() {
     console.log(`[Scheduler] Acquired lock for campaign ${c.id}`);
 
     try {
+      // Get timezone and day key
       const tz = c.timezone;
       const dk = dayKeyInTz(tz);
       triggerCtx.timezone = tz;
@@ -131,7 +173,6 @@ export async function schedulerTick() {
         console.log(`[Scheduler] Outside schedule window - skipping`);
         triggerCtx.status = TriggerStatus.OUTSIDE_SCHEDULE;
         triggerCtx.activityLog.push(`Outside schedule window (${c.sendDays.join(", ")}, ${c.windowStart}-${c.windowEnd} ${tz})`);
-        // await saveTriggerLog(triggerCtx);
         continue;
       }
 
@@ -141,7 +182,6 @@ export async function schedulerTick() {
         console.log(`[Scheduler] No runtime found for campaign ${c.id} - skipping`);
         triggerCtx.status = TriggerStatus.ERROR;
         triggerCtx.activityLog.push("No campaign runtime found");
-        // await saveTriggerLog(triggerCtx);
         continue;
       }
       console.log(`[Scheduler] Campaign sentToday: ${freshRt.sentToday}, maxEmailsPerDay: ${c.maxEmailsPerDay}`);
@@ -149,14 +189,8 @@ export async function schedulerTick() {
         console.log(`[Scheduler] Campaign ${c.id} reached daily limit - skipping`);
         triggerCtx.status = TriggerStatus.DAILY_LIMIT;
         triggerCtx.activityLog.push(`Daily limit reached (${freshRt.sentToday}/${c.maxEmailsPerDay} emails sent today)`);
-        // await saveTriggerLog(triggerCtx);
         continue;
       }
-
-      // load senders
-      // const senders = await prisma.senderAccount.findMany({
-      //   where: { isEnabled: true },
-      // });
 
       const campaignSenders = await prisma.campaignSender.findMany({
         where: { campaignId: c.id },
@@ -164,20 +198,53 @@ export async function schedulerTick() {
       });
 
       const senders = campaignSenders.map((cs) => cs.sender);
-      
+
       console.log(`[Scheduler] Found ${senders.length} enabled sender account(s)`);
       triggerCtx.activityLog.push(`Found ${senders.length} enabled sender account(s)`);
+
+      // Initialize sender details for every sender (so we can build stoppedDetails when all ineligible)
+      for (const sender of senders) {
+        const notActive = sender.state !== "active";
+        triggerCtx.senderDetails[sender.email] = {
+          email: sender.email,
+          sent: 0,
+          skipped: notActive,
+          skipReason: notActive ? (sender.state || SenderSkipReason.SENDER_NOT_ACTIVE) : undefined,
+        };
+      }
+
+      if (senders.length === 0) {
+        console.log(`[Scheduler] No senders for campaign ${c.id} - marking stopped`);
+        await prisma.campaign.update({
+          where: { id: c.id },
+          data: {
+            status: CampaignStatus.STOPPED,
+            stoppedAt: new Date(),
+            stoppedReason: NO_ELIGIBLE_SENDERS,
+            stoppedDetails: { at: new Date().toISOString(), senderReasons: [] } as object,
+          },
+        });
+        triggerCtx.status = TriggerStatus.ERROR;
+        triggerCtx.activityLog.push("No senders attached - campaign stopped.");
+        await saveTriggerLog(triggerCtx);
+        continue;
+      }
+
+      const activeSenders = senders.filter((s) => s.state === "active");
+      if (activeSenders.length === 0) {
+        console.log(`[Scheduler] No active senders for campaign ${c.id} - marking stopped`);
+        await markCampaignStoppedNoEligibleSenders(c.id, triggerCtx, senders, TriggerStatus.ERROR);
+        continue;
+      }
 
       // For each sender: enqueue max 1 email per run (Smartlead pattern)
       for (const sender of senders) {
         console.log(`[Scheduler] Processing sender: ${sender.email} (${sender.id})`);
 
-        // Initialize sender detail
-        triggerCtx.senderDetails[sender.email] = {
-          email: sender.email,
-          sent: 0,
-          skipped: false,
-        };
+        if (sender.state !== "active") {
+          console.log(`[Scheduler] Sender ${sender.email} is not enabled - skipping`);
+          continue;
+        }
 
         // Stop if campaign reached max/day during this loop
         const current = await prisma.campaignRuntime.findUnique({ where: { campaignId: c.id } });
@@ -191,7 +258,7 @@ export async function schedulerTick() {
         if (!senderLocked) {
           console.log(`[Scheduler] Could not lock sender ${sender.id} - skipping`);
           triggerCtx.senderDetails[sender.email].skipped = true;
-          triggerCtx.senderDetails[sender.email].skipReason = "Could not acquire lock";
+          triggerCtx.senderDetails[sender.email].skipReason = SenderSkipReason.COULD_NOT_ACQUIRE_LOCK;
           continue;
         }
         console.log(`[Scheduler] Acquired lock for sender ${sender.id}`);
@@ -209,7 +276,7 @@ export async function schedulerTick() {
           if (sentToday >= sender.dailyLimit) {
             console.log(`[Scheduler] Sender ${sender.email} reached daily limit - skipping`);
             triggerCtx.senderDetails[sender.email].skipped = true;
-            triggerCtx.senderDetails[sender.email].skipReason = `Daily limit reached (${sentToday}/${sender.dailyLimit})`;
+            triggerCtx.senderDetails[sender.email].skipReason = SenderSkipReason.SENDER_DAILY_LIMIT_REACHED;
             continue;
           }
 
@@ -222,7 +289,7 @@ export async function schedulerTick() {
             if (diffMin + toleranceMin < c.intervalMinutes) {
               console.log(`[Scheduler] Sender ${sender.email} gap too short - skipping`);
               triggerCtx.senderDetails[sender.email].skipped = true;
-              triggerCtx.senderDetails[sender.email].skipReason = `Send gap too short (${diffMin.toFixed(1)}min < ${c.intervalMinutes}min required)`;
+              triggerCtx.senderDetails[sender.email].skipReason = SenderSkipReason.SEND_GAP_TOO_SHORT;
               continue;
             }
           }
@@ -246,14 +313,13 @@ export async function schedulerTick() {
           if (allPendingLeads.length === 0) {
             console.log(`[Scheduler] No pending leads for campaign ${c.id}`);
             triggerCtx.senderDetails[sender.email].skipped = true;
-            triggerCtx.senderDetails[sender.email].skipReason = "No pending leads available";
+            triggerCtx.senderDetails[sender.email].skipReason = SenderSkipReason.NO_PENDING_LEADS;
             continue;
           }
 
           // Separate into follow-up candidates and new lead candidates
           const followUpCandidates: CampaignLeadWithLead[] = [];
           const newLeadCandidates: CampaignLeadWithLead[] = [];
-          const isDev = process.env.NODE_ENV === 'development';
 
           // Get all sequences for delay checking
           const allSequences = await prisma.sequence.findMany({
@@ -465,12 +531,20 @@ export async function schedulerTick() {
           triggerCtx.activityLog.push("Campaign marked as COMPLETED");
         } else {
           triggerCtx.activityLog.push(`${pendingLeads} pending leads exist but could not be sent (check sender limits/gaps)`);
+          // All senders were ineligible - mark campaign stopped with reasons
+          const allSkipped = senders.length > 0 && senders.every((s) => triggerCtx.senderDetails[s.email]?.skipped);
+          if (allSkipped) {
+            console.log(`[Scheduler] All senders ineligible for campaign ${c.id} - marking stopped`);
+            await markCampaignStoppedNoEligibleSenders(c.id, triggerCtx, senders, TriggerStatus.NO_PENDING);
+          } else {
+            await saveTriggerLog(triggerCtx);
+          }
         }
       } else {
         triggerCtx.activityLog.push(`Successfully queued ${triggerCtx.totalEmailsSent} email(s): ${triggerCtx.newLeadEmails} new lead(s), ${triggerCtx.followUpEmails} follow-up(s)`);
       }
 
-      // Save trigger log
+      // Save trigger log (unless we already saved in markCampaignStoppedNoEligibleSenders)
       if (triggerCtx.totalEmailsSent > 0) {
         await saveTriggerLog(triggerCtx);
         if (triggerCtx.nextTriggerAt) {

@@ -12,6 +12,7 @@ import { SequenceAnalytics } from "../emailScheduler/types";
 import { CampaignSenderWithStats } from "../interfaces";
 import { getUsageAndLimits, incrementLeadsAdded } from "./organization.usage.service";
 import { checkForLeadsAddedThisPeriod } from "../middlewares/enforcePlanLimits";
+import { formatReplyText } from "../utils/reply.utils";
 
 const dayjs = require("dayjs");
 const utc = require("dayjs/plugin/utc");
@@ -116,12 +117,12 @@ export class CampaignService {
               }
 
               if (newLeads.length > 0) {
-                  const checkResult = await checkForLeadsAddedThisPeriod(newLeads.length, user.orgId);
-                  if (checkResult && checkResult.code !== 200) {
-                    resolve(checkResult);
-                    return;
-                  }
-              } 
+                const checkResult = await checkForLeadsAddedThisPeriod(newLeads.length, user.orgId);
+                if (checkResult && checkResult.code !== 200) {
+                  resolve(checkResult);
+                  return;
+                }
+              }
 
               if (newLeads.length > 0) await prisma.lead.createMany({ data: newLeads, skipDuplicates: true });
               const insertedLeads = await prisma.lead.findMany({ where: { email: { in: newLeads.map((l) => l.email) }, orgId: user.orgId } });
@@ -340,7 +341,7 @@ export class CampaignService {
       ? parseFloat(((totalSent / totalEmailsNeeded) * 100).toFixed(2))
       : 0;
 
-    if (campaign.csvFile) { 
+    if (campaign.csvFile) {
       const csvFile = await getPresignedUrl(campaign.csvFile);
       campaign.csvFile = csvFile;
     }
@@ -361,6 +362,9 @@ export class CampaignService {
         stopSending: campaign.stopSending,
         nextTrigger: campaign.nextTrigger,
         trackOpens: campaign.trackOpens,
+        stoppedAt: campaign.stoppedAt,
+        stoppedReason: campaign.stoppedReason,
+        stoppedDetails: campaign.stoppedDetails,
         trackClicks: campaign.trackClicks,
         timezone: campaign.timezone,
         sendAsPlainText: campaign.sendAsPlainText,
@@ -777,64 +781,41 @@ export class CampaignService {
       return { groupedLeads, totalSequences };
     }
 
-    const sends = await prisma.emailSend.findMany({
-      where: { campaignId },
-      include: {
-        lead: true,
-        sender: true,
-      },
-    });
+    const [campaignLeads, sends, totalSequences] = await Promise.all([
+      prisma.campaignLead.findMany({
+        where: { campaignId },
+        include: { lead: true },
+      }),
+      prisma.emailSend.findMany({
+        where: { campaignId },
+        include: { lead: true, sender: true },
+      }),
+      prisma.sequence.count({ where: { campaignId, isActive: true } }),
+    ]);
 
-    const campaignLeads = await prisma.campaignLead.findMany({
-      where: { campaignId },
-      select: {
-        leadId: true,
-        currentSequenceStep: true,
-        status: true,
-        lastSentAt: true,
-      },
-    });
-
-    const totalSequences = await prisma.sequence.count({
-      where: { campaignId, isActive: true },
-    });
-
-    const campaignLeadMap = new Map(
-      campaignLeads.map((cl) => [cl.leadId, cl])
-    );
-
-    const groupedLeadsMap = sends.reduce((acc, send) => {
+    // Group sends by leadId (unique sender per lead by sender email)
+    const sendsByLeadId = sends.reduce((acc, send) => {
       const leadId = send.lead.id;
-      const campaignLead = campaignLeadMap.get(leadId);
-
-      if (!acc[leadId]) {
-        acc[leadId] = {
-          lead: send.lead,
-          currentSequenceStep: campaignLead?.currentSequenceStep || 0,
-          totalSequences,
-          leadStatus: campaignLead?.status || null,
-          lastSentAt: campaignLead?.lastSentAt || null,
-          senders: [],
-        };
-      }
-
-      // Only add sender if not already in the list (unique by email)
-      const existingSender = acc[leadId].senders.find(
-        (s: any) => s.senderEmail === send.sender.email
-      );
-      if (!existingSender) {
-        acc[leadId].senders.push({
+      if (!acc[leadId]) acc[leadId] = [];
+      const existing = acc[leadId].find((s) => s.senderEmail === send.sender.email);
+      if (!existing) {
+        acc[leadId].push({
           senderEmail: send.sender.email,
           status: send.status,
           sentAt: send.sentAt,
         });
       }
-
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, { senderEmail: string; status: string; sentAt: Date | null }[]>);
 
-    // Convert to array
-    const groupedLeads = Object.values(groupedLeadsMap);
+    const groupedLeads = campaignLeads.map((cl) => ({
+      lead: cl.lead,
+      currentSequenceStep: cl.currentSequenceStep ?? 0,
+      totalSequences,
+      leadStatus: cl.status,
+      lastSentAt: cl.lastSentAt,
+      senders: sendsByLeadId[cl.leadId] ?? [],
+    }));
 
     return { groupedLeads, totalSequences };
   }
@@ -1025,9 +1006,6 @@ export class CampaignService {
 
     let inboxData = [];
 
-    // Variables object with values
-
-
     for (const send of inbox) {
       const variables = {
         firstName: send.lead.firstName ?? null,
@@ -1035,6 +1013,10 @@ export class CampaignService {
         company: send.lead.company ?? null,
         email: send.lead.email ?? null,
       };
+
+      const emailSubject = send.sequence?.subject ?? null;
+      const replacedEmailSubject = emailSubject ? replaceTemplateVariables(emailSubject, variables) : null;
+      const plainTextSubject = replacedEmailSubject ? htmlToPlainText(replacedEmailSubject) : null;
 
       const emailBody = send.sequence?.bodyHtml ?? send.sequence?.bodyText ?? "";
       const replacedEmailBody = emailBody ? replaceTemplateVariables(emailBody, variables) : null;
@@ -1053,7 +1035,8 @@ export class CampaignService {
           email: send.sender.email,
         },
         messageSent: {
-          subject: send.sequence?.subject ?? null,
+          subject: replacedEmailSubject,
+          plainTextSubject: plainTextSubject,
           seqNumber: send.sequence?.seqNumber ?? null,
           body: {
             html: replacedEmailBody ?? null,
@@ -1061,7 +1044,7 @@ export class CampaignService {
           }
         },
         reply: {
-          text: send.replyText ?? null,
+          text: formatReplyText(send.replyText) ?? null,
           repliedAt: send.repliedAt ?? null,
         }
       };
@@ -1075,7 +1058,13 @@ export class CampaignService {
   static async changeCampaignStatus(campaignId: string, status: CampaignStatus) {
     const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
     if (!campaign) return { code: 404, message: "Campaign not found" };
-    const updatedCampaign = await prisma.campaign.update({ where: { id: campaignId }, data: { status } });
+    const data: { status: CampaignStatus; stoppedAt?: null; stoppedReason?: null; stoppedDetails?: null } = { status };
+    if (status === "ACTIVE") {
+      data.stoppedAt = null;
+      data.stoppedReason = null;
+      data.stoppedDetails = null;
+    }
+    const updatedCampaign = await prisma.campaign.update({ where: { id: campaignId }, data });
     return { code: 200, data: updatedCampaign, message: "success" };
   }
 }
@@ -1091,9 +1080,9 @@ const calculateCampaignCompletionPercentage = (campaign: any) => {
   const totalSent = campaign.analytics?.sentCount || 0;
 
   const completion =
-  totalExpected === 0
-    ? 0
-    : Math.round((totalSent / totalExpected) * 100);
+    totalExpected === 0
+      ? 0
+      : Math.round((totalSent / totalExpected) * 100);
 
   return completion;
 }
@@ -1112,10 +1101,10 @@ const htmlToPlainText = (html: string): string => {
   text = text.replace(/<br\s*\/?>/gi, "\n");
   text = text.replace(/<\/p>/gi, "\n\n");
   text = text.replace(/<\/div>/gi, "\n");
-  
+
   // Remove all HTML tags
   text = text.replace(/<[^>]+>/g, "");
-  
+
   // Decode HTML entities (run twice for double-encoded)
   const decodeEntities = (str: string): string => {
     str = str.replace(/&amp;(#?\w+);/gi, "&$1;");
@@ -1130,13 +1119,13 @@ const htmlToPlainText = (html: string): string => {
     str = str.replace(/\u00A0/g, " ");
     return str;
   };
-  
+
   text = decodeEntities(decodeEntities(text));
-  
+
   // Clean up whitespace
   text = text.replace(/[ \t]+/g, " ");
   text = text.replace(/\n{3,}/g, "\n\n");
   text = text.trim();
-  
+
   return text;
 };

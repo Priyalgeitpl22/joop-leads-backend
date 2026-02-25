@@ -4,6 +4,7 @@ import { ImapFlow } from "imapflow";
 import { EmailEventService } from "../services/email.event.service";
 import { EmailSendStatus } from "../models/enums";
 import { parseBounceEmail } from "../utils/emailFormat";
+import { formatReplyText } from "../utils/reply.utils";
 import { InboxEngineApiService } from "../services/inbox.engine.service";
 import { EmailAccountState } from "../models/email.account.model";
 
@@ -111,9 +112,12 @@ const refreshGoogleToken = async (senderId: string, refreshToken: string): Promi
   } catch (error: any) {
     if (error.response?.data?.error === 'invalid_grant') {
       console.error(`[ReplyPoller] ❌ Refresh token expired or revoked for sender ${senderId}. User needs to re-authenticate.`);
-      await InboxEngineApiService.updateAccountPartially(senderId as string, {
-        state: EmailAccountState.REAUTH_REQUIRED,
-      });
+      await InboxEngineApiService.setSenderAccountError(
+        { id: senderId },
+        "REAUTH_REQUIRED" as any,
+        "TOKEN_REFRESH_FAILED",
+        { message: "Refresh token expired or revoked", provider: "google" }
+      );
       throw new Error("REAUTH_REQUIRED: Refresh token expired or revoked. Please re-authenticate.");
     }
     console.error(`[ReplyPoller] ❌ Failed to refresh token:`, error.response?.data || error.message);
@@ -417,7 +421,7 @@ const pollRepliesForSender = async (sender: SenderWithThreads): Promise<number> 
           where: { id: thread.emailSendId },
           data: {
             status: EmailSendStatus.REPLIED,
-            replyText: result.replyText || null,
+            replyText: formatReplyText(result.replyText) ?? null,
             repliedAt: new Date(),
           },
         });
@@ -514,7 +518,7 @@ const pollRepliesForSmtpSender = async (sender: SmtpSenderWithEmails): Promise<n
 
             if (msg.source) {
               sourceStr = msg.source.toString();
-              replyText = extractReplyFromMimeSource(sourceStr);
+              replyText = formatReplyText(extractReplyFromMimeSource(sourceStr));
 
               if (replyText && replyText.length > 5000) {
                 replyText = replyText.substring(0, 5000) + "...";

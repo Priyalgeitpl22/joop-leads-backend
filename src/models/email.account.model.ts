@@ -11,6 +11,9 @@ export interface Account {
     lastFetchTimestamp?: string;
     last_sent?: string;
     state: EmailAccountState;
+    errorReason?: string;
+    errorDetails?: Record<string, unknown>;
+    erroredAt?: Date;
     oauth2: {
         authorize: boolean;
         clientId: string;

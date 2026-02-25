@@ -1,5 +1,6 @@
 import { EmailProvider, PrismaClient } from "@prisma/client";
 import { sendEmail } from "../jobs/sendMail";
+import { SenderAccount } from "../interfaces";
 
 const prisma = new PrismaClient();
 
@@ -50,7 +51,7 @@ export async function processAndSendEmail(emailSendId: string): Promise<SendResu
     campaign.id,
     lead.id,
     campaign.orgId,
-    sender,
+    sender as SenderAccount,
     lead.email,
     subject,
     body,

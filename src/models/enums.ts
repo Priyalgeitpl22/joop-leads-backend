@@ -10,6 +10,18 @@ export enum UserRole {
   SUPER_ADMIN = "SUPER_ADMIN",
 }
 
+export enum SenderAccountState {
+  ACTIVE = "active",
+  INACTIVE = "inactive",
+  VERIFIED = "verified",
+  UNVERIFIED = "unverified",
+  PENDING = "pending",
+  DISABLED = "disabled",
+  DELETED = "deleted",
+  REAUTH_REQUIRED = "reauth_required",
+}
+
+
 export enum CampaignStatus {
   DRAFT = "DRAFT",
   SCHEDULED = "SCHEDULED",
@@ -90,10 +102,4 @@ export enum EventType {
   SENDER_BOUNCED = "SENDER_BOUNCED",
   UNSUBSCRIBED = "UNSUBSCRIBED",
   COMPLAINED = "COMPLAINED",
-}
-
-export enum SenderAccountState {
-  INIT = "INIT",
-  CONNECTED = "CONNECTED",
-  ERROR = "ERROR",
 }

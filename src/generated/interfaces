@@ -14,6 +14,8 @@ export type EmailProvider = "smtp" | "gmail" | "outlook" | "imap";
 
 export type WarmupStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" | "PAUSED";
 
+export type SenderAccountState = "active" | "inactive" | "verified" | "unverified" | "pending" | "disabled" | "deleted" | "reauth_required";
+
 export type PlanCode = "FREE" | "STARTER" | "PROFESSIONAL" | "ENTERPRISE";
 
 export type AddOnCode = "EMAIL_VERIFICATION";
@@ -112,6 +114,7 @@ export interface ApiKey {
 export interface SenderAccount {
   id: string;
   accountId: string;
+  state: SenderAccountState;
   email: string;
   name: string | null;
   provider: EmailProvider;
@@ -138,6 +141,9 @@ export interface SenderAccount {
   warmupStartedAt: Date | null;
   warmupDailyIncrement: number;
   signature: string | null;
+  erroredAt: Date | null;
+  errorReason: string | null;
+  errorDetails: JsonValue | null;
   createdAt: Date;
   updatedAt: Date;
   orgId: string;
@@ -175,6 +181,9 @@ export interface Campaign {
   windowEnd: string;
   intervalMinutes: number;
   maxEmailsPerDay: number;
+  stoppedAt: Date | null;
+  stoppedReason: string | null;
+  stoppedDetails: JsonValue | null;
   sendAsPlainText: boolean;
   trackOpens: boolean;
   trackClicks: boolean;
