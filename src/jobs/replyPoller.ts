@@ -498,16 +498,13 @@ const pollRepliesForSmtpSender = async (sender: SmtpSenderWithEmails): Promise<n
 
     for await (const msg of messages) {
       try {
-        // Parse headers from Buffer
         const headersStr = msg.headers?.toString() || "";
 
-        // Extract In-Reply-To and References headers
         const inReplyToMatch = headersStr.match(/in-reply-to:\s*([^\r\n]+)/i);
         const referencesMatch = headersStr.match(/references:\s*([^\r\n]+)/i);
         const inReplyTo = inReplyToMatch?.[1] || "";
         const references = referencesMatch?.[1] || "";
 
-        // Check if any of our message IDs are referenced
         for (const [msgId, emailInfo] of messageIdMap) {
           if (inReplyTo.includes(msgId) || references.includes(msgId)) {
             console.log(`[ReplyPoller] [SMTP] Message matched ${msgId}`);
@@ -524,7 +521,6 @@ const pollRepliesForSmtpSender = async (sender: SmtpSenderWithEmails): Promise<n
               }
             }
 
-            // 🚨 Detect bounce BEFORE tracking reply
             const isBounce = isBounceEmail(sourceStr, msg.headers);
 
             if (isBounce) {
@@ -540,8 +536,6 @@ const pollRepliesForSmtpSender = async (sender: SmtpSenderWithEmails): Promise<n
                 campaignId: emailInfo.campaignId,
                 leadId: emailInfo.leadId,
                 emailSendId: emailInfo.emailSendId,
-                // bounceReason: bounceInfo.message,
-                // bounceType: bounceInfo.type,
               });
 
               // Update EmailSend
@@ -549,9 +543,6 @@ const pollRepliesForSmtpSender = async (sender: SmtpSenderWithEmails): Promise<n
                 where: { id: emailInfo.emailSendId },
                 data: {
                   status: EmailSendStatus.BOUNCED,
-                  // bounceReason: bounceInfo.message || null,
-                  // bounceType: bounceInfo.type || null,
-                  // bouncedAt: new Date(),
                 },
               });
 
@@ -559,7 +550,6 @@ const pollRepliesForSmtpSender = async (sender: SmtpSenderWithEmails): Promise<n
               break;
             }
 
-            // ✅ Human reply
             console.log(
               `[ReplyPoller] [SMTP] 🎉 Human reply detected for ${msgId}`
             );
@@ -593,7 +583,7 @@ const pollRepliesForSmtpSender = async (sender: SmtpSenderWithEmails): Promise<n
 
     await client.logout();
   } catch (error: any) {
-    console.error(`[ReplyPoller] [SMTP] ❌ IMAP error for ${sender.senderEmail}:`, error.message);
+    console.error(`[ReplyPoller] [SMTP] IMAP error for ${sender.senderEmail}:`, error.message);
 
     // Provide helpful hints based on error
     if (error.message?.includes("Unexpected close") || error.message?.includes("AUTHENTICATIONFAILED")) {

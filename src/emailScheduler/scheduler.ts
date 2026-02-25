@@ -37,12 +37,8 @@ async function saveTriggerLog(ctx: TriggerContext) {
 export async function schedulerTick() {
   console.log("[Scheduler] ========== TICK START ==========", new Date().toISOString());
   console.log(`[Scheduler] process.env.NODE_ENV: ${process.env.NODE_ENV}`);
-  console.log(`[Scheduler] process.env.AWS_ACCESS_KEY_ID: ${process.env.AWS_ACCESS_KEY_ID}`);
-  console.log(`[Scheduler] process.env.AWS_SECRET_ACCESS_KEY: ${process.env.AWS_SECRET_ACCESS_KEY}`);
-  console.log(`[Scheduler] process.env.AWS_REGION: ${process.env.AWS_REGION}`);
-  console.log(`[Scheduler] process.env.AWS_BUCKET_NAME: ${process.env.AWS_BUCKET_NAME}`);
   const due = await prisma.campaignRuntime.findMany({
-    where: { nextRunAt: { lte: new Date() } },
+    where: { nextRunAt: { lte: new Date() }, campaign: { status: { in: [CampaignStatus.ACTIVE, CampaignStatus.SCHEDULED] } } },
     include: { campaign: true },
     orderBy: { campaign: { createdAt: 'desc' } },
   });
