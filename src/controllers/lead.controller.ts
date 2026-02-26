@@ -5,7 +5,7 @@ import { checkForLeadsAddedThisPeriod } from "../middlewares/enforcePlanLimits";
 
 export const getLeadById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const lead = await LeadService.getById(req.params.id, req.user.orgId);
+    const lead = await LeadService.getById(req.params.id as any, req.user.orgId);
     if (!lead) {
       res.status(404).json({ code: 404, message: "Lead not found" });
       return;
@@ -45,7 +45,7 @@ export const createLead = async (req: Request, res: Response): Promise<void> => 
 
 export const updateLead = async (req: Request, res: Response): Promise<void> => {
   try {
-    const lead = await LeadService.update(req.params.id, req.user.orgId, req.body);
+    const lead = await LeadService.update(req.params.id as any, req.user.orgId, req.body);
     res.json({ code: 200, data: lead });
   } catch (e: any) {
     res.status(400).json({ code: 400, message: e.message });

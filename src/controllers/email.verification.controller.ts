@@ -147,7 +147,7 @@ export const getAllBatches = async (req: Request, res: Response): Promise<void> 
 
 export const getBatchDetails = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { batchId } = req.params;
+    const { batchId } = req.params as any;
     const user = req.user;
 
     if (!user?.orgId) {
@@ -180,7 +180,7 @@ export const getBatchDetails = async (req: Request, res: Response): Promise<void
 
 export const getBatchStatistics = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { batchId } = req.params;
+    const { batchId } = req.params as any;
     const user = req.user;
 
     if (!user?.orgId) {
@@ -205,7 +205,7 @@ export const getBatchStatistics = async (req: Request, res: Response): Promise<v
 
 export const getVerifiedEmails = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { batchId } = req.params;
+    const { batchId } = req.params as any;
     const user = req.user;
 
     if (!user?.orgId) {
@@ -233,7 +233,7 @@ export const getVerifiedEmails = async (req: Request, res: Response): Promise<vo
 
 export const getUnverifiedEmails = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { batchId } = req.params;
+    const { batchId } = req.params as any;
     const user = req.user;
 
     if (!user?.orgId) {
@@ -261,7 +261,7 @@ export const getUnverifiedEmails = async (req: Request, res: Response): Promise<
 
 export const exportVerifiedEmails = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { batchId } = req.params;
+    const { batchId } = req.params as any;
     const user = req.user;
 
     if (!user?.orgId) {
@@ -308,7 +308,7 @@ export const exportVerifiedEmails = async (req: Request, res: Response): Promise
 
 export const getBatchResultDownloadUrl = async ( req: Request, res: Response ): Promise<void> => {
   try {
-    const { batchId } = req.params;
+    const { batchId } = req.params as any;
     const user = req.user;
 
     if (!batchId) {
@@ -347,7 +347,7 @@ export const getBatchResultDownloadUrl = async ( req: Request, res: Response ): 
 
 export const exportUnverifiedEmails = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { batchId } = req.params;
+    const { batchId } = req.params as any;
     const user = req.user;
 
     if (!user?.orgId) {
@@ -393,7 +393,7 @@ export const exportUnverifiedEmails = async (req: Request, res: Response): Promi
 
 export const deleteBatch = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { batchId } = req.params;
+    const { batchId } = req.params as any;
     const user = req.user;
 
     if (!user?.orgId) {
@@ -401,7 +401,7 @@ export const deleteBatch = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    await EmailVerificationService.deleteBatch(batchId, user.orgId);
+    await EmailVerificationService.deleteBatch(batchId as any, user.orgId);
 
     res.status(200).json({
       code: 200,
@@ -509,13 +509,13 @@ export const getEmails = async (req: Request, res: Response): Promise<void> => {
 
 export const getEmail = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = req.user;
+    const user = req.user as any;
 
     if (!user?.orgId) {
       res.status(400).json({ code: 400, message: 'Organization ID is required' });
       return;
     }
-    const { id } = req.params;
+    const { id } = req.params as any;
 
     const verification = await EmailVerificationService.getEmailResult(
       id
