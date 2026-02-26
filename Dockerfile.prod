@@ -1,0 +1,52 @@
+############################
+# Builder Stage
+############################
+FROM node:20-slim AS builder
+
+WORKDIR /app
+
+# Install required system deps
+RUN apt-get update && apt-get install -y openssl
+
+# Install dependencies
+COPY package*.json ./
+RUN npm ci
+
+# Copy Prisma schema and generate client
+COPY prisma ./prisma
+RUN npx prisma generate
+
+# Copy TypeScript config and source
+COPY tsconfig.json ./
+COPY src ./src
+
+# Build TypeScript
+RUN npm run build
+
+# Verify build output (important for debugging)
+RUN ls -R dist
+
+
+############################
+# Runtime Stage
+############################
+FROM node:20-slim
+
+WORKDIR /app
+ENV NODE_ENV=development
+
+RUN apt-get update && apt-get install -y openssl
+
+# Copy node_modules from builder (includes generated Prisma client)
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy Prisma schema (needed for migrate deploy)
+COPY --from=builder /app/prisma ./prisma
+
+# Copy compiled JS
+COPY --from=builder /app/dist ./dist
+
+EXPOSE 5003
+
+# Default command (used for API container)
+CMD ["node", "dist/server.js"]

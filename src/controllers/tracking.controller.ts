@@ -43,7 +43,7 @@ const TRANSPARENT_PIXEL = Buffer.from(
 export const trackOpen = async (req: Request, res: Response): Promise<void> => {
   const startTime = Date.now();
   try {
-    const { trackingId } = req.params;
+    const { trackingId } = req.params as any;
     console.log(`[Tracking:Open] ========== START ==========`);
     console.log(`[Tracking:Open] trackingId: ${trackingId}`);
     console.log(`[Tracking:Open] IP: ${req.ip || req.headers["x-forwarded-for"]}`);
@@ -98,8 +98,8 @@ export const trackOpen = async (req: Request, res: Response): Promise<void> => {
 export const trackClick = async (req: Request, res: Response): Promise<void> => {
   const startTime = Date.now();
   try {
-    const { trackingId } = req.params;
-    const { url } = req.query;
+    const { trackingId } = req.params as any;
+    const { url } = req.query as any;
     console.log(`[Tracking:Click] ========== START ==========`);
     console.log(`[Tracking:Click] trackingId: ${trackingId}`);
     console.log(`[Tracking:Click] url: ${url}`);
@@ -268,7 +268,7 @@ export const trackBounce = async (req: Request, res: Response): Promise<any> => 
 export const trackUnsubscribe = async (req: Request, res: Response): Promise<void> => {
   const startTime = Date.now();
   try {
-    const { trackingId } = req.params;
+    const { trackingId } = req.params as any;
     console.log(`[Tracking:Unsubscribe] ========== START ==========`);
     console.log(`[Tracking:Unsubscribe] trackingId: ${trackingId}`);
 
@@ -319,7 +319,7 @@ export const trackUnsubscribe = async (req: Request, res: Response): Promise<voi
  */
 export const getAllThreadsFromEmail = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { email } = req.params;
+    const { email } = req.params as any;
     console.log(`[Tracking:Threads] Getting threads for sender: ${email}`);
 
     if (!email) {

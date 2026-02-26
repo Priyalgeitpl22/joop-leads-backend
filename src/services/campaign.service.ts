@@ -316,7 +316,7 @@ export class CampaignService {
   }
 
   static async getCampaignById(req: Request) {
-    const campaignId = req.params.id;
+    const campaignId = req.params.id as any ;
 
     const campaign = await prisma.campaign.findUnique({
       where: { id: campaignId },
@@ -384,7 +384,7 @@ export class CampaignService {
         analytics: campaign.analytics,
         campaignStats,
         csvFile: campaign.csvFile,
-        csvFileName: campaign.csvFileName,
+        csvFileName: campaign.csvFileName as any,
       },
       message: "success",
     };
@@ -396,7 +396,7 @@ export class CampaignService {
   }
 
   static async getAllSequences(req: Request) {
-    const campaignId = req.params.campaign_id;
+    const campaignId = req.params.campaign_id  ? String(req.params.campaign_id) : undefined;;
     const sequenceId = req.query.sequence_id ? String(req.query.sequence_id) : undefined;
 
     if (sequenceId) {
@@ -520,7 +520,9 @@ export class CampaignService {
   }
 
   static async getAllContacts(req: Request) {
-    const campaignId = req.params.campaign_id;
+    const campaignId = Array.isArray(req.params.campaignId)
+    ? req.params.campaignId[0]
+    : req.params.campaignId;
 
     const campaignLeads = await prisma.campaignLead.findMany({
       where: { campaignId },
@@ -673,7 +675,7 @@ export class CampaignService {
 
   static async renameCampaign(req: Request) {
     const { newName } = req.body;
-    const { campaign_id } = req.params;
+    const { campaign_id } = req.params as any;
 
     if (!newName) return { code: 400, message: "Invalid input or missing" };
 
@@ -681,7 +683,7 @@ export class CampaignService {
     if (!existingCampaign) return { code: 404, message: `Campaign with the specified Id:${campaign_id} does not exist` };
 
     const updatedCampaign = await prisma.campaign.update({
-      where: { id: campaign_id },
+      where: { id: campaign_id  },
       data: { name: newName },
     });
 
@@ -742,7 +744,7 @@ export class CampaignService {
   }
 
   static async getNextTrigger(req: Request) {
-    const campaignId = req.params.campaign_id;
+    const campaignId = req.params.campaign_id as any;
 
     if (!campaignId) return { code: 400, message: "campaign_id is required" };
 
