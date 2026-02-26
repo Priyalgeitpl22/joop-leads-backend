@@ -36,6 +36,10 @@ export class OrganizationPlanService {
           emailsSentThisPeriod: 0,
           leadsAddedThisPeriod: 0,
           senderAccountsCount: 0,
+          reminder15Sent: false,
+          reminder10Sent: false,
+          reminder5Sent:  false,
+          reminder1Sent:  false,
         },
       });
     } else {
@@ -191,7 +195,11 @@ export class OrganizationPlanService {
         planId: plan.id,
         isActive: true, billingPeriod: billingPeriod as "MONTHLY" | "YEARLY",
         startsAt: new Date(),
-        endsAt: billingPeriod === "MONTHLY" ? new Date(new Date().setMonth(new Date().getMonth() + 1)) : new Date(new Date().setFullYear(new Date().getFullYear() + 1))
+        endsAt: billingPeriod === "MONTHLY" ? new Date(new Date().setMonth(new Date().getMonth() + 1)) : new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+        reminder15Sent: false,
+        reminder10Sent: false,
+        reminder5Sent:  false,
+        reminder1Sent:  false,
       }
     });
 

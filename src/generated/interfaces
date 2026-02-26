@@ -57,6 +57,7 @@ export interface Organization {
   apiKeys?: ApiKey[];
   emailVerificationBatches?: EmailVerificationBatch[];
   singleEmailVerifications?: SingleEmailVerification[];
+  reminderLogs?: SubscriptionReminderLog[];
 }
 
 export interface User {
@@ -465,10 +466,26 @@ export interface OrganizationPlan {
   senderAccountsCount: number;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
+  reminder15Sent: boolean;
+  reminder10Sent: boolean;
+  reminder5Sent: boolean;
+  reminder1Sent: boolean;
   createdAt: Date;
   updatedAt: Date;
   organization?: Organization;
   plan?: Plan;
+}
+
+export interface SubscriptionReminderLog {
+  id: number;
+  orgId: string;
+  orgPlanId: number;
+  reminderStage: number;
+  sentAt: Date;
+  recipientEmail: string;
+  success: boolean;
+  errorMessage: string | null;
+  organization?: Organization;
 }
 
 export interface EmailVerificationBatch {
