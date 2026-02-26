@@ -396,7 +396,7 @@ export class EmailVerificationService {
   ): Promise<any | null> {
     return prisma.singleEmailVerification.findUnique({
       where: { id },
-      select: {verificationResult: true},
+      select: {verificationResult: true, createdAt:true},
     });
   }
   private static isValidEmail(email: string): boolean {

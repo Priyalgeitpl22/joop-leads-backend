@@ -477,6 +477,10 @@ export interface OrganizationPlan {
   senderAccountsCount: number;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
+  reminder15Sent: boolean;
+  reminder10Sent: boolean;
+  reminder5Sent: boolean;
+  reminder1Sent: boolean;
   createdAt: Date;
   updatedAt: Date;
   organization?: Organization;
