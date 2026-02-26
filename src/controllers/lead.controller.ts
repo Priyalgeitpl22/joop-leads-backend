@@ -28,14 +28,25 @@ export const getAllLeads = async (req: Request, res: Response): Promise<void> =>
 export const createLead = async (req: Request, res: Response): Promise<void> => {
   try {
     const orgId = req.user.orgId;
-    
+    const leadData = req.body;
+
+    if (!leadData.email || !leadData.firstName || !leadData.lastName) {
+      res.status(400).json({ code: 400, message: "Email, first name, and last name are required" });
+      return;
+    }
     const checkResult = await checkForLeadsAddedThisPeriod(1, orgId);
     if (checkResult && checkResult.code !== 200) {
       res.status(403).json(checkResult);
       return;
     }
 
-    const lead = await LeadService.create({ ...req.body, orgId });
+    const existingLead = await LeadService.getByEmailAndOrgId(orgId, leadData.email);
+    if (existingLead) {
+      res.status(400).json({ code: 400, message: "Lead already exists" });
+      return;
+    }
+    
+    const lead = await LeadService.create({ ...leadData, orgId });
     await incrementLeadsAdded(orgId, 1);
     res.status(201).json({ code: 201, data: lead });
   } catch (e: any) {
