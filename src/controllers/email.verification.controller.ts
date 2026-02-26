@@ -523,7 +523,11 @@ export const getEmail = async (req: Request, res: Response): Promise<void> => {
 
     res.status(200).json({
       code: 200,
-      data: verification.verificationResult,
+      data: {
+        ...verification,
+        verificationResult: verification.verificationResult,
+        createdAt: verification.createdAt,
+      },
     });
   } catch (error: any) {
     console.error('Get email result error:', error);
