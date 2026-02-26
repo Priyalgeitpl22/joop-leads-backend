@@ -10,8 +10,28 @@ import http from "http";
 import app from "./app";
 
 const server = http.createServer(app);
-const PORT = process.env.PORT || 5004;
+const PORT = Number(process.env.PORT) || 5003;
 
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on the port ${PORT} (${env})`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server running in ${env} mode on port ${PORT}`);
+});
+
+
+server.on("error", (error: NodeJS.ErrnoException) => {
+  if (error.syscall !== "listen") {
+    throw error;
+  }
+
+  switch (error.code) {
+    case "EACCES":
+      console.error(`❌ Port ${PORT} requires elevated privileges`);
+      process.exit(1);
+      break;
+    case "EADDRINUSE":
+      console.error(`❌ Port ${PORT} is already in use`);
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
 });

@@ -13,7 +13,7 @@ export const getPlans = async (req: Request, res: Response): Promise<void> => {
 
 export const getPlanByCode = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { code } = req.params;
+    const { code } = req.params as any;
     const response = await PlanService.getByCode(code);
     res.status(response.code).json(response);
   } catch (err) {

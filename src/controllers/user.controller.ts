@@ -62,7 +62,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
 
 export const getUserById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = await UserService.getById(req.params.id, req.user.orgId);
+    const user = await UserService.getById(req.params.id as any, req.user.orgId);
     if (!user) {
       res.status(404).json({ code: 404, message: "User not found" });
       return;
@@ -161,7 +161,7 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
         delete updateData.removeProfilePicture;
       }
 
-      const user = await UserService.update(req.params.id, updateData);
+      const user = await UserService.update(req.params.id as any, updateData);
 
       if (user.profilePicture) {
         const profilePictureUrl = await getPresignedUrl(user.profilePicture);
@@ -177,7 +177,7 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
 
 export const deleteUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    await UserService.delete(req.params.id);
+    await UserService.delete(req.params.id as any);
     res.json({ code: 200, message: "User deleted" });
   } catch (error) {
     res.status(400).json({ code: 400, message: "Delete failed" });

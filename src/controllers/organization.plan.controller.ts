@@ -4,7 +4,7 @@ import * as OrganizationAddOnService from "../services/organization.addon.servic
 
 export const assignPlan = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { orgId } = req.params;
+    const { orgId } = req.params as any;
     const { planCode, billingPeriod } = req.body;
     const response = await OrganizationPlanService.assignPlan(orgId, planCode, billingPeriod);
     res.status(response.code).json(response);
@@ -16,7 +16,7 @@ export const assignPlan = async (req: Request, res: Response): Promise<void> => 
 
 export const getCurrentPlan = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { orgId } = req.params;
+    const { orgId } = req.params as any;
     const response = await OrganizationPlanService.getCurrentPlan(orgId);
     res.status(response.code).json(response);
   } catch (err) {
@@ -74,7 +74,7 @@ export const activatePlan = async (req: Request, res: Response): Promise<void> =
 
 export const assignAddOn = async (req: Request, res: Response): Promise<void> => {
   try {
-    const orgId = req.params.orgId ?? (req.user as any)?.orgId;
+    const orgId = req.params.orgId as any ?? (req.user as any)?.orgId;
     const { addOnCode, limitOverride } = req.body;
     if (!orgId || !addOnCode) {
       res.status(400).json({ code: 400, message: "orgId and addOnCode are required" });
@@ -90,7 +90,7 @@ export const assignAddOn = async (req: Request, res: Response): Promise<void> =>
 
 export const getOrgAddOns = async (req: Request, res: Response): Promise<void> => {
   try {
-    const orgId = req.params.orgId ?? (req.user as any)?.orgId;
+    const orgId = req.params.orgId as any ?? (req.user as any)?.orgId;
     if (!orgId) {
       res.status(400).json({ code: 400, message: "orgId is required" });
       return;
@@ -105,7 +105,7 @@ export const getOrgAddOns = async (req: Request, res: Response): Promise<void> =
 
 export const getAddOnsAvailableForPlan = async (req: Request, res: Response): Promise<void> => {
   try {
-    const orgId = req.params.orgId ?? (req.user as any)?.orgId;
+    const orgId = req.params.orgId as any ?? (req.user as any)?.orgId;
     if (!orgId) {
       res.status(400).json({ code: 400, message: "orgId is required" });
       return;
