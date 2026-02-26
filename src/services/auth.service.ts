@@ -267,5 +267,15 @@ export class AuthService {
     };
   }
 
+  static async findUserByEmail(email: string) {
+    return prisma.user.findUnique({ where: { email } });
+  }
+
+  static async handleExistingUser(email: string) {
+    return prisma.user.update({
+      where: { email },
+      data: { isDeleted: false , deletedAt: null },
+    });
+  }
 }
 
