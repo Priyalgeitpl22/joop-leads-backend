@@ -39,6 +39,13 @@ export class LeadService {
     });
   }
 
+  static getByEmailAndOrgId(orgId: string, email: string): Promise<LeadResponse | null> {
+    return prisma.lead.findFirst({
+      where: { orgId, email },
+      select: leadSelect,
+    });
+  }
+
   static create(data: Prisma.LeadCreateInput): Promise<LeadResponse> {
     return prisma.lead.create({ data, select: leadSelect });
   }
