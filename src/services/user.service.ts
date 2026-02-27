@@ -66,9 +66,16 @@ export class UserService {
     });
 
     const organizationPlan = await prisma.organizationPlan.findFirst({
-      where: { orgId: user?.organization?.id },
+      where: { orgId: user?.organization?.id, isActive: true },
       include: {
         plan: true,
+      },
+    });
+
+    const organizationAddOns = await prisma.organizationAddOn.findMany({
+      where: { orgId: user?.organization?.id, isActive: true },
+      include: {
+        addOn: true,
       },
     });
 
@@ -88,6 +95,7 @@ export class UserService {
       orgId: user.orgId,
       organization: user.organization,
       planDetails: organizationPlan,
+      addOns: organizationAddOns,
     }
   }
 
@@ -125,7 +133,7 @@ export class UserService {
   static delete(id: string) {
     return prisma.user.update({
       where: { id },
-      data: { isDeleted: true , deletedAt: new Date() },
+      data: { isDeleted: true, deletedAt: new Date() },
     });
   }
 

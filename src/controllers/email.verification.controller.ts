@@ -3,6 +3,7 @@ import { EmailVerificationService } from '../services/email.verification.service
 import * as XLSX from 'xlsx';
 import { getPresignedUrl, uploadCSVToS3 } from '../aws/imageUtils';
 import * as OrganizationAddOnService from '../services/organization.addon.service';
+import { enforceEmailVerificationLimits } from '../middlewares/enforceEmailVerificationLimits';
 
 export const uploadAndCreateBatch = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -31,27 +32,27 @@ export const uploadAndCreateBatch = async (req: Request, res: Response): Promise
     const data = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as string[][];
 
     const emails = data
-    .flat()
-    .filter(cell => {
-      if (typeof cell !== 'string') return false;
+      .flat()
+      .filter(cell => {
+        if (typeof cell !== 'string') return false;
 
-      const email = cell.trim();
-      const basicEmailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const noDoubleDots = !email.includes('..');
-      
-      const noEdgeDots = !(
-        email.startsWith('.') ||
-        email.endsWith('.') ||
-        email.includes('@.') ||
-        email.includes('.@')
-      );
+        const email = cell.trim();
+        const basicEmailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const noDoubleDots = !email.includes('..');
 
-      return (
-        basicEmailRegex.test(email) &&
-        noDoubleDots &&
-        noEdgeDots
-      );
-    });
+        const noEdgeDots = !(
+          email.startsWith('.') ||
+          email.endsWith('.') ||
+          email.includes('@.') ||
+          email.includes('.@')
+        );
+
+        return (
+          basicEmailRegex.test(email) &&
+          noDoubleDots &&
+          noEdgeDots
+        );
+      });
 
 
     if (emails.length === 0) {
@@ -71,13 +72,9 @@ export const uploadAndCreateBatch = async (req: Request, res: Response): Promise
       return;
     }
 
-    const emailVerificationCredits = await OrganizationAddOnService.getEmailVerificationCredits(user.orgId);
-
-    if (emailVerificationCredits <= emails.length) {
-      res.status(400).json({
-        code: 400,
-        message: "Insufficient email verification credits",
-      });
+    const { success, message, code } = await enforceEmailVerificationLimits(emails.length, user.orgId);
+    if (!success) {
+      res.status(code).json({ message });
       return;
     }
     const batch = await EmailVerificationService.createBatch({
@@ -306,7 +303,7 @@ export const exportVerifiedEmails = async (req: Request, res: Response): Promise
   }
 };
 
-export const getBatchResultDownloadUrl = async ( req: Request, res: Response ): Promise<void> => {
+export const getBatchResultDownloadUrl = async (req: Request, res: Response): Promise<void> => {
   try {
     const { batchId } = req.params;
     const user = req.user;
@@ -321,10 +318,10 @@ export const getBatchResultDownloadUrl = async ( req: Request, res: Response ): 
       return;
     }
 
-    const batch =await EmailVerificationService.getBatchVerificationResultKey(
-        batchId,
-        user.orgId
-      );
+    const batch = await EmailVerificationService.getBatchVerificationResultKey(
+      batchId,
+      user.orgId
+    );
 
     if (!batch?.csvResultFile) {
       res.status(404).json({ message: "Result file not found" });
@@ -442,13 +439,16 @@ export const verifyEmails = async (req: Request, res: Response): Promise<void> =
       });
       return;
     }
-    
+
     const result = await EmailVerificationService.verifyEmails(
       emails,
       user.orgId,
       user.id,
       mode
     );
+
+    const deductedCredits = result.verified.length;
+    await OrganizationAddOnService.deductEmailVerificationCredits(user.orgId, deductedCredits);
 
     const response: any = {
       code: 200,
@@ -469,8 +469,9 @@ export const verifyEmails = async (req: Request, res: Response): Promise<void> =
     res.status(200).json(response);
   } catch (error: any) {
     console.error('Verify emails error:', error);
-    res.status(500).json({
-      code: 500,
+    const statusCode = error.statusCode && typeof error.statusCode === 'number' ? error.statusCode : 500;
+    res.status(statusCode).json({
+      code: statusCode,
       message: error.message || 'Failed to verify emails',
     });
   }
@@ -529,7 +530,7 @@ export const getEmail = async (req: Request, res: Response): Promise<void> => {
     console.error('Get email result error:', error);
     res.status(500).json({
       code: 500,
-      message:'Failed to fetch email verification result',
+      message: 'Failed to fetch email verification result',
     });
   }
 };

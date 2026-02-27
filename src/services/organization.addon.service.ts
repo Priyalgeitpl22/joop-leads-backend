@@ -191,6 +191,23 @@ export async function getEmailVerificationCredits(orgId: string): Promise<number
   return Number(addOnData.emailVerificationLimit) - (orgAddOn?.usedThisPeriod ?? 0);
 }
 
+export async function deductEmailVerificationCredits(orgId: string, amount: number): Promise<boolean> {
+  const orgAddOn = await prisma.organizationAddOn.findFirst({
+    where: { orgId, addOnId: 1, isActive: true },
+  });
+
+  if (!orgAddOn) {
+    throw new Error("Email verification add-on not found");
+  }
+
+  await prisma.organizationAddOn.update({
+    where: { orgId_addOnId: { orgId, addOnId: 1 } },
+    data: { usedThisPeriod: orgAddOn.usedThisPeriod + amount },
+  });
+
+  return true;
+}
+
 function toOrgAddOnResponse(row: { addOn: any; isActive: boolean; limitOverride: number | null; usedThisPeriod: number; periodStartsAt: Date | null; periodEndsAt: Date | null }) {
   const limit = row.limitOverride ?? row.addOn.emailVerificationLimit ?? null;
   return {

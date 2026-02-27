@@ -6,6 +6,7 @@ import { calculateDelayMs } from '../utils/email.utils';
 import { bucket_name, s3Conifg } from '../aws/s3';
 import * as XLSX from 'xlsx';
 import { getPresignedUrl } from '../aws/imageUtils';
+import { enforceEmailVerificationLimits } from '../middlewares/enforceEmailVerificationLimits';
 
 const prisma = new PrismaClient();
 const reoonService = new ReoonService();
@@ -124,22 +125,22 @@ export class EmailVerificationService {
       skip: offset,
       take: limit,
     });
-    for(const batch of result) {
-      if(batch. status === BatchStatus.COMPLETED && batch.csvResultFile) {
-          batch.csvResultFile = await getPresignedUrl(batch.csvResultFile!);
-        }else{
-          batch.csvResultFile = null;
-        }
+    for (const batch of result) {
+      if (batch.status === BatchStatus.COMPLETED && batch.csvResultFile) {
+        batch.csvResultFile = await getPresignedUrl(batch.csvResultFile!);
+      } else {
+        batch.csvResultFile = null;
+      }
     }
     return {
-          batches: result as BatchResponse[],
-          page,
-          limit,
-          totalBatches,
-          totalPages: Math.ceil(totalBatches / limit),
-          hasNextPage: page < Math.ceil(totalBatches / limit),
-          hasPreviousPage: page > 1
-        };
+      batches: result as BatchResponse[],
+      page,
+      limit,
+      totalBatches,
+      totalPages: Math.ceil(totalBatches / limit),
+      hasNextPage: page < Math.ceil(totalBatches / limit),
+      hasPreviousPage: page > 1
+    };
   }
 
   static async submitBatchForVerification(batchId: string, orgId: string, csvUploaded: any) {
@@ -203,9 +204,9 @@ export class EmailVerificationService {
       where: { id: batchId, orgId },
       select: { csvResultFile: true },
     });
-    
+
     if (!batch || !batch.csvResultFile) {
-    throw new Error("Result file not found");
+      throw new Error("Result file not found");
     }
     return batch;
   }
@@ -322,6 +323,14 @@ export class EmailVerificationService {
     // Remove duplicates
     const uniqueEmails = [...new Set(emailList)];
 
+    const result = await enforceEmailVerificationLimits(uniqueEmails.length, orgId);
+    if (!result.success) {
+      const message = result.message ?? 'Email verification is not available. Please check your plan or add-on limits.';
+      const err = new Error(message) as Error & { statusCode?: number };
+      err.statusCode = result.code;
+      throw err;
+    }
+
     const verified: SingleEmailResponse[] = [];
     const failed: Array<{ email: string; error: string }> = [];
 
@@ -396,7 +405,7 @@ export class EmailVerificationService {
   ): Promise<any | null> {
     return prisma.singleEmailVerification.findUnique({
       where: { id },
-      select: {verificationResult: true},
+      select: { verificationResult: true },
     });
   }
   private static isValidEmail(email: string): boolean {

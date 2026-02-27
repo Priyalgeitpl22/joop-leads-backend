@@ -574,7 +574,7 @@ const sendEmailWithSMTP = async (
       "SEND_FAILED",
       {
         message: error?.message ?? "Send failed",
-        status: error.response?.status,
+        status: error.response?.status ?? error.responseCode,
         toEmail,
         provider: "smtp",
       }
