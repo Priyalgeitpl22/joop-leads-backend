@@ -758,13 +758,18 @@ export class CampaignService {
     return campaignLeads;
   }
 
-  static async getLeadsGroupedBySender(campaignId: string) {
+  static async getLeadsGroupedBySender(campaignId: string, filters: any) {
+    
+    const whereClause: any = { campaignId };
+    if (filters?.status) whereClause.status = filters?.status;
+    if (filters?.sequenceStep) whereClause.currentSequenceStep = filters?.sequenceStep;
+
     const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
     if (!campaign) return { code: 404, message: "Campaign not found" };
 
     if (campaign.status === CampaignStatus.DRAFT) {
       const campaignLeads = await prisma.campaignLead.findMany({
-        where: { campaignId },
+        where: whereClause,
         include: { lead: true },
       });
       const totalSequences = await prisma.sequence.count({
@@ -783,7 +788,7 @@ export class CampaignService {
 
     const [campaignLeads, sends, totalSequences] = await Promise.all([
       prisma.campaignLead.findMany({
-        where: { campaignId },
+        where: whereClause,
         include: { lead: true },
       }),
       prisma.emailSend.findMany({
@@ -1012,6 +1017,7 @@ export class CampaignService {
         lastName: send.lead.lastName ?? null,
         company: send.lead.company ?? null,
         email: send.lead.email ?? null,
+        signature: send.sender.signature ?? null,
       };
 
       const emailSubject = send.sequence?.subject ?? null;
@@ -1088,7 +1094,9 @@ const calculateCampaignCompletionPercentage = (campaign: any) => {
 }
 
 const replaceTemplateVariables = (template: string, variables: any) => {
-  return template.replace(/{{(.*?)}}/g, (_, key) => variables[key.trim()] || "");
+  let out = template.replace(/{{(.*?)}}/g, (_, key) => variables[key.trim()] ?? "");
+  out = out.replace(/%(\w+)%/g, (_, key) => String(variables[key] ?? ""));
+  return out;
 };
 
 /**

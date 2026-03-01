@@ -168,14 +168,14 @@ export class AuthService {
 
   static async login(email: string, password: string) {
     const user = await prisma.user.findUnique({ where: { email, isDeleted: false } });
-    if (!user) return { code: 400, message: "User not found" };
+    if (!user) return { code: 400, message: "User does not exist." };
 
     if (!user.isVerified) {
       return { code: 403, message: "Email verification required.", requiresVerification: true, canResendOtp: true };
     }
 
     const isUserValid = await bcrypt.compare(password, user.password);
-    if (!isUserValid) return { code: 401, message: "Incorrect email or password" };
+    if (!isUserValid) return { code: 401, message: "Invalid email or password." };
 
     const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET as string, { expiresIn: "1h" });
 

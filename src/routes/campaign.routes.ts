@@ -26,7 +26,7 @@ router.get("/contacts/:campaign_id", verify, getAllContacts);
 router.get("/lead/:id/campaigns-by-lead", verify, getCampaignsByLeadId);
 
 router.get("/:id/sequences/analytics", verify, getSequenceAnalytics);
-router.get("/:id/leads/grouped-by-sender", verify, getLeadsGroupedBySender);
+router.post("/:id/leads/grouped-by-sender", verify, getLeadsGroupedBySender);
 router.get("/:id/senders", verify, getCampaignSenders);
 router.patch("/:campaign_id/rename", verify, renameCampaign);
 router.delete("/:id", verify, deleteCampaign);

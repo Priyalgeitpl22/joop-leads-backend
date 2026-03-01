@@ -377,9 +377,10 @@ export class EmailVerificationService {
 
         verified.push(savedVerification);
       } catch (error: any) {
+        const message = error?.message ?? error?.response?.data?.message ?? 'Verification failed';
         failed.push({
           email,
-          error: error.message || 'Verification failed',
+          error: typeof message === 'string' ? message : 'Verification failed',
         });
       }
     }

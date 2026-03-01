@@ -150,7 +150,8 @@ export const getCampaignSenders = async (req: Request, res: Response) => {
 export const getLeadsGroupedBySender = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const response = await CampaignService.getLeadsGroupedBySender(id);
+    const { filters } = req.body;
+    const response = await CampaignService.getLeadsGroupedBySender(id, filters);
     res.status(200).json({ code: 200, data: response, message: "success" });
   } catch (err: any) {
     res.status(500).json({ code: 500, message: "Internal server error", error: err.message });
