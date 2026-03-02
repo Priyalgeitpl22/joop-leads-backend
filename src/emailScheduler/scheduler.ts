@@ -3,6 +3,7 @@ import { emailQueue } from "./queue";
 import { dayKeyInTz, isWithinSchedule } from "./time";
 import { lockCampaign, unlockCampaign, lockSender, unlockSender } from "./locks";
 import { TriggerContext, TriggerStatus, SenderSkipReason } from "./types";
+import { emitCampaignEvent } from "../socket/campaign.scheduler";
 
 const prisma = new PrismaClient();
 
@@ -109,6 +110,11 @@ export async function schedulerTick() {
           stoppedReason: null,
           stoppedDetails: undefined,
         },
+      });
+
+      emitCampaignEvent(c.id, "ACTIVATED", {
+        status: "ACTIVE",
+        startedAt: c.startedAt,
       });
       triggerCtx.activityLog.push("Campaign auto-activated from SCHEDULED to ACTIVE");
     }
@@ -223,6 +229,11 @@ export async function schedulerTick() {
             stoppedReason: NO_ELIGIBLE_SENDERS,
             stoppedDetails: { at: new Date().toISOString(), senderReasons: [] } as object,
           },
+        });
+
+        emitCampaignEvent(c.id, "STOPPED", {
+          reason: NO_ELIGIBLE_SENDERS,
+          stoppedAt: new Date(),
         });
         triggerCtx.status = TriggerStatus.ERROR;
         triggerCtx.activityLog.push("No senders attached - campaign stopped.");
@@ -526,6 +537,10 @@ export async function schedulerTick() {
               status: CampaignStatus.COMPLETED,
               completedAt: new Date(),
             },
+          });
+
+          emitCampaignEvent(c.id, "COMPLETED", {
+            completedAt: new Date(),
           });
           console.log(`[Scheduler] ✅ Campaign ${c.id} marked as COMPLETED - all leads finished`);
           triggerCtx.activityLog.push("Campaign marked as COMPLETED");
