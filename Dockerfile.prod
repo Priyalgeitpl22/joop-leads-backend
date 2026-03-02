@@ -16,6 +16,9 @@ RUN npm install --legacy-peer-deps
 COPY prisma ./prisma
 RUN npx prisma generate
 
+# Compile seed script to JS
+RUN npx tsc prisma/seedPlans.ts --outDir dist/prisma
+
 # Copy TypeScript config and source
 COPY tsconfig.json ./
 COPY src ./src
@@ -25,28 +28,3 @@ RUN npm run build
 
 # Verify build output (important for debugging)
 RUN ls -R dist
-
-
-############################
-# Runtime Stage
-############################
-FROM node:20-slim
-
-WORKDIR /app
-ENV NODE_ENV=production
-
-RUN apt-get update && apt-get install -y openssl
-
-# Copy node_modules from builder (includes generated Prisma client)
-COPY --from=builder /app/node_modules ./node_modules
-
-# Copy Prisma schema (needed for migrate deploy)
-COPY --from=builder /app/prisma ./prisma
-
-# Copy compiled JS
-COPY --from=builder /app/dist ./dist
-
-EXPOSE 5003
-
-# Default command (used for API container)
-CMD ["node", "dist/server.js"]
