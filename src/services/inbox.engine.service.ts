@@ -121,7 +121,7 @@ export class InboxEngineApiService {
     });
     await prisma.senderAccount.update({
       where,
-      data: { erroredAt: null, errorReason: null, errorDetails: null } as Prisma.SenderAccountUpdateInput,
+      data: { erroredAt: null, errorReason: null, errorDetails: null } as unknown as Prisma.SenderAccountUncheckedUpdateInput,
     });
   }
 }

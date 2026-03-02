@@ -1,5 +1,5 @@
 import { Request } from "express";
-import { CampaignStatus, PrismaClient } from "@prisma/client";
+import { Campaign, CampaignStatus, Prisma, PrismaClient } from "@prisma/client";
 import { Readable } from "stream";
 import csv from "csv-parser";
 import multer from "multer";
@@ -1072,8 +1072,8 @@ export class CampaignService {
       data.stoppedReason = null;
       data.stoppedDetails = null;
     }
-    const updatedCampaign = await prisma.campaign.update({ where: { id: campaignId }, data });
-    return { code: 200, data: updatedCampaign, message: "success" };
+    const updatedCampaign = await prisma.campaign.update({ where: { id: campaignId }, data: data as unknown as Prisma.CampaignUpdateInput });
+    return { code: 200, data: updatedCampaign as unknown as any, message: "success" };
   }
 }
 
