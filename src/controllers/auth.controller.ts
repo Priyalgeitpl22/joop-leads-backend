@@ -17,7 +17,25 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ code: 400, message: "All fields are required." });
       return;
     }
+    const existingUser = await AuthService.findUserByEmail(email);
 
+    if (existingUser) {
+      if (!existingUser.isDeleted) {
+        res.status(400).json({
+          code: 400,
+          message: "An account with this email already exists. Please log in."
+        });
+        return;
+      }
+      
+      await AuthService.handleExistingUser(email);
+
+      res.status(200).json({
+        code: 200,
+        message: "Your previously deleted account has been restored. Please log in."
+      });
+      return;
+    }
     try {
       const response = await AuthService.register({
         email,
