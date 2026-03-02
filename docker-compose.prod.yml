@@ -65,7 +65,7 @@ services:
     container_name: postgres-prod
     environment:
       POSTGRES_USER: jooper_leads
-      POSTGRES_PASSWORD: Geitpl@#$123
+      POSTGRES_PASSWORD: Geitpl12345
       POSTGRES_DB: jooper_leads_prod
     volumes:
       - postgres_dev_data:/var/lib/postgresql/data
