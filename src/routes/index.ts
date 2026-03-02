@@ -15,6 +15,7 @@ import triggerLogRoutes from "./trigger.log.routes";
 import campaignAnalyticsRoutes from "./campaign.analytics.routes";
 import campaignSenderRoutes from "./campaign.sender.routes";
 import emailVerificationRoutes from './email.verification.routes';
+import oauthRoutes, {} from "./oauth.routes";
 import { pollForReplies } from "../jobs/replyPoller";
 
 // Add with your other protected routes (after verify middleware)
@@ -23,6 +24,7 @@ const router = Router();
 // Public routes
 router.use("/auth", authRoutes);
 router.use("/track", trackingRoutes);
+router.use("/oauth", oauthRoutes);  
 
 // Protected routes
 router.use("/user", verify, userRoutes);
