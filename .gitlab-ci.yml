@@ -4,9 +4,9 @@ stages:
 
 variables:
   DOCKER_IMAGE: jooper-backend
-  DEV_SERVER: dev.example.com       # Replace with your dev server IP/hostname
-  PROD_SERVER: prod.example.com     # Replace with your prod server IP/hostname
-  SSH_USER: deploy                  # SSH user on servers
+  DEV_SERVER: 192.46.212.197       # Replace with your dev server IP/hostname
+  PROD_SERVER: 92.46.209.183     # Replace with your prod server IP/hostname
+  SSH_USER: root                  # SSH user on servers
   SSH_PRIVATE_KEY: $SSH_PRIVATE_KEY # GitLab CI/CD variable (File type)
 
 ##############################
