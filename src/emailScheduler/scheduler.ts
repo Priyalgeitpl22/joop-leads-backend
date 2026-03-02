@@ -533,7 +533,11 @@ export async function schedulerTick() {
           triggerCtx.activityLog.push(`${pendingLeads} pending leads exist but could not be sent (check sender limits/gaps)`);
           // All senders were ineligible - mark campaign stopped with reasons
           const allSkipped = senders.length > 0 && senders.every((s) => triggerCtx.senderDetails[s.email]?.skipped);
-          if (allSkipped) {
+          const onlyTemporaryReasons = allSkipped && senders.every((s) => {
+            const reason = triggerCtx.senderDetails[s.email]?.skipReason;
+            return reason === SenderSkipReason.SEND_GAP_TOO_SHORT || reason === SenderSkipReason.COULD_NOT_ACQUIRE_LOCK;
+          });
+          if (allSkipped && !onlyTemporaryReasons) {
             console.log(`[Scheduler] All senders ineligible for campaign ${c.id} - marking stopped`);
             await markCampaignStoppedNoEligibleSenders(c.id, triggerCtx, senders, TriggerStatus.NO_PENDING);
           } else {
