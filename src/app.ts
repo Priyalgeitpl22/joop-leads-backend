@@ -10,7 +10,7 @@ app.use(express.static("public"));
 app.use("/api", routes);
 startSubscriptionReminderCron();
 app.get("/", (req, res) => {
-  res.json({ message: "Welcome to Jooper AI Email Campaign Service" });
+  res.json({ message: "Welcomeeee to Jooper AI Email Campaign Service" });
 });
 
 export default app;
