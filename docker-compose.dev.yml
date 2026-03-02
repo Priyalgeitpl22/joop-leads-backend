@@ -87,6 +87,17 @@ services:
       timeout: 5s
       retries: 5
 
+  seed-plans:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: node dist/prisma/seedPlans.js
+    env_file:
+      - .env.dev
+    depends_on:
+      - postgres
+    restart: "no"
+
 volumes:
   postgres_dev_data:
   redis_dev_data:
