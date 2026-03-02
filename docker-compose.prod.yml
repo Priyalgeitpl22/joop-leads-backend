@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.prod
-    container_name: ai-api-dev
+    container_name: api-prod
     command: sh -c "npx prisma migrate deploy && node dist/server.js"
     ports:
       - "5003:5003"
