@@ -129,7 +129,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
 
 export const getSequenceAnalytics = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as any
     const response = await CampaignService.getSequenceAnalytics(id);
     res.status(200).json(response);
   } catch (err: any) {
@@ -139,7 +139,7 @@ export const getSequenceAnalytics = async (req: Request, res: Response) => {
 
 export const getCampaignSenders = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as any;
     const response = await CampaignService.getCampaignSenders(id);
     res.status(200).json(response);
   } catch (err: any) {
@@ -149,7 +149,7 @@ export const getCampaignSenders = async (req: Request, res: Response) => {
 
 export const getLeadsGroupedBySender = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as any;
     const { filters } = req.body;
     const response = await CampaignService.getLeadsGroupedBySender(id, filters);
     res.status(200).json({ code: 200, data: response, message: "success" });
@@ -160,7 +160,7 @@ export const getLeadsGroupedBySender = async (req: Request, res: Response) => {
 
 export const getCampaignsByLeadId = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as any;
     const response = await CampaignService.getCampaignsByLeadId(id);
     res.status(200).json({ code: 200, data: response, message: "success" });
   } catch (err: any) {
@@ -170,7 +170,7 @@ export const getCampaignsByLeadId = async (req: Request, res: Response) => {
 
 export const getCampaignInbox = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as any;
     const response = await CampaignService.getCampaignInbox(id);
     res.status(200).json({ code: 200, data: response, message: "success" });
   } catch (err: any) {
@@ -180,7 +180,7 @@ export const getCampaignInbox = async (req: Request, res: Response) => {
 
 export const changeCampaignStatus = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as any;
     const response = await CampaignService.changeCampaignStatus(id, req.body.status);
     res.status(200).json({ code: 200, data: response, message: "success" });
   } catch (err: any) {

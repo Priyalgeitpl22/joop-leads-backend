@@ -71,7 +71,7 @@ export const updateCampaignAnalytics = async (req: Request, res: Response): Prom
 
 export const getCampaignAnalytics = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { campaignId } = req.params;
+    const { campaignId } = req.params as any;
     const analytics = await prisma.campaignAnalytics.findUnique({
       where: { campaignId },
     });
@@ -93,7 +93,7 @@ export const getCampaignAnalytics = async (req: Request, res: Response): Promise
  */
 export const getOrgAnalytics = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { orgId } = req.params;
+    const { orgId } = req.params as any;
     const { from, to } = req.query;
 
     // Parse date filters

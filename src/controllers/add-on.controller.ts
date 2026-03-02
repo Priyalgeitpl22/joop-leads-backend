@@ -15,7 +15,7 @@ export const getAllAddOns = async (req: Request, res: Response): Promise<void> =
 
 export const getAddOnById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (Number.isNaN(id)) {
       res.status(400).json({ code: 400, message: "Invalid add-on id" });
       return;
@@ -31,7 +31,7 @@ export const getAddOnById = async (req: Request, res: Response): Promise<void> =
 
 export const getAddOnByCode = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { code } = req.params;
+    const { code } = req.params as any;
     const includePlans = req.query.includePlans === "true";
     const response = await AddOnService.getByCode(code, includePlans);
     res.status(response.code).json(response);
@@ -70,7 +70,7 @@ export const createAddOn = async (req: Request, res: Response): Promise<void> =>
 
 export const updateAddOn = async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (Number.isNaN(id)) {
       res.status(400).json({ code: 400, message: "Invalid add-on id" });
       return;
@@ -94,7 +94,7 @@ export const updateAddOn = async (req: Request, res: Response): Promise<void> =>
 
 export const deleteAddOn = async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (Number.isNaN(id)) {
       res.status(400).json({ code: 400, message: "Invalid add-on id" });
       return;
@@ -109,7 +109,7 @@ export const deleteAddOn = async (req: Request, res: Response): Promise<void> =>
 
 export const getAddOnPlans = async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (Number.isNaN(id)) {
       res.status(400).json({ code: 400, message: "Invalid add-on id" });
       return;
@@ -124,7 +124,7 @@ export const getAddOnPlans = async (req: Request, res: Response): Promise<void> 
 
 export const setAddOnPlans = async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     if (Number.isNaN(id)) {
       res.status(400).json({ code: 400, message: "Invalid add-on id" });
       return;
