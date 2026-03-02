@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y openssl
 
 # Install dependencies
 COPY package*.json ./
-RUN npm ci
+RUN npm install --legacy-peer-deps
 
 # Copy Prisma schema and generate client
 COPY prisma ./prisma
@@ -33,7 +33,7 @@ RUN ls -R dist
 FROM node:20-slim
 
 WORKDIR /app
-ENV NODE_ENV=development
+ENV NODE_ENV=production
 
 RUN apt-get update && apt-get install -y openssl
 

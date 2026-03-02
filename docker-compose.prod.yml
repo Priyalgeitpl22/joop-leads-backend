@@ -68,7 +68,7 @@ services:
       POSTGRES_PASSWORD: Geitpl12345
       POSTGRES_DB: jooper_leads_prod
     volumes:
-      - postgres_dev_data:/var/lib/postgresql/data
+      - postgres_prod_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U jooper_leads -d jooper_leads_prod"]
       interval: 10s
@@ -77,10 +77,10 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: redis-dev
+    container_name: redis-prod
     command: redis-server --appendonly yes
     volumes:
-      - redis_dev_data:/data
+      - redis_prod_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -88,5 +88,5 @@ services:
       retries: 5
 
 volumes:
-  postgres_dev_data:
-  redis_dev_data:
+  postgres_prod_data:
+  redis_prod_data:
