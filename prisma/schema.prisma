@@ -163,6 +163,7 @@ model Organization {
   apiKeys        ApiKey[]
   emailVerificationBatches EmailVerificationBatch[]
   singleEmailVerifications SingleEmailVerification[]
+  reminderLogs SubscriptionReminderLog[]
   @@index([domain])
 }
 
@@ -803,6 +804,11 @@ model OrganizationPlan {
   stripeCustomerId     String?
   stripeSubscriptionId String?
 
+  reminder15Sent        Boolean       @default(false)
+  reminder10Sent        Boolean       @default(false)
+  reminder5Sent         Boolean       @default(false)
+  reminder1Sent         Boolean       @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -811,6 +817,22 @@ model OrganizationPlan {
 
   @@unique([orgId, isActive]) // Only one active plan per org
   @@index([orgId])
+}
+
+model SubscriptionReminderLog {
+  id              Int      @id @default(autoincrement())
+  orgId           String
+  orgPlanId       Int
+  reminderStage   Int      // 15, 10, 5, or 1
+  sentAt          DateTime @default(now())
+  recipientEmail  String
+  success         Boolean
+  errorMessage    String?
+
+  organization    Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([orgPlanId])
 }
 
 model EmailVerificationBatch {
