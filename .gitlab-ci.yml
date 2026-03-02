@@ -1,0 +1,72 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_IMAGE: jooper-backend
+  DEV_SERVER: dev.example.com       # Replace with your dev server IP/hostname
+  PROD_SERVER: prod.example.com     # Replace with your prod server IP/hostname
+  SSH_USER: deploy                  # SSH user on servers
+  SSH_PRIVATE_KEY: $SSH_PRIVATE_KEY # GitLab CI/CD variable (File type)
+
+##############################
+# 1️⃣ Build stage
+##############################
+build:
+  stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+  only:
+    - dev
+    - prod
+
+##############################
+# 2️⃣ Deploy to DEV server
+##############################
+deploy_dev:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H $DEV_SERVER >> ~/.ssh/known_hosts
+  script:
+    - ssh $SSH_USER@$DEV_SERVER "
+        docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME &&
+        docker stop jooper-backend || true &&
+        docker rm jooper-backend || true &&
+        docker run -d --name jooper-backend -p 5003:5003 $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+      "
+  only:
+    - dev
+  when: manual # Optional: remove 'manual' if you want automatic deploy on push
+
+##############################
+# 3️⃣ Deploy to PROD server
+##############################
+deploy_prod:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H $PROD_SERVER >> ~/.ssh/known_hosts
+  script:
+    - ssh $SSH_USER@$PROD_SERVER "
+        docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME &&
+        docker stop jooper-backend || true &&
+        docker rm jooper-backend || true &&
+        docker run -d --name jooper-backend -p 5003:5003 $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+      "
+  only:
+    - prod
+  when: manual # Optional: remove 'manual' for auto deploy
