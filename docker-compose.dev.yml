@@ -64,13 +64,13 @@ services:
     image: postgres:16-alpine
     container_name: postgres-dev
     environment:
-      POSTGRES_USER: chatbot
-      POSTGRES_PASSWORD: devpassword
-      POSTGRES_DB: chatbot_dev
+      POSTGRES_USER: jooper_leads
+      POSTGRES_PASSWORD: Geitpl12345
+      POSTGRES_DB: jooper_leads_dev
     volumes:
       - postgres_dev_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U chatbot -d chatbot_dev"]
+      test: ["CMD-SHELL", "pg_isready -U jooper_leads -d jooper_leads_dev"]
       interval: 10s
       timeout: 5s
       retries: 5
