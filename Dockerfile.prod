@@ -16,8 +16,6 @@ RUN npm install --legacy-peer-deps
 COPY prisma ./prisma
 RUN npx prisma generate
 
-# Compile seed script to JS
-RUN npx tsc prisma/seedPlans.ts --outDir dist/prisma
 
 # Copy TypeScript config and source
 COPY tsconfig.json ./
