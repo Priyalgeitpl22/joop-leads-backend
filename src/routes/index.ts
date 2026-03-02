@@ -16,7 +16,7 @@ import campaignAnalyticsRoutes from "./campaign.analytics.routes";
 import campaignSenderRoutes from "./campaign.sender.routes";
 import emailVerificationRoutes from './email.verification.routes';
 import { pollForReplies } from "../jobs/replyPoller";
-import testRoutes from "./muskan.routes"
+
 
 // Add with your other protected routes (after verify middleware)
 const router = Router();
@@ -24,7 +24,7 @@ const router = Router();
 // Public routes
 router.use("/auth", authRoutes);
 router.use("/track", trackingRoutes);
-router.use("/socket",testRoutes)
+
 
 
 // Protected routes
