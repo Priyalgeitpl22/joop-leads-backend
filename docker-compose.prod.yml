@@ -25,7 +25,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.prod
-    container_name: ai-scheduler-dev
+    container_name: api-scheduler-prod
     command: node dist/emailScheduler/runScheduler.js
     env_file:
       - .env.prod
