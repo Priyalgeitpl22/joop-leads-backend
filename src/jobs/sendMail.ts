@@ -9,6 +9,35 @@ import { EmailAccountState } from "../models/email.account.model";
 import { SenderAccountState } from "../models/enums";
 
 const prisma = new PrismaClient();
+const markEmailAsSent = async (campaignId: string, leadId: string) => {
+  const result = await prisma.emailSend.updateMany({
+    where: {
+      campaignId,
+      leadId,
+      status: { not: "SENT" },
+    },
+    data: { status: "SENT" },
+  });
+
+  if (result.count > 0) {
+    await incrementCampaignCount(campaignId, AnalyticsCountType.SENT_COUNT);
+  }
+};
+
+const markEmailAsBounced = async (campaignId: string, leadId: string) => {
+  const result = await prisma.emailSend.updateMany({
+    where: {
+      campaignId,
+      leadId,
+      status: { not: "BOUNCED" },
+    },
+    data: { status: "BOUNCED" },
+  });
+
+  if (result.count > 0) {
+    await incrementCampaignCount(campaignId, AnalyticsCountType.BOUNCED_COUNT);
+  }
+};
 
 const isTokenExpired = (expiryDate?: Date): boolean => {
   return expiryDate ? Date.now() >= expiryDate.getTime() : true;
@@ -311,11 +340,11 @@ const sendEmailFromGoogle = async (
     console.log("[sendMail] ✅ Google Email Sent to", toEmail, "MessageId:", result.id);
 
     // Update analytics
-    incrementCampaignCount(campaignId, AnalyticsCountType.SENT_COUNT);
+    await markEmailAsSent(campaignId, leadId);
 
     return result;
   } catch (error: any) {
-    incrementCampaignCount(campaignId, AnalyticsCountType.BOUNCED_COUNT);
+    await markEmailAsBounced(campaignId, leadId);
     console.error("[sendMail] ❌ Google Email Error:", {
       toEmail,
       error: error.response?.data || error.message,
@@ -442,7 +471,7 @@ const sendEmailFromMicrosoft = async (
     );
 
     console.log("[sendMail] ✅ Microsoft Email Sent to", toEmail);
-    incrementCampaignCount(campaignId, AnalyticsCountType.SENT_COUNT);
+    await markEmailAsSent(campaignId, leadId);
 
     return { id: response.headers["message-id"] || "sent" };
   } catch (error: any) {
@@ -451,7 +480,7 @@ const sendEmailFromMicrosoft = async (
       error: error.response?.data || error.message,
       status: error.response?.status,
     });
-    incrementCampaignCount(campaignId, AnalyticsCountType.BOUNCED_COUNT);
+    await markEmailAsBounced(campaignId, leadId);
     await InboxEngineApiService.updateSenderAccountState(
       account.accountId as string,
       SenderAccountState.REAUTH_REQUIRED,
@@ -564,8 +593,7 @@ const sendEmailWithSMTP = async (
     const info = await transporter.sendMail(mailOptions);
 
     console.log("[sendMail] ✅ SMTP Email Sent to", toEmail, "MessageId:", info.messageId);
-    incrementCampaignCount(campaignId, AnalyticsCountType.SENT_COUNT);
-
+    await markEmailAsSent(campaignId, leadId);
     return { id: info.messageId, messageId: info.messageId };
   } catch (error: any) {
     await InboxEngineApiService.updateSenderAccountState(
@@ -586,7 +614,7 @@ const sendEmailWithSMTP = async (
       code: error.code,
     });
 
-    incrementCampaignCount(campaignId, AnalyticsCountType.BOUNCED_COUNT);
+    await markEmailAsBounced(campaignId, leadId);
     throw new Error(`Failed to send email via SMTP: ${error.message}`);
   }
 };

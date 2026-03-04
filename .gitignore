@@ -3,5 +3,8 @@ node_modules
 .env
 .env.development
 dist
-# .env.dev
-# .env.prod
+
+
+.env.prod
+.env.dev
+.env.production

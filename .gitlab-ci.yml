@@ -46,8 +46,6 @@ deploy_dev:
       "
   only:
     - dev
-  when: manual # Optional: remove 'manual' if you want automatic deploy on push
-
 ##############################
 # 3️⃣ Deploy to PROD server
 ##############################
@@ -69,4 +67,3 @@ deploy_prod:
       "
   only:
     - prod
-  when: manual # Optional: remove 'manual' for auto deploy

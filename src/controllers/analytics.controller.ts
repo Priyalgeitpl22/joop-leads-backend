@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
+import { AnalyticsCountType } from "../enums";
+import { getIO } from "../socket/socket.server";
 
 const prisma = new PrismaClient();
 
@@ -37,13 +39,33 @@ const isValidCountType = (countType: string): boolean => {
   return VALID_COUNT_TYPES.includes(countType);
 };
 
-export const incrementCampaignCount = async (campaignId: string, countType: string) => {
-  return await prisma.campaignAnalytics.updateMany({
+export async function incrementCampaignCount(
+  campaignId: string,
+  countType: AnalyticsCountType
+) {
+  const updated = await prisma.campaignAnalytics.update({
     where: { campaignId },
-    data: { [countType]: { increment: 1 } },
+    data: {
+      [countType]: { increment: 1 },
+    },
   });
-};
 
+  const io = getIO();
+
+  io.to(`campaign:${campaignId}`).emit("campaign:analyticsUpdated", {
+    campaignId,
+    analytics: {
+      sentCount: updated.sentCount,
+      openedCount: updated.openedCount,
+      clickedCount: updated.clickedCount,
+      repliedCount: updated.repliedCount,
+      bouncedCount: updated.bouncedCount,
+    },
+  });
+
+  console.log("📡 Analytics emitted");
+  return updated;
+}
 export const updateCampaignAnalytics = async (req: Request, res: Response): Promise<any> => {
   try {
     const { campaignId, countType } = req.body;

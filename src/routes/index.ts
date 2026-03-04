@@ -17,12 +17,15 @@ import campaignSenderRoutes from "./campaign.sender.routes";
 import emailVerificationRoutes from './email.verification.routes';
 import { pollForReplies } from "../jobs/replyPoller";
 
+
 // Add with your other protected routes (after verify middleware)
 const router = Router();
 
 // Public routes
 router.use("/auth", authRoutes);
 router.use("/track", trackingRoutes);
+
+
 
 // Protected routes
 router.use("/user", verify, userRoutes);
