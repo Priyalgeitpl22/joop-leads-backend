@@ -65,6 +65,7 @@ export class AuthService {
         otpCode: otp.code,
         otpExpiresAt: otp.expiresAt,
         profilePicture: profilePictureUrl,
+        providerType: 'CREDENTIALS',
       },
     });
 
@@ -192,7 +193,7 @@ export class AuthService {
       code: 200,
       message: "User logged in successfully.",
       token,
-      user: { id: user.id, email: user.email, role: user.role },
+      user: { id: user.id, email: user.email, role: user.role, provider: user.providerType },
     };
   }
 

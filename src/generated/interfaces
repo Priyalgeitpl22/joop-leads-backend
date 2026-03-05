@@ -26,6 +26,8 @@ export type EventType = "PENDING" | "QUEUED" | "SENT" | "OPENED" | "CLICKED" | "
 
 export type StopSending = "CLICK" | "OPEN" | "REPLY";
 
+export type AuthProvider = "CREDENTIALS" | "GOOGLE";
+
 export type TriggerStatus = "SUCCESS" | "PARTIAL" | "SKIPPED" | "NO_PENDING" | "OUTSIDE_SCHEDULE" | "DAILY_LIMIT" | "ERROR";
 
 export type BatchStatus = "PENDING" | "UPLOADING" | "PROCESSING" | "COMPLETED" | "FAILED";
@@ -81,6 +83,7 @@ export interface User {
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
+  providerType: AuthProvider;
   orgId: string;
   organization?: Organization;
   leadsUploaded?: Lead[];

@@ -89,7 +89,7 @@ export class GoogleAuthService {
     code: number;
     message: string;
     token?: string;
-    user?: { id: string; email: string; role: string };
+    user?: { id: string; email: string; role: string; provider: string };
     isNewUser?: boolean;
   }> {
     // ── 1. Verify Google token ────────────────────────────────────────────────
@@ -116,6 +116,7 @@ export class GoogleAuthService {
           isActive: true,
           isVerified: true,
           profilePicture: profilePicture ?? existingUser.profilePicture,
+          providerType: 'GOOGLE',
         },
       });
 
@@ -126,7 +127,7 @@ export class GoogleAuthService {
         code: 200,
         message: "Your account has been reactivated. Welcome back!",
         token,
-        user: { id: reactivated.id, email: reactivated.email, role: reactivated.role },
+        user: { id: reactivated.id, email: reactivated.email, role: reactivated.role, provider: reactivated.providerType },
       };
     }
 
@@ -147,7 +148,7 @@ export class GoogleAuthService {
         code: 200,
         message: "User logged in successfully.",
         token,
-        user: { id: existingUser.id, email: existingUser.email, role: existingUser.role },
+        user: { id: existingUser.id, email: existingUser.email, role: existingUser.role, provider: existingUser.providerType },
       };
     }
 
@@ -171,6 +172,7 @@ export class GoogleAuthService {
         isVerified: true,   // Google has already verified the email
         isActive: true,
         profilePicture,
+        providerType: 'GOOGLE',
       },
     });
 
@@ -182,7 +184,7 @@ export class GoogleAuthService {
       message: "Account created successfully.",
       token,
       isNewUser: true,
-      user: { id: newUser.id, email: newUser.email, role: newUser.role },
+      user: { id: newUser.id, email: newUser.email, role: newUser.role, provider: newUser.providerType },
     };
   }
 }

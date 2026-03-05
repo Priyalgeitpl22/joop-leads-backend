@@ -191,7 +191,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
-
+  providerType AuthProvider @default(CREDENTIALS)
   // Relations
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -216,6 +216,11 @@ model AccessToken {
 
   @@index([token])
   @@index([userId])
+}
+
+enum AuthProvider {
+  CREDENTIALS
+  GOOGLE
 }
 
 model ApiKey {
